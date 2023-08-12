@@ -1,0 +1,32 @@
+import { Controller, Get, Param, Patch, Post, Delete } from '@libs/app';
+import { _2_Service } from './_1_.service';
+
+@Controller('_1_')
+export class _2_Controller {
+  private readonly _1_Service = new _2_Service();
+
+  @Get()
+  findAll() {
+    return [];
+  }
+
+  @Get(':_1__id')
+  findOne(@Param('_1__id') _1_Id: string) {
+    return null;
+  }
+
+  @Post()
+  create() {
+    return null;
+  }
+
+  @Patch(':_1__id')
+  update(@Param('_1__id') _1_Id: string) {
+    return null;
+  }
+
+  @Delete(':_1__id')
+  delete(@Param('_1__id') _1_Id: string) {
+    return this._1_Service.delete(+_1_Id);
+  }
+}
