@@ -1,4 +1,4 @@
-import { SECRET_KEY } from '@config/server';
+import { SECRET_KEY } from '../../config/server';
 import connectPgSimple from 'connect-pg-simple';
 import { Express } from 'express';
 import session from 'express-session';

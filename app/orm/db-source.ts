@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
-import * as DBConfig from '@config/db';
-import logger from 'app/utilities/logger';
+import * as DBConfig from '../../config/db';
+import logger from '../utilities/logger';
 
 export default class DBSource {
   static DataSource: DataSource;

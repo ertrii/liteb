@@ -1,4 +1,4 @@
-import { MAIL_PASSWORD, MAIL_USER, MAIN_HOST } from '@config/services';
+import { MAIL_PASSWORD, MAIL_USER, MAIN_HOST } from '../../config/services';
 import nodemailer from 'nodemailer';
 
 export const mailer = nodemailer.createTransport({
