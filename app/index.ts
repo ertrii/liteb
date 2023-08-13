@@ -1,7 +1,7 @@
 import DBSource from './orm/db-source';
 import server from './server';
 import { ModuleMetadata } from './server/types';
-import looger from './utilities/logger';
+import logger from './utilities/logger';
 
 export * from './utilities/exceptions';
 export * from './seeder/templates';
@@ -22,7 +22,7 @@ export * from './metadata/interfaces/guard-arguments';
 export * from './metadata/decorators/schedule';
 export * from './scheduler/get-schedule';
 export * from './orm/repository';
-export { looger };
+export { logger };
 
 export default class App {
   constructor(private metadata: ModuleMetadata) {}
