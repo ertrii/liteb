@@ -1,8 +1,8 @@
-import { rep } from '@shared/utils/datasouce';
+import { getRepository } from '@app';
 import { _2_ } from './entities/_1_.entity';
 
 export class _2_Service {
-  private readonly rep = rep(_2_);
+  private readonly rep = getRepository(_2_);
 
   findAll() {
     return [];

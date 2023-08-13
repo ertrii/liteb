@@ -22,5 +22,7 @@ module.exports = {
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     'prettier/prettier': ['error', { singleQuote: true }],
+    '@typescript-eslint/no-unused-vars': 1,
+    '@typescript-eslint/no-namespace': 'off',
   },
 };

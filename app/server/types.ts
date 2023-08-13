@@ -1,5 +1,4 @@
 import { IncomingHttpHeaders } from 'http2';
-import { DataSource } from 'typeorm';
 import { Seeder } from '../seeder/templates';
 import { Type } from '../interfaces/type';
 
@@ -7,10 +6,10 @@ import { Type } from '../interfaces/type';
  * Metadata for APP
  */
 export interface ModuleMetadata {
-  datasource: DataSource;
   controllers: string[];
   schedules: string[];
   sockets?: string[];
+  entities: string[];
   seeders?: Array<new () => Seeder<any>>;
 }
 

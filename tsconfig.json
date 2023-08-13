@@ -25,7 +25,7 @@
       "@shared/*": ["shared/*"],
       "@config/*": ["config/*"],
       "@definitions": ["definitions/index.ts"],
-      "@app": ["src/index.ts"],
+      "@app": ["app/index.ts"],
     }
   },
   "include": [
@@ -33,6 +33,7 @@
     "./shared",
     "./config",
     "./bin",
-    "./public"
+    "./app",
+    "./definitions"
   ]
 }
