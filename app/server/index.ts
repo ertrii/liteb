@@ -1,7 +1,7 @@
 import express, { Express, Router } from 'express';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
-import { BASE_PATH } from '@config/server';
+import { BASE_PATH } from '../../config/server';
 import enableCors from './enable-cors';
 import filesByPatterns from '../utilities/files-by-patterns';
 import { ClassController } from './types';

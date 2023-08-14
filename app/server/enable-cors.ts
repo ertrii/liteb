@@ -1,4 +1,4 @@
-import { CORS_ORIGIN } from '@config/server';
+import { CORS_ORIGIN } from '../../config/server';
 import cors from 'cors';
 import { Express } from 'express';
 
