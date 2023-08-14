@@ -7,4 +7,7 @@ const app = new App({
   entities: ['./**/entities/*.entity.ts'],
 });
 
+/**
+ * Running server and db
+ */
 app.run(PORT);
