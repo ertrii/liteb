@@ -8,15 +8,15 @@ export function createModule(option: { name: string }) {
     return;
   }
 
-  const __dirname = path.resolve();
-  const baseDir = `${__dirname}/src/${name}`;
+  const baseDir = path.resolve();
+  const sourceDir = `${baseDir}/src/${name}`;
 
-  if (fs.existsSync(baseDir)) {
+  if (fs.existsSync(sourceDir)) {
     console.log('El nombre del módulo ya existe');
     return;
   }
 
-  const baseDirTemplate = `${__dirname}/bin/templates`;
+  const baseDirTemplate = `${__dirname}/../templates`;
   let controllerTemplate = fs.readFileSync(
     `${baseDirTemplate}/controller.txt`,
     'utf-8',
@@ -41,10 +41,10 @@ export function createModule(option: { name: string }) {
   entityTemplate = entityTemplate.replace(/_2_/g, nameCapitalize);
   entityTemplate = entityTemplate.replace(/\r\n/g, '\n');
 
-  fs.mkdirSync(`${baseDir}`);
-  fs.mkdirSync(`${baseDir}/entities`);
-  fs.mkdirSync(`${baseDir}/interfaces`);
-  fs.writeFileSync(`${baseDir}/${name}.controller.ts`, controllerTemplate);
-  fs.writeFileSync(`${baseDir}/${name}.service.ts`, serviceTemplate);
-  fs.writeFileSync(`${baseDir}/entities/${name}.entity.ts`, entityTemplate);
+  fs.mkdirSync(sourceDir);
+  fs.mkdirSync(`${sourceDir}/entities`);
+  fs.mkdirSync(`${sourceDir}/interfaces`);
+  fs.writeFileSync(`${sourceDir}/${name}.controller.ts`, controllerTemplate);
+  fs.writeFileSync(`${sourceDir}/${name}.service.ts`, serviceTemplate);
+  fs.writeFileSync(`${sourceDir}/entities/${name}.entity.ts`, entityTemplate);
 }
