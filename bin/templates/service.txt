@@ -1,9 +1,4 @@
-import { getRepository } from '@app';
-import { _2_ } from './entities/_1_.entity';
-
 export class _2_Service {
-  private readonly rep = getRepository(_2_);
-
   findAll() {
     return [];
   }
@@ -21,6 +16,6 @@ export class _2_Service {
   }
 
   delete(id: number) {
-    return this.rep.delete(id);
+    return false;
   }
 }

@@ -3,9 +3,9 @@ import { createModule } from './actions/create-module';
 import { initialize } from './actions/initialize';
 
 program
-  .name('wisnet')
+  .name('liteb')
   .description('Herramientas de atajos para desarrolladores')
-  .version('0.0.1');
+  .version('1.0.0');
 
 program
   .command('init')

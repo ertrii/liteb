@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Delete } from '@app';
+import { Controller, Get, Param, Patch, Post, Delete } from 'liteb';
 import { _2_Service } from './_1_.service';
 
 @Controller('_1_')
