@@ -1,4 +1,4 @@
-import DBSource from './db-source';
+import dbSource from '../config/db-source';
 import {
   EntityTarget,
   FindManyOptions,
@@ -14,7 +14,7 @@ import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
  * Mode is used in replication mode and indicates whatever you want to connect to master database or any of slave databases. If you perform writes you must use master database, if you perform reads you can use slave databases.
  */
 export class Transaction {
-  readonly queryRunner = DBSource.DataSource.createQueryRunner();
+  readonly queryRunner = dbSource.createQueryRunner();
 
   /**
    * Starts transaction.

@@ -9,7 +9,6 @@ export interface ModuleMetadata {
   controllers: string[];
   schedules: string[];
   sockets?: string[];
-  entities?: string[];
   seeders?: Array<new () => Seeder<any>>;
 }
 
@@ -28,3 +27,8 @@ export interface ReqHeader extends IncomingHttpHeaders {
 }
 
 export type ClassController<T = Record<string, any>> = Type<T>;
+
+export interface PatternsServer {
+  controllers: string[];
+  schedules: string[];
+}

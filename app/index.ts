@@ -1,4 +1,4 @@
-import DBSource from './orm/db-source';
+import { Express } from 'express';
 import server from './server';
 import { ModuleMetadata } from './server/types';
 import logger from './utilities/logger';
@@ -17,24 +17,38 @@ export * from './metadata/decorators/header';
 export * from './metadata/decorators/req';
 export * from './metadata/decorators/res';
 export * from './metadata/decorators/use-guard';
-export * from './orm/transaction';
 export * from './metadata/interfaces/guard-arguments';
 export * from './metadata/decorators/schedule';
 export * from './scheduler/get-schedule';
-export * from './orm/repository';
+export * from './utilities/config-service';
 export { logger };
 
-export default class App {
-  constructor(private metadata: ModuleMetadata) {}
+export default function liteb(metadata: ModuleMetadata) {
+  const uses: Array<(app: Express) => void> = [];
+
+  function use(func: (app: Express) => void) {
+    uses.push(func);
+  }
 
   /**
    * Conecta la base de datos e inicia el servidor
    */
-  async run(port: number) {
-    if (this.metadata?.entities) {
-      const dbSource = new DBSource(this.metadata.entities);
-      await dbSource.run();
-    }
-    server(this.metadata.controllers, this.metadata.schedules, port);
+  function run(port: number) {
+    const controllers = metadata.controllers;
+    const schedules = metadata.schedules;
+
+    server(
+      port,
+      {
+        controllers,
+        schedules,
+      },
+      uses,
+    );
   }
+
+  return {
+    use,
+    run,
+  };
 }

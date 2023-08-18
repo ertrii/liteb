@@ -1,4 +1,4 @@
-import { SECRET_KEY } from '../../config/server';
+import { ConfigService } from 'liteb';
 import connectPgSimple from 'connect-pg-simple';
 import { Express } from 'express';
 import session from 'express-session';
@@ -6,11 +6,11 @@ import { Pool } from 'pg';
 
 export default function enableSession(app: Express) {
   const pool = new Pool({
-    host: process.env.DB_HOST,
-    port: +process.env.DB_PORT,
-    user: process.env.DB_USERNAME,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    host: ConfigService.get('DB_HOST'),
+    database: ConfigService.get('DB_NAME'),
+    port: +ConfigService.get('DB_PORT'),
+    user: ConfigService.get('DB_USERNAME'),
+    password: ConfigService.get('DB_PASSWORD'),
   });
 
   const PgSession = connectPgSimple(session);
@@ -26,7 +26,7 @@ export default function enableSession(app: Express) {
   app.use(
     session({
       store,
-      secret: SECRET_KEY,
+      secret: ConfigService.get('SECRET_KEY'),
       resave: false,
       saveUninitialized: true,
       cookie: {

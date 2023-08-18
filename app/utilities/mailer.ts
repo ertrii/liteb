@@ -1,13 +1,13 @@
-import { MAIL_PASSWORD, MAIL_USER, MAIN_HOST } from '../../config/services';
 import nodemailer from 'nodemailer';
+import { ConfigService } from './config-service';
 
 export const mailer = nodemailer.createTransport({
-  host: MAIN_HOST,
+  host: ConfigService.get('MAIL_HOST'),
   port: 465,
   secure: true, // upgrade later with STARTTLS
   auth: {
-    user: MAIL_USER,
-    pass: MAIL_PASSWORD,
+    user: ConfigService.get('MAIL_USER'),
+    pass: ConfigService.get('MAIL_PASSWORD'),
   },
   tls: {
     rejectUnauthorized: false,

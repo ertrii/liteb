@@ -23,17 +23,16 @@
     "esModuleInterop": true,
     "paths": {
       "@shared/*": ["shared/*"],
-      "@config/*": ["config/*"],
       "@definitions": ["definitions/index.ts"],
-      "@app": ["app/index.ts"],
+      "liteb": ["app/index.ts"],
     }
   },
   "include": [
     "./src",
     "./shared",
-    "./config",
     "./bin",
     "./app",
-    "./definitions"
+    "./definitions",
+    "./config"
   ]
 }

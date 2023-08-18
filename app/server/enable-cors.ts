@@ -1,15 +1,16 @@
-import { CORS_ORIGIN } from '../../config/server';
+import { ConfigService } from '../utilities/config-service';
 import cors from 'cors';
 import { Express } from 'express';
 
 export default function enableCors(app: Express) {
   // CORS is a node.js package for providing a Connect/Express
   // middleware that can be used to enable CORS with various options.
+  const corsOrigin = ConfigService.get('CORS_ORIGIN');
 
   /**
    * Open server for a list clients request
    */
-  const whitelist = CORS_ORIGIN.split(',').map((v) => v.trim());
+  const whitelist = corsOrigin.split(',').map((v) => v.trim());
 
   app.use(
     cors({

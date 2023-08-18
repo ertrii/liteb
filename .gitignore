@@ -20,3 +20,4 @@ cert.pem
 /src
 
 liteb.json
+/config
