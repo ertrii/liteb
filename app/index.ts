@@ -31,8 +31,10 @@ export default class App {
    * Conecta la base de datos e inicia el servidor
    */
   async run(port: number) {
-    const dbSource = new DBSource(this.metadata.entities);
-    await dbSource.run();
+    if (this.metadata?.entities) {
+      const dbSource = new DBSource(this.metadata.entities);
+      await dbSource.run();
+    }
     server(this.metadata.controllers, this.metadata.schedules, port);
   }
 }

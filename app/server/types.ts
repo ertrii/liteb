@@ -9,7 +9,7 @@ export interface ModuleMetadata {
   controllers: string[];
   schedules: string[];
   sockets?: string[];
-  entities: string[];
+  entities?: string[];
   seeders?: Array<new () => Seeder<any>>;
 }
 
