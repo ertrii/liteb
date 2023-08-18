@@ -12,7 +12,7 @@ import fixPath from '../utilities/fix-path';
 import logger from '../utilities/logger';
 import { ClassSchedule } from '../scheduler/types';
 import scheduler from '../scheduler';
-import { ConfigService } from 'app/utilities/config-service';
+import { ConfigService } from '../utilities/config-service';
 
 export default function server(
   port: number,
