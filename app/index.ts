@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Express } from 'express';
 import server from './server';
 import { ModuleMetadata } from './server/types';
