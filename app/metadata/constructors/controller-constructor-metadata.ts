@@ -14,6 +14,7 @@ import {
 } from '../services/arguments';
 import { getMetadataHttp } from '../services/http';
 import { getMetadataController } from '../services/controller';
+import { getMetadataUploadFile } from '../services/uploaded-file';
 
 export default function controllerConstructorMetadata(
   Controller: ClassController,
@@ -46,6 +47,7 @@ export default function controllerConstructorMetadata(
         req: getMetadataReq(controller, key),
         header: getMetadataHeader(controller, key),
         guard: getMetadataUseGuard(controller, key),
+        uploaded: getMetadataUploadFile(controller, key),
       },
     });
   });

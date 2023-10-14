@@ -7,7 +7,7 @@ import { ClassController, PatternsServer } from './types';
 import metadata from '../metadata';
 import { MethodNames } from './constants';
 import middleware from '../middleware';
-import handler from './handler';
+import handlers from './handlers';
 import fixPath from '../utilities/fix-path';
 import logger from '../utilities/logger';
 import { ClassSchedule } from '../scheduler/types';
@@ -23,6 +23,7 @@ export default function server(
   const app: Express = express();
 
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
   enableCors(app);
   uses.forEach((use) => use(app));
   app.use(cookieParser());
@@ -47,7 +48,7 @@ export default function server(
       router[methodName](
         path,
         middleware(metadataController, method.metadata),
-        handler(method),
+        ...handlers(method),
       );
     });
     app.use(fixPath(`${basePath}/${name}`), router);

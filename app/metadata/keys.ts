@@ -21,3 +21,5 @@ export const RES = '__res__';
 // export const AUTH = '__auth__';
 export const CRON = '__cron__';
 export const TASK = '__task__';
+
+export const UPLOADED_FILE_METADATA = '__upload_file_metadata';

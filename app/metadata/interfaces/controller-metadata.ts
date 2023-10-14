@@ -9,6 +9,7 @@ import {
 } from './arguments-metadata';
 import { GuardMetadata } from './guard-metadata';
 import { HttpMetadata } from './http-metadata';
+import { UploadedFileMetadata } from './upload-metadata';
 
 /**
  * Metadata por los decoradores que tenga el método.
@@ -22,6 +23,7 @@ export interface MethodMetaData {
   req?: ReqMetadata;
   header?: HeaderMetadata;
   guard?: GuardMetadata;
+  uploaded?: UploadedFileMetadata;
 }
 
 export interface MetadataControllerMethod {

@@ -2,10 +2,24 @@ import isException from '../utilities/is-exception';
 import { Request, Response } from 'express';
 import { InternalException } from '..';
 import { MetadataControllerMethod } from '../metadata/interfaces/controller-metadata';
+import multer from 'multer';
+const upload = multer();
 
-export default function handler(method: MetadataControllerMethod) {
+export default function handlers(method: MetadataControllerMethod) {
   const metadata = method.metadata;
-  return async function (req: Request, res: Response) {
+  const list: Array<(...params: any) => void> = [];
+
+  if (metadata.uploaded !== undefined) {
+    const max = metadata.uploaded.maxCount;
+    const filename = metadata.uploaded.filename;
+    if (max > 1) {
+      list.push(upload.array(filename, max));
+    } else {
+      list.push(upload.single(filename));
+    }
+  }
+
+  list.push(async function (req: Request, res: Response) {
     /**
      * Atributos que recibirá el método del controlador
      */
@@ -17,6 +31,11 @@ export default function handler(method: MetadataControllerMethod) {
 
     if (metadata.body !== undefined) {
       attrs[metadata.body.index] = req.body;
+    }
+
+    if (metadata.uploaded !== undefined) {
+      const max = metadata.uploaded.maxCount;
+      attrs[metadata.uploaded.index] = max > 1 ? req.files : req.file;
     }
 
     if (metadata.query !== undefined) {
@@ -52,5 +71,7 @@ export default function handler(method: MetadataControllerMethod) {
         res.status(internalException.status).json(internalException);
       }
     }
-  };
+  });
+
+  return list;
 }
