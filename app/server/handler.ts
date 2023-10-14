@@ -2,24 +2,10 @@ import isException from '../utilities/is-exception';
 import { Request, Response } from 'express';
 import { InternalException } from '..';
 import { MetadataControllerMethod } from '../metadata/interfaces/controller-metadata';
-import multer from 'multer';
-const upload = multer();
 
-export default function handlers(method: MetadataControllerMethod) {
+export default function handler(method: MetadataControllerMethod) {
   const metadata = method.metadata;
-  const list: Array<(...params: any) => void> = [];
-
-  if (metadata.uploaded !== undefined) {
-    const max = metadata.uploaded.maxCount;
-    const filename = metadata.uploaded.filename;
-    if (max > 1) {
-      list.push(upload.array(filename, max));
-    } else {
-      list.push(upload.single(filename));
-    }
-  }
-
-  list.push(async function (req: Request, res: Response) {
+  return async function (req: Request, res: Response) {
     /**
      * Atributos que recibirá el método del controlador
      */
@@ -71,7 +57,5 @@ export default function handlers(method: MetadataControllerMethod) {
         res.status(internalException.status).json(internalException);
       }
     }
-  });
-
-  return list;
+  };
 }

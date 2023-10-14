@@ -6,12 +6,26 @@ import {
   MethodMetaData,
 } from '../metadata/interfaces/controller-metadata';
 import runGuard from './run-guard';
+import multer from 'multer';
+const upload = multer();
 
 export default function middleware(
   controller: ControllerMetadata,
   metadata: MethodMetaData,
 ) {
-  return async function (req: Request, res: Response, next: NextFunction) {
+  const list: Array<(...params: any) => void> = [];
+
+  if (metadata.uploaded !== undefined) {
+    const max = metadata.uploaded.maxCount;
+    const filename = metadata.uploaded.filename;
+    if (max > 1) {
+      list.push(upload.array(filename, max));
+    } else {
+      list.push(upload.single(filename));
+    }
+  }
+
+  list.push(async function (req: Request, res: Response, next: NextFunction) {
     const forbiddenOrInternalException = await runGuard(
       [req, res, next],
       controller.guard || metadata.guard,
@@ -42,5 +56,7 @@ export default function middleware(
     }
 
     next();
-  };
+  });
+
+  return list;
 }

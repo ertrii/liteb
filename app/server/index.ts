@@ -7,7 +7,7 @@ import { ClassController, PatternsServer } from './types';
 import metadata from '../metadata';
 import { MethodNames } from './constants';
 import middleware from '../middleware';
-import handlers from './handlers';
+import handler from './handler';
 import fixPath from '../utilities/fix-path';
 import logger from '../utilities/logger';
 import { ClassSchedule } from '../scheduler/types';
@@ -47,8 +47,8 @@ export default function server(
       const path = `/${method.metadata.http.path}`;
       router[methodName](
         path,
-        middleware(metadataController, method.metadata),
-        ...handlers(method),
+        ...middleware(metadataController, method.metadata),
+        handler(method),
       );
     });
     app.use(fixPath(`${basePath}/${name}`), router);
