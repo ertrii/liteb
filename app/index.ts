@@ -20,6 +20,7 @@ export * from './metadata/decorators/res';
 export * from './metadata/decorators/use-guard';
 export * from './metadata/interfaces/guard-arguments';
 export * from './metadata/decorators/schedule';
+export * from './metadata/decorators/uploaded-file';
 export * from './scheduler/get-schedule';
 export * from './utilities/config-service';
 export { logger };
