@@ -25,7 +25,7 @@
       "@shared/*": ["shared/*"],
       "@definitions": ["definitions/index.ts"],
       "liteb": ["app/index.ts"],
-    }
+    },
   },
   "include": [
     "./src",
@@ -33,6 +33,7 @@
     "./bin",
     "./app",
     "./definitions",
-    "./config"
+    "./config",
+    "jest.config.ts",
   ]
 }
