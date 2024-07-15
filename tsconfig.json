@@ -35,5 +35,6 @@
     "./definitions",
     "./config",
     "jest.config.ts",
+    "./lib"
   ]
 }
