@@ -3,6 +3,7 @@
     "module": "commonjs",
     "moduleResolution": "Node",
     "declaration": true,
+    "declarationDir": "./types",
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -27,7 +28,6 @@
     "./src",
     "./bin",
     "jest.config.ts",
-    "./lib",
-    "types"
+    "./lib"
   ]
 }
