@@ -1,18 +1,32 @@
 import cookieParser from 'cookie-parser';
 import express, { Express } from 'express';
-import { DBOptions, LitebOptions } from '../interfaces/app';
+import { LitebOptions } from '../interfaces/app';
 import morgan from 'morgan';
 import logger from '../utilities/logger';
 import { Api } from '../templates/api';
 import filesByPatterns from '../utilities/files-by-patterns';
-import { Module } from './module';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import { ModuleBase } from './module-base';
+import { getModule } from '../defines/module.define';
 
 export class Liteb {
   constructor(private options: LitebOptions) {}
   private buildModules = (app: Express, db: DataSource) => {
-    const mods = filesByPatterns<Module>(this.options.modules);
-    for (const mod of mods) {
+    const ApiConstructors = filesByPatterns<new () => Api>(this.options.apis);
+    const apiGroups: Record<string, Array<new () => Api>> = {};
+    for (const ApiConstructor of ApiConstructors) {
+      const basePath = getModule(ApiConstructor).basePath;
+      if (apiGroups[basePath]) {
+        apiGroups[basePath].push(ApiConstructor);
+      } else {
+        apiGroups[basePath] = [ApiConstructor];
+      }
+    }
+    for (const [basePath, Apis] of Object.entries(apiGroups)) {
+      const mod = new ModuleBase(basePath);
+      Apis.forEach((Api) => {
+        mod.set(Api);
+      });
       mod.build(app, db);
     }
   };

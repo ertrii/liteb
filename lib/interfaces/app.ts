@@ -5,7 +5,7 @@ export interface LitebOptions {
   server: ServerOptions;
   db: DBOptions;
   entities: string[];
-  modules: string[];
+  apis: string[];
 }
 
 export interface ServerOptions {

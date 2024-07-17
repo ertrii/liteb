@@ -1,18 +1,24 @@
 import { InternalError, isManagedError } from '../utilities/errors';
-import { Api } from './api';
-import { Express, Request, Response } from 'express';
+import { Api } from '../templates/api';
+import { Express, Request, Response, Router } from 'express';
 import { getHttp } from '../defines/http.define';
 import { DataSource } from 'typeorm';
 import { getBody, getParams, getQuery } from '../defines/request.define';
 import { getUse } from '../defines/use.define';
 import { managerMiddleware } from '../middlewares/manager';
 import { paramsExpect, queryExpect, bodyExpect } from '../middlewares/expects';
+import slash from 'slash';
+import path from 'path';
 
-export abstract class ModuleBase {
-  constructor(protected basePath: string) {}
-  abstract set(api: new () => Api): void;
-  abstract build(app: Express, dbSource: DataSource): void;
-  protected getHttpMetadata = (ApiConstructor: new () => Api) => {
+export class ModuleBase {
+  constructor(private basePath: string) {}
+  private apis: Array<new () => Api> = [];
+
+  set(api: new () => Api<any, any, any>): void {
+    this.apis.push(api);
+  }
+
+  private getHttpMetadata = (ApiConstructor: new () => Api) => {
     const http = getHttp(ApiConstructor);
     if (http === null) {
       throw new InternalError(
@@ -24,7 +30,7 @@ export abstract class ModuleBase {
     return http;
   };
 
-  protected getHandlers = (ApiConstructor: new () => Api) => {
+  private getHandlers = (ApiConstructor: new () => Api) => {
     type Handler = (req: Request, res: Response, next: () => void) => void;
     const handlers: Handler[] = [];
     const useMtd = getUse(ApiConstructor);
@@ -48,10 +54,7 @@ export abstract class ModuleBase {
     return handlers;
   };
 
-  protected buildApi = (
-    ApiConstructor: new () => Api,
-    dbSource: DataSource,
-  ) => {
+  private buildApi = (ApiConstructor: new () => Api, dbSource: DataSource) => {
     ApiConstructor.prototype.db = dbSource;
     const api = new ApiConstructor();
     return async function (req: Request, res: Response) {
@@ -75,4 +78,19 @@ export abstract class ModuleBase {
       }
     };
   };
+
+  build(app: Express, dbSource: DataSource): void {
+    const router = Router();
+    this.apis.forEach((api) => {
+      const http = this.getHttpMetadata(api);
+      // creando los ruteos
+      router[http.method](
+        slash(path.join('/', http.path)),
+        this.getHandlers(api),
+        this.buildApi(api, dbSource),
+      );
+    });
+    // agregando a express el ruteo
+    app.use(slash(path.join('/', this.basePath)), router);
+  }
 }
