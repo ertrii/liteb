@@ -6,7 +6,7 @@ import {
 } from 'typeorm';
 
 @Entity()
-export class User {
+export class Category {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -23,11 +23,8 @@ export class User {
   updateAt: string;
 
   @Column({ default: '' })
-  fullName: string;
+  name: string;
 
-  @Column({ unique: true })
-  username: string;
-
-  @Column({ default: '' })
-  email: string;
+  @Column({ default: true })
+  enabled: boolean;
 }

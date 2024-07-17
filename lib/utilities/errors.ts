@@ -31,7 +31,7 @@ export class InternalError extends ErrorBase {
   message = '';
 
   constructor(error: Error) {
-    super(error.message);
+    super('Error Internal');
     logger.error(error);
   }
 }

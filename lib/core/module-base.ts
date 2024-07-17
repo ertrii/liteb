@@ -9,6 +9,7 @@ import { managerMiddleware } from '../middlewares/manager';
 import { paramsExpect, queryExpect, bodyExpect } from '../middlewares/expects';
 import slash from 'slash';
 import path from 'path';
+import { getOrder } from '../defines/utils';
 
 export class ModuleBase {
   constructor(private basePath: string) {}
@@ -81,7 +82,15 @@ export class ModuleBase {
 
   build(app: Express, dbSource: DataSource): void {
     const router = Router();
-    this.apis.forEach((api) => {
+    const apisOrdered = this.apis.sort((apiA, apiB) => {
+      const a = getOrder(apiA)?.number || 0;
+      const b = getOrder(apiB)?.number || 0;
+      if (a > b) return -1;
+      if (a < b) return 1;
+      return 0;
+    });
+    console.log(apisOrdered);
+    apisOrdered.forEach((api) => {
       const http = this.getHttpMetadata(api);
       // creando los ruteos
       router[http.method](

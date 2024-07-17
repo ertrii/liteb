@@ -6,7 +6,7 @@ import { DataSource } from 'typeorm';
 type SessionDataExtends<T> = session.Session & Partial<session.SessionData & T>;
 
 /**
- * Flow parents
+ * Api parents
  * @template P Params data
  * @template B Body data
  * @template Q Queries data

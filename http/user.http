@@ -1,0 +1,8 @@
+POST http://localhost:5000/users
+Content-Type: application/json
+
+{
+  "fullName": "Ricardo Fantino",
+  "email": "ricardo@gmail.com",
+  "username": "ricardo123"
+}
