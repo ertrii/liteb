@@ -1,5 +1,7 @@
 import { Request } from 'express';
 import session from 'express-session';
+import { Transaction } from '../utilities/transaction';
+import { DataSource } from 'typeorm';
 
 type SessionDataExtends<T> = session.Session & Partial<session.SessionData & T>;
 
@@ -9,7 +11,7 @@ type SessionDataExtends<T> = session.Session & Partial<session.SessionData & T>;
  * @template B Body data
  * @template Q Queries data
  */
-export abstract class Flow<
+export abstract class Api<
   P extends Record<string, any> = any,
   B extends Record<string, any> = any,
   Q extends Record<string, any> = any,
@@ -18,11 +20,9 @@ export abstract class Flow<
   public params: P = null;
   public query: Q = null;
   public request: Request<P, any, B, Q>;
+  public db: DataSource;
 
-  /**
-   * Método inicial que ejecutará el core.
-   */
-  abstract main(): any;
+  abstract main(): Promise<Record<string, any>>;
   /**
    * Registra una sesión.
    * @param key clave registro
@@ -31,7 +31,7 @@ export abstract class Flow<
    * // Equivalente a
    * this.request.session.key = value
    */
-  setValueSession(key: string, value: any) {
+  setSession(key: string, value: any) {
     const session = this.request.session as SessionDataExtends<any>;
     session[key as string] = value;
   }
@@ -42,7 +42,11 @@ export abstract class Flow<
    * // Equivalente a
    * this.request.session.key
    */
-  getValueSession(key: string) {
+  getSession(key: string) {
     return this.request.session[key];
   }
+
+  transaction = () => {
+    return new Transaction(this.db);
+  };
 }
