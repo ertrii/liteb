@@ -6,7 +6,7 @@ Lite Backend for rest api
 
 Reply `.env.template` and rename to `.env`. Write your values. _MAIL_ is optional
 Create `/public` folder and write your code.
-Run with `npm run start:dev`
+Run with `npm run dev`
 
 ## Progress
 
@@ -15,10 +15,18 @@ Run with `npm run start:dev`
 | Routers        | ✔     |
 | Enviroments    | ✔     |
 | Swagger        | ❌     |
-| File           | ✔     |
+| File           | ❌     |
 | Validation     | ✔     |
 | Testing        | ❌     |
 | Scheduler      | ❌     |
 | Cookie Manager | ❌     |
 | Auth           | ✔     |
 | Socket         | ❌     |
+
+## Scrips
+
+| Script | Description                             |
+| ------ | --------------------------------------- |
+| dev    | Running mode development                |
+| start  | Running mode production, required build |
+| build  | Build lib, output `/dist`               |
