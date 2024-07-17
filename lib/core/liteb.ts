@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import logger from '../utilities/logger';
 import { Api } from '../templates/api';
 import filesByPatterns from '../utilities/files-by-patterns';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { ModuleBase } from './module-base';
 import { getModule } from '../defines/module.define';
 

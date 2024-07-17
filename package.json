@@ -1,6 +1,7 @@
 {
   "name": "liteb",
-  "version": "1.0.0",
+  "npmName": "liteb",
+  "version": "1.0.0-beta.1.0",
   "description": "lite backend",
   "main": "./dist/lib/index.js",
   "types": "./types/lib/index.d.ts",
@@ -60,7 +61,8 @@
     "socket.io": "^4.7.2",
     "swagger-ui-express": "^5.0.0",
     "typeorm": "^0.3.17",
-    "typescript": "^5.1.6"
+    "typescript": "^5.1.6",
+    "commander": "^10.0.1"
   },
   "devDependencies": {
     "pg": "^8.11.2",
@@ -81,7 +83,6 @@
     "@typescript-eslint/eslint-plugin": "^6.3.0",
     "@typescript-eslint/parser": "^6.3.0",
     "babel-jest": "^29.7.0",
-    "commander": "^10.0.1",
     "cross-env": "^7.0.3",
     "eslint": "^8.47.0",
     "eslint-config-prettier": "^9.0.0",
