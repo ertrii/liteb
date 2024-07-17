@@ -4,7 +4,7 @@
 // ===========================================
 //
 
-import { Api } from 'lib/templates/api';
+import { Api } from '../templates/api';
 
 export const GET = Symbol('__get__');
 export const POST = Symbol('__post__');
