@@ -25,8 +25,7 @@ Run with `npm run dev`
 
 ## Scrips
 
-| Script | Description                             |
-| ------ | --------------------------------------- |
-| dev    | Running mode development                |
-| start  | Running mode production, required build |
-| build  | Build lib, output `/dist`               |
+| Script | Description               |
+| ------ | ------------------------- |
+| dev    | Running mode development  |
+| build  | Build lib, output `/dist` |

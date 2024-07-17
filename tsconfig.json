@@ -8,7 +8,7 @@
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
     "target": "es2017",
-    "sourceMap": true,
+    "sourceMap": false,
     "outDir": "./dist",
     "baseUrl": "*",
     "incremental": true,
@@ -22,10 +22,12 @@
     "isolatedModules": true,
     "esModuleInterop": true,
   },
+  "compileOnSave": true,
   "include": [
     "./src",
     "./bin",
     "jest.config.ts",
-    "./lib"
+    "./lib",
+    "types"
   ]
 }
