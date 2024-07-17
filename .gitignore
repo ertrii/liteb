@@ -17,7 +17,6 @@ cert.pem
 /cache
 
 /public
-/src
 
 liteb.json
 /config

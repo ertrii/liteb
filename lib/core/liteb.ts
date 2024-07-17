@@ -13,8 +13,7 @@ export class Liteb {
   private buildModules = (app: Express, db: DataSource) => {
     const mods = filesByPatterns<Module>(this.options.modules);
     for (const mod of mods) {
-      mod.dbSource = db;
-      mod.build(app);
+      mod.build(app, db);
     }
   };
 
@@ -27,7 +26,7 @@ export class Liteb {
     return app;
   }
 
-  db() {
+  db = () => {
     const dbSource = new DataSource({
       type: 'postgres',
       host: this.options.db.host,
@@ -35,17 +34,20 @@ export class Liteb {
       username: this.options.db.username,
       password: this.options.db.password,
       database: this.options.db.database,
-      entities: ['./**/entities/*.entity.ts'],
+      entities: this.options.entities,
       synchronize: true,
     });
     return dbSource;
-  }
+  };
 
   start(app: Express, dbSource: DataSource) {
     const options = this.options.server;
     this.buildModules(app, dbSource);
     app.listen(options.port, () => {
       logger.info(`Server running on port ${options.port}`);
+    });
+    dbSource.initialize().then(() => {
+      logger.info('DB Connected');
     });
   }
 }

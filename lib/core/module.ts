@@ -3,19 +3,16 @@ import { Api } from '../templates/api';
 import { ModuleBase } from '../templates/module-base';
 import slash from 'slash';
 import path from 'path';
+import { DataSource } from 'typeorm';
 
 export class Module extends ModuleBase {
-  constructor(basePath: string) {
-    super(basePath);
-  }
-
   private apis: Array<new () => Api> = [];
 
   set(api: new () => Api<any, any, any>): void {
     this.apis.push(api);
   }
 
-  build(app: Express): void {
+  build(app: Express, dbSource: DataSource): void {
     const router = Router();
     this.apis.forEach((api) => {
       const http = this.getHttpMetadata(api);
@@ -23,7 +20,7 @@ export class Module extends ModuleBase {
       router[http.method](
         slash(path.join('/', http.path)),
         this.getHandlers(api),
-        this.buildApi(api),
+        this.buildApi(api, dbSource),
       );
     });
     // agregando a express el ruteo

@@ -22,7 +22,7 @@ export abstract class Api<
   public request: Request<P, any, B, Q>;
   public db: DataSource;
 
-  abstract main(): Promise<Record<string, any>>;
+  abstract main(): any;
   /**
    * Registra una sesión.
    * @param key clave registro

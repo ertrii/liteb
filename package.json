@@ -4,10 +4,10 @@
   "description": "lite backend",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --legacy-watch -r tsconfig-paths/register ./src/index.ts",
-    "start": "cross-env TS_NODE_BASEURL=./dist NODE_ENV=production node -r tsconfig-paths/register ./dist/src/index.js",
+    "dev": "nodemon --legacy-watch ./src/index.ts",
+    "start": "cross-env TS_NODE_BASEURL=./dist NODE_ENV=production node ./dist/src/index.js",
     "build": "npx tsc -p ./tsconfig.build.json",
-    "seeds": "ts-node -r tsconfig-paths/register ./src/index.ts",
+    "seeds": "ts-node ./src/index.ts",
     "module": "npx ts-node ./bin module",
     "guard": "npx ts-node ./bin guard",
     "schedule": "npx ts-node ./bin schedule",

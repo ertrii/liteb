@@ -8,3 +8,4 @@ export * from './utilities/logger';
 export * from './utilities/errors';
 export * from './core/liteb';
 export * from './core/module';
+export * from './utilities/config-service';

@@ -1,18 +1,17 @@
-import { InternalError, isManagedError } from 'lib/utilities/errors';
+import { InternalError, isManagedError } from '../utilities/errors';
 import { Api } from './api';
 import { Express, Request, Response } from 'express';
 import { getHttp } from '../defines/http.define';
 import { DataSource } from 'typeorm';
 import { getBody, getParams, getQuery } from '../defines/request.define';
 import { getUse } from '../defines/use.define';
-import { managerMiddleware } from 'lib/middlewares/manager';
-import { paramsExpect, queryExpect, bodyExpect } from 'lib/middlewares/expects';
+import { managerMiddleware } from '../middlewares/manager';
+import { paramsExpect, queryExpect, bodyExpect } from '../middlewares/expects';
 
 export abstract class ModuleBase {
-  public dbSource: DataSource;
   constructor(protected basePath: string) {}
   abstract set(api: new () => Api): void;
-  abstract build(app: Express): void;
+  abstract build(app: Express, dbSource: DataSource): void;
   protected getHttpMetadata = (ApiConstructor: new () => Api) => {
     const http = getHttp(ApiConstructor);
     if (http === null) {
@@ -49,15 +48,17 @@ export abstract class ModuleBase {
     return handlers;
   };
 
-  protected buildApi = (ApiConstructor: new () => Api) => {
+  protected buildApi = (
+    ApiConstructor: new () => Api,
+    dbSource: DataSource,
+  ) => {
+    ApiConstructor.prototype.db = dbSource;
     const api = new ApiConstructor();
-    const db = this.dbSource;
     return async function (req: Request, res: Response) {
       api.params = req.params;
       api.body = req.body;
       api.query = req.query;
       api.request = req;
-      api.db = db;
 
       try {
         const result = await api.main();

@@ -1,4 +1,4 @@
-import { Flow } from '../templates/flow';
+import { Api } from '../templates/api';
 
 //
 // ===========================================
@@ -26,14 +26,11 @@ export interface RequestMetadata {
 // ===========================================
 //
 
-export function defineParams(
-  target: new () => Flow,
-  metadata: RequestMetadata,
-) {
+export function defineParams(target: new () => Api, metadata: RequestMetadata) {
   Reflect.defineMetadata(PARAMS, metadata, target);
 }
 
-export function getParams(target: new () => Flow): RequestMetadata | undefined {
+export function getParams(target: new () => Api): RequestMetadata | undefined {
   return Reflect.getMetadata(PARAMS, target);
 }
 
@@ -43,11 +40,11 @@ export function getParams(target: new () => Flow): RequestMetadata | undefined {
 // ===========================================
 //
 
-export function defineBody(target: new () => Flow, metadata: RequestMetadata) {
+export function defineBody(target: new () => Api, metadata: RequestMetadata) {
   Reflect.defineMetadata(BODY, metadata, target);
 }
 
-export function getBody(target: new () => Flow): RequestMetadata | undefined {
+export function getBody(target: new () => Api): RequestMetadata | undefined {
   return Reflect.getMetadata(BODY, target);
 }
 
@@ -57,10 +54,10 @@ export function getBody(target: new () => Flow): RequestMetadata | undefined {
 // ===========================================
 //
 
-export function defineQuery(target: new () => Flow, metadata: RequestMetadata) {
+export function defineQuery(target: new () => Api, metadata: RequestMetadata) {
   Reflect.defineMetadata(QUERY, metadata, target);
 }
 
-export function getQuery(target: new () => Flow): RequestMetadata | undefined {
+export function getQuery(target: new () => Api): RequestMetadata | undefined {
   return Reflect.getMetadata(QUERY, target);
 }

@@ -1,6 +1,6 @@
-import { ConfigService } from '../utilities/config-service';
 import cors from 'cors';
 import { Express } from 'express';
+import { ConfigService } from '../../lib';
 
 export default function enableCors(app: Express) {
   // CORS is a node.js package for providing a Connect/Express
