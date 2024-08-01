@@ -10,7 +10,7 @@ export const GET = Symbol('__get__');
 export const POST = Symbol('__post__');
 export const PUT = Symbol('__put__');
 export const DELETE = Symbol('__delete__');
-export const PATH = Symbol('__patch__');
+export const PATCH = Symbol('__patch__');
 
 //
 // ===========================================
@@ -80,16 +80,16 @@ export function getDelete(target: new () => Api): HTTPMetadata | undefined {
 
 //
 // ===========================================
-// PATH
+// PATCH
 // ===========================================
 //
 
 export function definePatch(target: new () => Api, metadata: HTTPMetadata) {
-  Reflect.defineMetadata(PATH, metadata, target);
+  Reflect.defineMetadata(PATCH, metadata, target);
 }
 
 export function getPatch(target: new () => Api): HTTPMetadata | undefined {
-  return Reflect.getMetadata(PATH, target);
+  return Reflect.getMetadata(PATCH, target);
 }
 
 //

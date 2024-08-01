@@ -2,11 +2,9 @@
 
 Lite Backend for rest api
 
-## Started
+## Install
 
-Reply `.env.template` and rename to `.env`. Write your values. _MAIL_ is optional
-Create `/public` folder and write your code.
-Run with `npm run dev`
+`npm install liteb`
 
 ## Progress
 
@@ -22,10 +20,20 @@ Run with `npm run dev`
 | Cookie Manager | ❌     |
 | Auth           | ✔     |
 | Socket         | ❌     |
+| Email          | ❌     |
 
-## Scrips
+## VARIABLES
 
-| Script | Description               |
-| ------ | ------------------------- |
-| dev    | Running mode development  |
-| build  | Build lib, output `/dist` |
+| Variable    | Optional | Description                             |
+| ----------- | -------- | --------------------------------------- |
+| PORT        | 5000     | Port server                             |
+| DB_HOST     |          | Hostname: example; localhost, 127.0.0.1 |
+| DB_NAME     |          | Name database                           |
+| DB_PORT     | 27017    | Port database                           |
+| DB_USERNAME | ''       | Username database                       |
+| DB_PASSWORD | ''       | Password database                       |
+| CORS_ORIGIN |          | security layers.                        |
+
+## Example Guide
+
+[Example](https://github.com/ertrii/liteb/tree/main/src)
