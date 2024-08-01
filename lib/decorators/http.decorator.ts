@@ -1,7 +1,7 @@
 import {
   defineDelete,
   defineGet,
-  definePath,
+  definePatch,
   definePost,
   definePut,
 } from '../defines/http.define';
@@ -33,8 +33,8 @@ export function Delete(path: string = '') {
   };
 }
 
-export function Path(path: string = '') {
+export function Patch(path: string = '') {
   return function (target: new () => Api) {
-    definePath(target, { path });
+    definePatch(target, { path });
   };
 }
