@@ -24,5 +24,6 @@ module.exports = {
     'prettier/prettier': ['error', { singleQuote: true }],
     '@typescript-eslint/no-unused-vars': 1,
     '@typescript-eslint/no-namespace': 'off',
+    'linebreak-style': 0
   },
 };

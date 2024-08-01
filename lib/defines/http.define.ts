@@ -99,7 +99,7 @@ export function getPath(target: new () => Api): HTTPMetadata | undefined {
 //
 
 export interface HttpMetadata {
-  method: 'get' | 'post' | 'put' | 'delete' | 'path';
+  method: 'get' | 'post' | 'put' | 'delete' | 'patch';
   path: string;
 }
 
@@ -135,7 +135,7 @@ export function getHttp(target: new () => Api): HttpMetadata | null {
   const pathMdt = getPath(target);
   if (pathMdt)
     return {
-      method: 'path',
+      method: 'patch',
       path: pathMdt.path,
     };
 

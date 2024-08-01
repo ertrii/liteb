@@ -89,10 +89,10 @@ export class ModuleBase {
       if (a < b) return 1;
       return 0;
     });
-    console.log(apisOrdered);
     apisOrdered.forEach((api) => {
       const http = this.getHttpMetadata(api);
       // creando los ruteos
+      // router.patch
       router[http.method](
         slash(path.join('/', http.path)),
         this.getHandlers(api),
