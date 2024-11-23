@@ -12,7 +12,7 @@ interface INV {
   NODE_ENV: string;
 }
 
-type MODE = 'production' | 'development';
+export type MODE = 'production' | 'development';
 
 /**
  * Servidor de variables de entorno

@@ -32,7 +32,7 @@ export abstract class Api<
    * this.request.session.key = value
    */
   setSession(key: string, value: any) {
-    const session = this.request.session as SessionDataExtends<any>;
+    const session = this.request?.session as SessionDataExtends<any>;
     session[key as string] = value;
   }
   /**
@@ -43,10 +43,10 @@ export abstract class Api<
    * this.request.session.key
    */
   getSession(key: string) {
-    return this.request.session[key];
+    return this.request?.session[key];
   }
 
-  transaction = () => {
+  createTransaction = () => {
     return new Transaction(this.db);
   };
 }

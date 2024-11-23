@@ -6,6 +6,7 @@ export interface LitebOptions {
   db: DBOptions;
   entities: string[];
   apis: string[];
+  tasks?: string[];
 }
 
 export interface ServerOptions {

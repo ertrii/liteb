@@ -5,6 +5,7 @@ import enableSession from './config/enable-session';
 const liteb = new Liteb({
   entities: ['./src/modules/**/entities/*.entity.ts'],
   apis: ['./src/modules/**/apis/*.api.ts'],
+  tasks: ['./src/modules/**/tasks/*.task.ts'],
   db: {
     host: ConfigService.get('DB_HOST'),
     port: +ConfigService.get('DB_PORT'),

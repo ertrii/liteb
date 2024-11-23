@@ -10,7 +10,7 @@ export function fileByPattern<T>(pattern: string): T[] {
   const currentDir = path.resolve();
 
   // Obtener la ruta absoluta de los archivos que coinciden con el patrón
-  const matchedFiles = glob.sync(pattern, { cwd: currentDir });
+  const matchedFiles = glob.sync(pattern);
 
   // Importar los archivos encontrados
   return matchedFiles.map((file: string) => {

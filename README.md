@@ -16,7 +16,7 @@ Lite Backend for rest api
 | File           | ❌     |
 | Validation     | ✔     |
 | Testing        | ❌     |
-| Scheduler      | ❌     |
+| Scheduler      | ✔     |
 | Cookie Manager | ❌     |
 | Auth           | ✔     |
 | Socket         | ❌     |

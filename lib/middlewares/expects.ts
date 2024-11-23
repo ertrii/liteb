@@ -3,8 +3,16 @@ import { validate } from 'class-validator';
 import { Request, Response } from 'express';
 import { SchemaError } from '../utilities/errors';
 
+/**
+ * Validate the schema using class-validator.
+ * @param name
+ * @param schema
+ */
 async function validateSchema(name: string, schema: Record<string, any>) {
-  const errors = await validate(schema);
+  const errors = await validate(schema, {
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  });
 
   if (errors.length > 0) {
     const fieldsErrors: Record<string, string> = {};

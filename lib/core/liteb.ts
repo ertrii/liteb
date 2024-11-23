@@ -8,8 +8,15 @@ import filesByPatterns from '../utilities/files-by-patterns';
 import { DataSource } from 'typeorm';
 import { ModuleBase } from './module-base';
 import { getModule } from '../defines/module.define';
+import { Task } from '../templates/task';
+import { getSchedule } from '../defines/schedule.define';
+import cron from 'node-cron';
 
 export class Liteb {
+  /**
+   * Cuenta los procesos cargados
+   */
+  private loadedProcess = 0;
   constructor(private options: LitebOptions) {}
   private buildModules = (app: Express, db: DataSource) => {
     const ApiConstructors = filesByPatterns<new () => Api>(this.options.apis);
@@ -30,6 +37,27 @@ export class Liteb {
       mod.build(app, db);
     }
   };
+
+  private buildTasks(dbSource: DataSource) {
+    if (this.loadedProcess !== 2) return;
+    const patternsTasks = this.options.tasks;
+    if (!patternsTasks) return;
+    const TasksConstructors = filesByPatterns<new () => Task>(patternsTasks);
+    for (const TasksConstructor of TasksConstructors) {
+      TasksConstructor.prototype.db = dbSource;
+      const metadata = getSchedule(TasksConstructor);
+      if (metadata) {
+        const task = new TasksConstructor();
+        task.start.bind(task);
+        cron.schedule(
+          metadata.expression,
+          (now) => task.start(now),
+          metadata.options,
+        );
+      }
+    }
+    this.loadedProcess++;
+  }
 
   server() {
     const app: Express = express();
@@ -59,9 +87,13 @@ export class Liteb {
     this.buildModules(app, dbSource);
     app.listen(options.port, () => {
       logger.info(`Server running on port ${options.port}`);
+      this.loadedProcess++;
+      this.buildTasks(dbSource);
     });
     dbSource.initialize().then(() => {
       logger.info('DB Connected');
+      this.loadedProcess++;
+      this.buildTasks(dbSource);
     });
   }
 }
