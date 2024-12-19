@@ -15,15 +15,14 @@ import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
  * Mode is used in replication mode and indicates whatever you want to connect to master database or any of slave databases. If you perform writes you must use master database, if you perform reads you can use slave databases.
  */
 export class Transaction {
-  readonly queryRunner: QueryRunner;
-  constructor(db: DataSource) {
-    this.queryRunner = db.createQueryRunner();
-  }
+  private queryRunner: QueryRunner;
+  constructor(private db: DataSource) {}
 
   /**
    * Starts transaction.
    */
   async start(isolationLevel?: IsolationLevel) {
+    this.queryRunner = this.db.createQueryRunner();
     await this.queryRunner.connect();
     return this.queryRunner.startTransaction(isolationLevel);
   }
