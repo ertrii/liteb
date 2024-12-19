@@ -57,8 +57,8 @@ export class ModuleBase {
 
   private buildApi = (ApiConstructor: new () => Api, dbSource: DataSource) => {
     ApiConstructor.prototype.db = dbSource;
-    const api = new ApiConstructor();
     return async function (req: Request, res: Response) {
+      const api = new ApiConstructor();
       api.params = req.params;
       api.body = req.body;
       api.query = req.query;
@@ -66,7 +66,6 @@ export class ModuleBase {
 
       try {
         const result = await api.main();
-
         res.json(result);
       } catch (error) {
         if (isManagedError(error)) {
