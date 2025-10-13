@@ -13,13 +13,14 @@ import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 /**
  * Creates a query runner used for perform queries on a single database connection. Using query runners you can control your queries to execute using single database connection and manually control your database transaction.
  * Mode is used in replication mode and indicates whatever you want to connect to master database or any of slave databases. If you perform writes you must use master database, if you perform reads you can use slave databases.
+ * @deprecated
  */
 export class Transaction {
   private queryRunner: QueryRunner;
   constructor(private db: DataSource) {}
 
   /**
-   * Starts transaction.
+   * Start transaction.
    */
   async start(isolationLevel?: IsolationLevel) {
     this.queryRunner = this.db.createQueryRunner();

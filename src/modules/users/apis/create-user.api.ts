@@ -14,4 +14,7 @@ export class CreateUserApi extends Api<null, CreateUser> {
     user.username = this.body.username;
     return this.userRep.save(user);
   }
+  load = async (): Promise<void> => {
+    await Promise.resolve();
+  };
 }

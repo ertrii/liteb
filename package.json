@@ -31,6 +31,9 @@
   ],
   "author": "Erick <ertriilive@gmail.com> (https://github.com/ertrii)",
   "license": "MIT",
+  "engines": {
+    "node": ">=21.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ertrii/liteb.git"

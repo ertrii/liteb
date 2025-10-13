@@ -1,5 +1,5 @@
 import { HttpStatus } from '../interfaces/http-status';
-import logger from './logger';
+import logger from '../services/logger';
 import { TypeError } from '../interfaces/type-error';
 import { ErrorBase } from '../templates/error-base';
 
@@ -68,4 +68,11 @@ export function isManagedError(
   if (error instanceof InternalError) return true;
   if (error instanceof NotFoundError) return true;
   return false;
+}
+
+export class HttpException {
+  constructor(
+    public message: string,
+    public status: HttpStatus,
+  ) {}
 }

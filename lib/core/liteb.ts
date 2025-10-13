@@ -1,99 +1,117 @@
-import cookieParser from 'cookie-parser';
-import express, { Express } from 'express';
-import { LitebOptions } from '../interfaces/app';
-import morgan from 'morgan';
-import logger from '../utilities/logger';
-import { Api } from '../templates/api';
-import filesByPatterns from '../utilities/files-by-patterns';
 import { DataSource } from 'typeorm';
-import { ModuleBase } from './module-base';
-import { getModule } from '../defines/module.define';
+import ApiHandler from './api-handler';
+import ApiReader from './api-reader';
+import PatternResolve from './pattern-resolver';
+import Server, { RouterOption } from './server';
+import logger from '../services/logger';
+import { Api } from '../templates/api';
 import { Task } from '../templates/task';
-import { getSchedule } from '../defines/schedule.define';
-import cron from 'node-cron';
+import InterpreterTask from './interpreter-task';
 
-export class Liteb {
-  /**
-   * Cuenta los procesos cargados
-   */
-  private loadedProcess = 0;
-  constructor(private options: LitebOptions) {}
-  private buildModules = (app: Express, db: DataSource) => {
-    const ApiConstructors = filesByPatterns<new () => Api>(this.options.apis);
-    const apiGroups: Record<string, Array<new () => Api>> = {};
-    for (const ApiConstructor of ApiConstructors) {
-      const basePath = getModule(ApiConstructor).basePath;
-      if (apiGroups[basePath]) {
-        apiGroups[basePath].push(ApiConstructor);
-      } else {
-        apiGroups[basePath] = [ApiConstructor];
-      }
-    }
-    for (const [basePath, Apis] of Object.entries(apiGroups)) {
-      const mod = new ModuleBase(basePath);
-      Apis.forEach((Api) => {
-        mod.set(Api);
-      });
-      mod.build(app, db);
-    }
+export default class Liteb extends Server {
+  private modulesAsync: Promise<Array<new () => Api>>[] = [];
+  private tasksAsync: Promise<Array<new () => Task>>[] = [];
+
+  private groupApiReaders = (apiReaders: ApiReader[]) => {
+    return apiReaders.reduce(
+      (acc, apiReader) => {
+        const moduleName = apiReader.moduleName || 'default';
+        if (!acc[moduleName]) {
+          acc[moduleName] = [];
+        }
+        acc[moduleName].push(apiReader);
+        return acc;
+      },
+      {} as { [moduleName: string]: typeof apiReaders },
+    );
   };
 
-  private buildTasks(dbSource: DataSource) {
-    if (this.loadedProcess !== 2) return;
-    const patternsTasks = this.options.tasks;
-    if (!patternsTasks) return;
-    const TasksConstructors = filesByPatterns<new () => Task>(patternsTasks);
-    for (const TasksConstructor of TasksConstructors) {
-      TasksConstructor.prototype.db = dbSource;
-      const metadata = getSchedule(TasksConstructor);
-      if (metadata) {
-        const task = new TasksConstructor();
-        task.start.bind(task);
-        cron.schedule(
-          metadata.expression,
-          (now) => task.start(now),
-          metadata.options,
-        );
-      }
-    }
-    this.loadedProcess++;
+  constructor(private dbSource: DataSource) {
+    super();
   }
 
-  server() {
-    const app: Express = express();
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: true }));
-    app.use(cookieParser());
-    app.use(morgan('dev'));
-    return app;
-  }
-
-  db = () => {
-    const dbSource = new DataSource({
-      type: 'postgres',
-      host: this.options.db.host,
-      port: this.options.db.port,
-      username: this.options.db.username,
-      password: this.options.db.password,
-      database: this.options.db.database,
-      entities: this.options.entities,
-      synchronize: true,
-    });
-    return dbSource;
+  public setApis = (pattern: string[]) => {
+    const modulesAsync = pattern
+      .map(async (apiPattern) => {
+        const patternResolver = new PatternResolve<new () => Api>(apiPattern);
+        await patternResolver.read();
+        if (!patternResolver.hasExport()) return;
+        return patternResolver.getModules().flat();
+      })
+      .flat();
+    this.modulesAsync = modulesAsync;
   };
 
-  start(app: Express, dbSource: DataSource) {
-    const options = this.options.server;
-    this.buildModules(app, dbSource);
-    app.listen(options.port, () => {
-      logger.info(`Server running on port ${options.port}`);
-      this.loadedProcess++;
-      this.buildTasks(dbSource);
-    });
-    dbSource.initialize().then(() => {
+  public setTasks = (pattern: string[]) => {
+    const tasksAsync = pattern
+      .map(async (apiPattern) => {
+        const patternResolver = new PatternResolve<new () => Task>(apiPattern);
+        await patternResolver.read();
+        if (!patternResolver.hasExport()) return;
+        return patternResolver.getModules().flat();
+      })
+      .flat();
+    this.tasksAsync = tasksAsync;
+  };
+
+  public start = async (port: number) => {
+    // DataSource
+    logger.info('Loading database...');
+    try {
+      await this.dbSource.initialize();
       logger.info('DB Connected');
-      this.loadedProcess++;
-      this.buildTasks(dbSource);
+    } catch (error) {
+      logger.error('Error load database connect', error);
+      return;
+    }
+
+    // Read Patterns and Resolve
+    logger.info('Resolving pattern...');
+    let modules = await Promise.all(this.modulesAsync);
+    const exporteds = modules.flat();
+
+    // Read export api class and valid
+    logger.info('Reading API...');
+    const apiReaders = exporteds
+      .map((exported) => {
+        const apiReader = new ApiReader(exported);
+        if (apiReader.isInvalid()) return;
+        return apiReader;
+      })
+      .filter((apiReader) => apiReader)
+      .sort((a, b) => a.priority - b.priority);
+
+    // Agrupar apiReader por moduleName
+    const apiReadersByModule = this.groupApiReaders(apiReaders);
+
+    // Handlers
+    logger.info('Creating routes...');
+    Object.entries(apiReadersByModule).forEach(([moduleName, apiReaders]) => {
+      const options = apiReaders.map((apiReader) => {
+        const apiHandler = new ApiHandler(apiReader, this.dbSource);
+        const option = new RouterOption(apiReader.pathname, apiReader.method);
+        option.setHandler(apiHandler.middleware);
+        option.setHandler(apiHandler.schema);
+        option.setHandler(apiHandler.main);
+        return option;
+      });
+      this.router(moduleName, options);
     });
-  }
+
+    // Initial listen
+    logger.info('Loading server...');
+    await this.listen(port);
+
+    // Reading tasks
+    logger.info('Reading and loader tasks');
+    const taskModules = await Promise.all(this.tasksAsync);
+
+    // Tasks
+    taskModules.flat().forEach((taskMod) => {
+      const interpreterTask = new InterpreterTask(taskMod, this.dbSource);
+      if (interpreterTask.isInvalid()) return;
+      interpreterTask.start();
+    });
+    logger.info('Done!');
+  };
 }

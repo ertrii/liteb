@@ -1,10 +1,13 @@
-import { defineModule } from '../defines/module.define';
 import { Api } from '../templates/api';
+
+export const MODULE = Symbol('__module__');
+
+export interface ModuleMetadata {
+  basePath: string;
+}
 
 export function Module(basePath: string) {
   return function (target: new () => Api) {
-    defineModule(target, {
-      basePath,
-    });
+    Reflect.defineMetadata(MODULE, { basePath } as ModuleMetadata, target);
   };
 }

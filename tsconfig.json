@@ -21,13 +21,8 @@
     "noFallthroughCasesInSwitch": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "esModuleInterop": true,
+    "esModuleInterop": true
   },
   "compileOnSave": true,
-  "include": [
-    "./src",
-    "./bin",
-    "jest.config.ts",
-    "./lib"
-  ]
+  "include": ["./src", "./bin", "jest.config.ts", "./lib"]
 }

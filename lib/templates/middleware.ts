@@ -3,5 +3,5 @@ import { Request } from 'express';
 export abstract class Middleware {
   public request: Request;
 
-  public abstract canContinue(): void;
+  public abstract canContinue(): void | Promise<void>;
 }

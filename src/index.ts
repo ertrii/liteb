@@ -1,26 +1,24 @@
+import { DataSource } from 'typeorm';
 import { ConfigService, Liteb } from '../lib';
 import enableCors from './config/enable-cors';
 import enableSession from './config/enable-session';
 
-const liteb = new Liteb({
+const dbSource = new DataSource({
+  type: 'postgres',
+  host: ConfigService.get('DB_HOST'),
+  port: +ConfigService.get('DB_PORT'),
+  username: ConfigService.get('DB_USERNAME'),
+  password: ConfigService.get('DB_PASSWORD'),
+  database: ConfigService.get('DB_NAME'),
   entities: ['./src/modules/**/entities/*.entity.ts'],
-  apis: ['./src/modules/**/apis/*.api.ts'],
-  tasks: ['./src/modules/**/tasks/*.task.ts'],
-  db: {
-    host: ConfigService.get('DB_HOST'),
-    port: +ConfigService.get('DB_PORT'),
-    username: ConfigService.get('DB_USERNAME'),
-    password: ConfigService.get('DB_PASSWORD'),
-    database: ConfigService.get('DB_NAME'),
-  },
-  server: {
-    port: +ConfigService.get('SERVER_PORT'),
-  },
+  synchronize: true,
 });
 
-const server = liteb.server();
-enableCors(server);
-enableSession(server);
+const liteb = new Liteb(dbSource);
 
-const db = liteb.db();
-liteb.start(server, db);
+liteb.use(enableCors);
+liteb.use(enableSession);
+liteb.setApis(['./src/modules/**/apis/*.api.ts']);
+liteb.setTasks(['./src/modules/**/tasks/*.task.ts']);
+
+liteb.start(+ConfigService.get('SERVER_PORT'));

@@ -1,9 +1,14 @@
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import session from 'express-session';
 import { Transaction } from '../utilities/transaction';
 import { DataSource } from 'typeorm';
+import { HttpStatus } from '../interfaces/http-status';
 
 type SessionDataExtends<T> = session.Session & Partial<session.SessionData & T>;
+export type DataJson =
+  | Record<string, any>
+  | Response<any, Record<string, any>>
+  | null;
 
 /**
  * Api parents
@@ -20,9 +25,16 @@ export abstract class Api<
   public params: P = null;
   public query: Q = null;
   public request: Request<P, any, B, Q>;
+  public response: Response;
   public db: DataSource;
+  public httpStatus: HttpStatus = HttpStatus.OK;
 
-  abstract main(): any;
+  abstract main(): DataJson;
+
+  async load() {
+    await Promise.resolve();
+  }
+
   /**
    * Registra una sesión.
    * @param key clave registro
@@ -35,6 +47,7 @@ export abstract class Api<
     const session = this.request?.session as SessionDataExtends<any>;
     session[key as string] = value;
   }
+
   /**
    * Retorna el valor sesión por key
    * @param key clave registro
@@ -46,6 +59,9 @@ export abstract class Api<
     return this.request?.session[key];
   }
 
+  /**
+   * @deprecated use createQueryRunner or queue
+   */
   createTransaction = () => {
     return new Transaction(this.db);
   };
