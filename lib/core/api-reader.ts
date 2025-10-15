@@ -62,7 +62,9 @@ export default class ApiReader {
       PRIORITY,
       this.ApiClass,
     ) as PriorityMetadata;
-    this.priority = priorityDefine.number;
+    if (priorityDefine) {
+      this.priority = priorityDefine.number;
+    }
   };
 
   private getUse = () => {

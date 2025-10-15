@@ -13,24 +13,24 @@ export class RouterOption {
     origin: ['*'],
     additionalHeaders: ['cache-control', 'x-requested-with'],
   };
-  private handlers: Handler[];
+  private handlers: Handler[] = [];
 
   constructor(
     public path: string,
     public method: string,
   ) {}
 
-  public setHandler(handler: Handler) {
+  public setHandler = (handler: Handler) => {
     this.handlers.push(handler);
-  }
+  };
 
-  getHandlers() {
+  getHandlers = () => {
     return this.handlers;
-  }
+  };
 
-  getCors() {
+  getCors = () => {
     return this.cors;
-  }
+  };
 }
 
 export default class Server {

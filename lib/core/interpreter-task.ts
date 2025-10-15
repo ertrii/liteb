@@ -7,6 +7,7 @@ export default class InterpreterTask {
   private options: cron.ScheduleOptions;
   private expression: string;
   private valid: boolean = false;
+  private started = false;
 
   private readSchedule() {
     const metadata = Reflect.getMetadata(
@@ -28,6 +29,8 @@ export default class InterpreterTask {
   }
 
   public start = () => {
+    if (this.started) return;
+    this.started = true;
     this.TaskClass.prototype.db = this.dbSource;
     const task = new this.TaskClass();
     task.start.bind(task);

@@ -11,6 +11,7 @@ import InterpreterTask from './interpreter-task';
 export default class Liteb extends Server {
   private modulesAsync: Promise<Array<new () => Api>>[] = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
+  private started = false;
 
   private groupApiReaders = (apiReaders: ApiReader[]) => {
     return apiReaders.reduce(
@@ -55,6 +56,8 @@ export default class Liteb extends Server {
   };
 
   public start = async (port: number) => {
+    if (this.started) return;
+    this.started = true;
     // DataSource
     logger.info('Loading database...');
     try {
@@ -62,6 +65,7 @@ export default class Liteb extends Server {
       logger.info('DB Connected');
     } catch (error) {
       logger.error('Error load database connect', error);
+      this.started = false;
       return;
     }
 

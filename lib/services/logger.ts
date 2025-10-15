@@ -48,7 +48,7 @@ log4js.configure({
       layout: {
         type: 'pattern',
         // Colorful output, succinct: timestamp, level (color), message
-        pattern: '%[%d{HH:mm:ss} %5p%] %m',
+        pattern: '%[%d{dd-MM-yy hh:mm:ss}%] %[%5p%] %m',
         // log4js automatically supports color on supported terminals
       },
     },
