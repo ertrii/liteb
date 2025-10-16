@@ -1,5 +1,5 @@
 import { HttpStatus } from '../interfaces/http-status';
-import logger from '../services/logger';
+import { Logger } from '../services/logger';
 import { TypeError } from '../interfaces/type-error';
 import { ErrorBase } from '../templates/error-base';
 
@@ -32,7 +32,7 @@ export class InternalError extends ErrorBase {
 
   constructor(error: Error) {
     super('Error Internal');
-    logger.error(error);
+    Logger.error(error);
   }
 }
 

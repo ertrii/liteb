@@ -3,6 +3,5 @@ Content-Type: application/json
 
 {
   "fullName": "Savima Pasos",
-  "email": "savima@gmail.com",
-  "username": "savima7987"
+  "email": "savima@gmail.com"
 }

@@ -3,7 +3,7 @@ import ApiHandler from './api-handler';
 import ApiReader from './api-reader';
 import PatternResolve from './pattern-resolver';
 import Server, { RouterOption } from './server';
-import logger from '../services/logger';
+import { Logger } from '../services/logger';
 import { Api } from '../templates/api';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';
@@ -59,23 +59,23 @@ export default class Liteb extends Server {
     if (this.started) return;
     this.started = true;
     // DataSource
-    logger.info('Loading database...');
+    Logger.info('Loading database...');
     try {
       await this.dbSource.initialize();
-      logger.info('DB Connected');
+      Logger.info('DB Connected');
     } catch (error) {
-      logger.error('Error load database connect', error);
+      Logger.error('Error load database connect', error);
       this.started = false;
       return;
     }
 
     // Read Patterns and Resolve
-    logger.info('Resolving pattern...');
+    Logger.info('Resolving pattern...');
     let modules = await Promise.all(this.modulesAsync);
     const exporteds = modules.flat();
 
     // Read export api class and valid
-    logger.info('Reading API...');
+    Logger.info('Reading API...');
     const apiReaders = exporteds
       .map((exported) => {
         const apiReader = new ApiReader(exported);
@@ -89,7 +89,8 @@ export default class Liteb extends Server {
     const apiReadersByModule = this.groupApiReaders(apiReaders);
 
     // Handlers
-    logger.info('Creating routes...');
+    Logger.info('Creating routes...');
+    Logger.clear('router');
     Object.entries(apiReadersByModule).forEach(([moduleName, apiReaders]) => {
       const options = apiReaders.map((apiReader) => {
         const apiHandler = new ApiHandler(apiReader, this.dbSource);
@@ -101,17 +102,22 @@ export default class Liteb extends Server {
           option.setHandler(apiHandler.schema);
         }
         option.setHandler(apiHandler.main);
+        Logger.router(
+          `[${apiReader.priority}] ${apiReader.method.toUpperCase()} /${
+            apiReader.moduleName
+          }/${option.path}`,
+        );
         return option;
       });
       this.router(moduleName, options);
     });
 
     // Initial listen
-    logger.info('Loading server...');
+    Logger.info('Loading server...');
     await this.listen(port);
 
     // Reading tasks
-    logger.info('Reading and loader tasks');
+    Logger.info('Reading and loader tasks');
     const taskModules = await Promise.all(this.tasksAsync);
 
     // Tasks
@@ -120,6 +126,6 @@ export default class Liteb extends Server {
       if (interpreterTask.isInvalid()) return;
       interpreterTask.start();
     });
-    logger.info('Done!');
+    Logger.info('Done!');
   };
 }

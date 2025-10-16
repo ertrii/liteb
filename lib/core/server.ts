@@ -1,7 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express, { Express, Request, Response, Router } from 'express';
 import morgan from 'morgan';
-import logger from '../services/logger';
+import { Logger } from '../services/logger';
 import slash from 'slash';
 import path from 'path';
 
@@ -61,7 +61,7 @@ export default class Server {
   protected listen = (port: number) => {
     return new Promise<void>((resolve) => {
       this.app.listen(port, () => {
-        logger.info(`Server running on port ${port}`);
+        Logger.info(`Server running on port ${port}`);
         resolve();
       });
     });

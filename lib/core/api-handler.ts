@@ -4,7 +4,7 @@ import schemaValidator from '../services/schema-validator';
 import { HttpStatus } from '../interfaces/http-status';
 import { TypeError } from '../interfaces/type-error';
 import { DataSource } from 'typeorm';
-import logger from '../services/logger';
+import { Logger } from '../services/logger';
 import { MiddlewareFn } from '../decorators/use.decorator';
 import { Middleware } from '../templates/middleware';
 
@@ -101,7 +101,7 @@ export default class ApiHandler {
       const dataResponse = await apiClass.main();
       res.status(apiClass.httpStatus).json(dataResponse);
     } catch (error) {
-      logger.error(error);
+      Logger.error(error);
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         message: 'Internal Error',
         type: TypeError.INTERNAL,
