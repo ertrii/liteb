@@ -1,8 +1,6 @@
-import { DataSource, QueryRunner } from 'typeorm';
+import { DataSource, QueryRunner, ReplicationMode } from 'typeorm';
 import { Service } from '../templates/service';
-import { InternalError } from './errors';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
-import { extname } from 'path';
 
 export class Queue {
   private started = false;
@@ -20,8 +18,9 @@ export class Queue {
   constructor(
     db: DataSource,
     private isolationLevel?: IsolationLevel,
+    mode?: ReplicationMode,
   ) {
-    this.queryRunner = db.createQueryRunner();
+    this.queryRunner = db.createQueryRunner(mode);
   }
 
   /**
@@ -33,7 +32,9 @@ export class Queue {
   };
 
   /**
-   * Aplica las consultas
+   * Ejecuta todas las operaciones pendientes en la cola, realizando las consultas asociadas a cada servicio.
+   * Si la transacción aún no ha comenzado, la inicia automáticamente antes de aplicar los cambios.
+   * Limpia la cola tras procesar las operaciones.
    */
   public save = async () => {
     if (!this.started) {
@@ -48,18 +49,24 @@ export class Queue {
   };
 
   /**
-   * Aplica las consultas y finaliza
+   * Aplica todas las consultas acumuladas en la cola, confirma la transacción en la base de datos
+   * y, opcionalmente, libera la conexión utilizada por el query runner. Utilice este método
+   * para garantizar que todas las operaciones se ejecutan de forma atómica y los recursos se liberan correctamente.
+   * @param release Indica si se debe liberar la conexión después de ejecutar el commit (por defecto: true).
    */
-  public commit = async () => {
-    try {
-      await this.save();
-      await this.queryRunner.commitTransaction();
-    } catch (error) {
-      await this.queryRunner.rollbackTransaction();
-      throw new InternalError(error as Error);
-    } finally {
-      await this.queryRunner.release();
+  public commit = async (release = true) => {
+    await this.save();
+    await this.queryRunner.commitTransaction();
+    if (release) {
+      await this.release();
     }
+  };
+
+  /**
+   * Releases used database connection. You cannot use query runner methods after connection is released.
+   */
+  public release = async () => {
+    await this.queryRunner.release();
   };
 
   public getManager = () => {

@@ -3,7 +3,7 @@ import ApiHandler from './api-handler';
 import ApiReader from './api-reader';
 import PatternResolve from './pattern-resolver';
 import Server, { RouterOption } from './server';
-import { Logger } from '../services/logger';
+import { Logger } from '../utilities/logger';
 import { Api } from '../templates/api';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';

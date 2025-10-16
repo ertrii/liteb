@@ -2,11 +2,12 @@ import { Request, Response } from 'express';
 import ApiReader from './api-reader';
 import schemaValidator from '../services/schema-validator';
 import { HttpStatus } from '../interfaces/http-status';
-import { TypeError } from '../interfaces/type-error';
+import { ErrorIdentifier } from '../interfaces/type-error';
 import { DataSource } from 'typeorm';
-import { Logger } from '../services/logger';
+import { Logger } from '../utilities/logger';
 import { MiddlewareFn } from '../decorators/use.decorator';
 import { Middleware } from '../templates/middleware';
+import ErrorControl from '../utilities/error-control';
 
 export default class ApiHandler {
   private returnNullIfEmpty = (obj: any) => {
@@ -49,7 +50,7 @@ export default class ApiHandler {
     } catch (error) {
       res.status(HttpStatus.UNAUTHORIZED).json({
         message: error.message,
-        type: TypeError.UNAUTHORIZED,
+        type: ErrorIdentifier.UNAUTHORIZED,
       });
     }
   };
@@ -81,7 +82,7 @@ export default class ApiHandler {
 
     res.status(HttpStatus.UNPROCESSABLE_ENTITY).json({
       message,
-      type: TypeError.SCHEMA,
+      type: ErrorIdentifier.SCHEMA,
       errors,
     });
   };
@@ -95,18 +96,22 @@ export default class ApiHandler {
     ApiClass.prototype.request = req;
     const apiClass = new ApiClass();
     try {
-      if (apiClass.load) {
-        await apiClass.load();
-      }
+      await apiClass.previous();
       const dataResponse = await apiClass.main();
       res.status(apiClass.httpStatus).json(dataResponse);
     } catch (error) {
-      Logger.error(error);
-      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        message: 'Internal Error',
-        type: TypeError.INTERNAL,
-        response: null,
-      });
+      try {
+        const errorResponse = await apiClass.error(error);
+        const errResult = new ErrorControl(
+          errorResponse ? errorResponse : error,
+        );
+        res.status(errResult.getStatus()).json(errResult.toJson());
+      } catch (error) {
+        const errResult = new ErrorControl(error);
+        res.status(errResult.getStatus()).json(errResult.toJson());
+      }
+    } finally {
+      await apiClass.final();
     }
   };
 }

@@ -1,7 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express, { Express, Request, Response, Router } from 'express';
 import morgan from 'morgan';
-import { Logger } from '../services/logger';
+import { Logger } from '../utilities/logger';
 import slash from 'slash';
 import path from 'path';
 

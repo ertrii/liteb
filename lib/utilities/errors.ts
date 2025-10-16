@@ -1,64 +1,60 @@
 import { HttpStatus } from '../interfaces/http-status';
-import { Logger } from '../services/logger';
-import { TypeError } from '../interfaces/type-error';
-import { ErrorBase } from '../templates/error-base';
+import { Logger } from './logger';
+import { ErrorIdentifier } from '../interfaces/type-error';
 
-export class SchemaError<T = Record<string, string>> extends ErrorBase {
-  type = TypeError.SCHEMA;
+export class SchemaError<T = Record<string, string>> {
+  identifier = ErrorIdentifier.SCHEMA;
   status = HttpStatus.UNPROCESSABLE_ENTITY;
-  response = null;
 
-  constructor(message: string, fieldsError: Partial<Record<keyof T, string>>) {
-    super(message, fieldsError);
-  }
+  constructor(
+    public message: string,
+    public fieldsError: Partial<Record<keyof T, string>> = {},
+  ) {}
 }
 
-export class CustomerError<T = Record<string, string>> extends ErrorBase {
-  type = TypeError.CUSTOMER;
-  response = null;
+export class CustomerError<T = Record<string, string>> {
+  identifier = ErrorIdentifier.CUSTOMER;
   status = HttpStatus.NOT_ACCEPTABLE;
 
-  constructor(message: string, fieldsError: Partial<Record<keyof T, string>>) {
-    super(message, fieldsError);
-  }
+  constructor(
+    public message: string,
+    public fieldsError: Partial<Record<keyof T, string>> = {},
+  ) {}
 }
 
-export class InternalError extends ErrorBase {
-  type = TypeError.INTERNAL;
+/**
+ * @deprecated use Error
+ */
+export class InternalError {
+  identifier = ErrorIdentifier.INTERNAL;
   status = HttpStatus.INTERNAL_SERVER_ERROR;
-  fieldsError: Record<string, string> = {};
-  response: any = null;
   message = '';
 
-  constructor(error: Error) {
-    super('Error Internal');
+  constructor(public error: Error) {
+    this.message = error.message;
     Logger.error(error);
   }
 }
 
-export class NotFoundError extends ErrorBase {
-  type = TypeError.NOT_FOUND;
+export class NotFoundError {
+  identifier = ErrorIdentifier.NOT_FOUND;
   status = HttpStatus.NOT_FOUND;
-  fieldsError: Record<string, string> = {};
-  response: any = null;
 
-  constructor(message: string) {
-    super(message);
-  }
+  constructor(public message: string) {}
 }
 
-export class AuthError extends ErrorBase {
-  type: TypeError.UNAUTHORIZED;
+export class AuthError {
+  identifier: ErrorIdentifier.UNAUTHORIZED;
   status: HttpStatus.UNAUTHORIZED;
 
-  constructor(message: string) {
-    super(message);
-  }
+  constructor(public message: string) {}
 }
 
-export class HttpException {
+export class CustomError {
+  identifier: ErrorIdentifier.CUSTOM;
   constructor(
-    public message: string,
     public status: HttpStatus,
+    public message: string,
+    public response: any = null,
   ) {}
 }
