@@ -1,6 +1,10 @@
-# Liteb
+# Liteb (In progress...)
 
-Lite Backend for rest api
+Liteb is a lightweight and simple backend framework. Its main goal is to facilitate the development of modern APIs with minimal configuration while following best practices. Liteb is inspired by the architecture and ease of use of frameworks like NestJS, offering modular organization, intuitive route handling, database integration through TypeORM, and support for scheduled tasks.
+
+With Liteb, you can quickly define your API modules and controllers, associate middlewares and schema validations, and manage recurring or scheduled tasks. The framework prioritizes ease of use, low resource consumption, and a short learning curve, without sacrificing the power needed to build robust and scalable applications.
+
+This project is designed for developers who are looking for a simple and fast alternative to launch backend services without the overhead of complex configurations, while maintaining a solid and extensible structure.
 
 ## Install
 
@@ -8,19 +12,18 @@ Lite Backend for rest api
 
 ## Progress
 
-| Description    | Status |
-| -------------- | ------ |
-| Routers        | ✔     |
-| Enviroments    | ✔     |
-| Swagger        | ❌     |
-| File           | ❌     |
-| Validation     | ✔     |
-| Testing        | ❌     |
-| Scheduler      | ✔     |
-| Cookie Manager | ❌     |
-| Auth           | ✔     |
-| Socket         | ❌     |
-| Email          | ❌     |
+| Feature                     | Status |
+| --------------------------- | ------ |
+| Routing                     | ✔     |
+| Environment Vars            | ✔     |
+| API Documentation (Swagger) | ❌     |
+| File Upload                 | ❌     |
+| Validation (Schema)         | ✔     |
+| Testing                     | ❌     |
+| Scheduler / Tasks           | ✔     |
+| Cookie Manager              | ✔     |
+| WebSockets                  | ❌     |
+| Email / Notifications       | ❌     |
 
 ## VARIABLES
 

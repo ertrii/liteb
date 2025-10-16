@@ -56,20 +56,6 @@ export class AuthError extends ErrorBase {
   }
 }
 
-/**
- * Verifica si es un error gestionado por nosotros.
- * @param error
- */
-export function isManagedError(
-  error: any,
-): error is SchemaError | CustomerError | InternalError | NotFoundError {
-  if (error instanceof SchemaError) return true;
-  if (error instanceof CustomerError) return true;
-  if (error instanceof InternalError) return true;
-  if (error instanceof NotFoundError) return true;
-  return false;
-}
-
 export class HttpException {
   constructor(
     public message: string,

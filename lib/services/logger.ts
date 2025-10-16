@@ -1,6 +1,8 @@
 import * as log4js from 'log4js';
 import * as fs from 'fs';
 import * as path from 'path';
+import ApiReader from '../core/api-reader';
+import slash from 'slash';
 
 // Ensure logs directory exists
 const logsDir = path.join(process.cwd(), 'logs');
@@ -126,12 +128,21 @@ export class Logger {
 
   /**
    * Registra un mensaje en el log de rutas ('router') y consola.
-   * @param message Mensaje principal a registrar.
+   * @param message Mensaje a registrar, puede ser una cadena o una instancia de ApiReader.
    * @param args Argumentos extra para el logger.
    * @returns Resultado de la función log4js info para rutas.
    */
-  static router(message: any, ...args: any[]) {
-    return log4js.getLogger('router').trace(message, ...args);
+  static router(message: string | ApiReader, ...args: any[]) {
+    const logRouter = log4js.getLogger('router');
+    if (message instanceof ApiReader) {
+      const priority = message.priority;
+      const method = message.method.toUpperCase();
+      const moduleName = message.moduleName;
+      const pathname = slash(path.join('/', moduleName, message.pathname));
+      const msg = `[${moduleName}] [${priority}] ${method} ${pathname}`;
+      return logRouter.trace(msg, ...args);
+    }
+    return logRouter.trace(message, ...args);
   }
 
   /**

@@ -1,9 +1,9 @@
 import Liteb from './core/liteb';
-export * from './decorators/http.decorator';
-export * from './decorators/request.decorator';
-export * from './decorators/module.decorator';
-export * from './decorators/priority.decorator';
-export * from './decorators/schedule.decorator';
+export { Get, Post, Delete, Put, Patch } from './decorators/http.decorator';
+export { Body, Params, Query } from './decorators/request.decorator';
+export { Module } from './decorators/module.decorator';
+export { Priority } from './decorators/priority.decorator';
+export { Schedule } from './decorators/schedule.decorator';
 export * from './utilities/transaction';
 export * from './templates/api';
 export * from './templates/middleware';

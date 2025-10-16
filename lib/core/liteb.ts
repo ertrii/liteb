@@ -8,11 +8,21 @@ import { Api } from '../templates/api';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';
 
+/**
+ * This framework allows you to configure API and task patterns based on modules,
+ * resolving their routes and dynamically loading the defined controllers and tasks.
+ */
 export default class Liteb extends Server {
   private modulesAsync: Promise<Array<new () => Api>>[] = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private started = false;
 
+  /**
+   * Agrupa ApiReader por nombre de módulo.
+   *
+   * @param apiReaders Arreglo de instancias de ApiReader.
+   * @returns Un objeto que contiene los ApiReaders agrupados por nombre de módulo.
+   */
   private groupApiReaders = (apiReaders: ApiReader[]) => {
     return apiReaders.reduce(
       (acc, apiReader) => {
@@ -31,6 +41,11 @@ export default class Liteb extends Server {
     super();
   }
 
+  /**
+   * Defines the API patterns that will be read and analyzed.
+   *
+   * @param pattern Array of route patterns to API modules.
+   */
   public setApis = (pattern: string[]) => {
     const modulesAsync = pattern
       .map(async (apiPattern) => {
@@ -43,10 +58,15 @@ export default class Liteb extends Server {
     this.modulesAsync = modulesAsync;
   };
 
+  /**
+   * Defines the task patterns (Tasks) that will be read and analyzed.
+   *
+   * @param pattern Array of path patterns to task modules.
+   */
   public setTasks = (pattern: string[]) => {
     const tasksAsync = pattern
-      .map(async (apiPattern) => {
-        const patternResolver = new PatternResolve<new () => Task>(apiPattern);
+      .map(async (taskPattern) => {
+        const patternResolver = new PatternResolve<new () => Task>(taskPattern);
         await patternResolver.read();
         if (!patternResolver.hasExport()) return;
         return patternResolver.getModules().flat();
@@ -55,10 +75,17 @@ export default class Liteb extends Server {
     this.tasksAsync = tasksAsync;
   };
 
+  /**
+   * Starts the main framework flow: connects to the database,
+   * resolves APIs and tasks, creates routes, and starts the HTTP server.
+   *
+   * @param port Port where the HTTP server will be started.
+   */
   public start = async (port: number) => {
     if (this.started) return;
     this.started = true;
-    // DataSource
+
+    // Inicializar base de datos
     Logger.info('Loading database...');
     try {
       await this.dbSource.initialize();
@@ -69,12 +96,12 @@ export default class Liteb extends Server {
       return;
     }
 
-    // Read Patterns and Resolve
+    // Resolver patrones de API
     Logger.info('Resolving pattern...');
     let modules = await Promise.all(this.modulesAsync);
     const exporteds = modules.flat();
 
-    // Read export api class and valid
+    // Leer y validar las clases exportadas de APIs
     Logger.info('Reading API...');
     const apiReaders = exporteds
       .map((exported) => {
@@ -85,10 +112,10 @@ export default class Liteb extends Server {
       .filter((apiReader) => apiReader)
       .sort((a, b) => a.priority - b.priority);
 
-    // Agrupar apiReader por moduleName
+    // Agrupar ApiReaders por módulo
     const apiReadersByModule = this.groupApiReaders(apiReaders);
 
-    // Handlers
+    // Crear rutas y asociar handlers
     Logger.info('Creating routes...');
     Logger.clear('router');
     Object.entries(apiReadersByModule).forEach(([moduleName, apiReaders]) => {
@@ -102,25 +129,21 @@ export default class Liteb extends Server {
           option.setHandler(apiHandler.schema);
         }
         option.setHandler(apiHandler.main);
-        Logger.router(
-          `[${apiReader.priority}] ${apiReader.method.toUpperCase()} /${
-            apiReader.moduleName
-          }/${option.path}`,
-        );
+        Logger.router(apiReader);
         return option;
       });
       this.router(moduleName, options);
     });
 
-    // Initial listen
+    // Iniciar el servidor HTTP
     Logger.info('Loading server...');
     await this.listen(port);
 
-    // Reading tasks
+    // Leer módulos de tareas
     Logger.info('Reading and loader tasks');
     const taskModules = await Promise.all(this.tasksAsync);
 
-    // Tasks
+    // Iniciar tareas
     taskModules.flat().forEach((taskMod) => {
       const interpreterTask = new InterpreterTask(taskMod, this.dbSource);
       if (interpreterTask.isInvalid()) return;

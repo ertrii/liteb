@@ -34,7 +34,7 @@ export default class InterpreterTask {
     this.TaskClass.prototype.db = this.dbSource;
     const task = new this.TaskClass();
     task.start.bind(task);
-    cron.schedule(this.expression, task.start, this.options);
+    cron.schedule(this.expression, (now) => task.start(now), this.options);
   };
 
   public isInvalid = () => !this.valid;
