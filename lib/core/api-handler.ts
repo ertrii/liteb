@@ -96,8 +96,8 @@ export default class ApiHandler {
     ApiClass.prototype.files = this.returnNullIfEmpty(req.files);
     ApiClass.prototype.file = this.returnNullIfEmpty(req.file);
     ApiClass.prototype.request = req;
-    const apiClass = new ApiClass();
 
+    const apiClass = new ApiClass();
     try {
       await apiClass.previous();
       const dataResponse = await apiClass.main();
