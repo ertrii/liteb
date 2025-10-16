@@ -12,6 +12,7 @@ cert.pem
 *.crt
 *.key
 
+/logs
 *.log
 
 /cache
@@ -21,3 +22,4 @@ cert.pem
 liteb.json
 /config
 /types
+

@@ -17,13 +17,13 @@ export type DataJson =
  * @template Q Queries data
  */
 export abstract class Api<
-  P extends Record<string, any> = any,
-  B extends Record<string, any> = any,
-  Q extends Record<string, any> = any,
+  P extends Record<string, any> | null = null,
+  B extends Record<string, any> | null = null,
+  Q extends Record<string, any> | null = null,
 > {
-  public body: B = null;
-  public params: P = null;
-  public query: Q = null;
+  public body: B;
+  public params: P;
+  public query: Q;
   public request: Request<P, any, B, Q>;
   public response: Response;
   public db: DataSource;

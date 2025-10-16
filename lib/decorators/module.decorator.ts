@@ -7,7 +7,7 @@ export interface ModuleMetadata {
 }
 
 export function Module(basePath: string) {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(MODULE, { basePath } as ModuleMetadata, target);
   };
 }

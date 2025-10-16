@@ -121,7 +121,15 @@ export default class ApiReader {
     return false;
   };
 
-  public getApiClass() {
+  public getApiClass = () => {
     return this.ApiClass;
-  }
+  };
+
+  public hasMiddleware = () => {
+    return !!this.MiddlewareClass;
+  };
+
+  public hasSchema = () => {
+    return !!this.ParamsSchema || !!this.BodySchema || !!this.QuerySchema;
+  };
 }

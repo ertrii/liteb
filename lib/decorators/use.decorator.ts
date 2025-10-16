@@ -15,7 +15,7 @@ export interface UseMetadata {
 }
 
 export function Use(middleware: (new () => Middleware) | MiddlewareFn) {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(USE, { middleware } as UseMetadata, target);
   };
 }

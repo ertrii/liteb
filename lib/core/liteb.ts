@@ -94,8 +94,12 @@ export default class Liteb extends Server {
       const options = apiReaders.map((apiReader) => {
         const apiHandler = new ApiHandler(apiReader, this.dbSource);
         const option = new RouterOption(apiReader.pathname, apiReader.method);
-        option.setHandler(apiHandler.middleware);
-        option.setHandler(apiHandler.schema);
+        if (apiReader.hasMiddleware()) {
+          option.setHandler(apiHandler.middleware);
+        }
+        if (apiReader.hasSchema()) {
+          option.setHandler(apiHandler.schema);
+        }
         option.setHandler(apiHandler.main);
         return option;
       });

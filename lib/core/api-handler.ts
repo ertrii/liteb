@@ -9,6 +9,18 @@ import { MiddlewareFn } from '../decorators/use.decorator';
 import { Middleware } from '../templates/middleware';
 
 export default class ApiHandler {
+  private returnNullIfEmpty = (obj: any) => {
+    if (
+      obj &&
+      typeof obj === 'object' &&
+      !Array.isArray(obj) &&
+      Object.keys(obj).length === 0
+    ) {
+      return null;
+    }
+    return obj;
+  };
+
   private isMiddlewareFunction = (
     funcOrClass: (new () => Middleware) | MiddlewareFn,
   ): funcOrClass is MiddlewareFn => {
@@ -42,7 +54,7 @@ export default class ApiHandler {
     }
   };
 
-  public schema = (req: Request, res: Response, next: () => void) => {
+  public schema = async (req: Request, res: Response, next: () => void) => {
     let message = '';
     let errors: Record<string, any> | null = null;
 
@@ -54,7 +66,7 @@ export default class ApiHandler {
 
     for (const [schemaClass, object, msg] of schemasClass) {
       if (!schemaClass) continue;
-      const result = schemaValidator(schemaClass, object);
+      const result = await schemaValidator(schemaClass, object);
       if (result) {
         message = msg;
         errors = result;
@@ -77,9 +89,9 @@ export default class ApiHandler {
   public main = async (req: Request, res: Response) => {
     const ApiClass = this.apiReader.getApiClass();
     ApiClass.prototype.db = this.dbSource;
-    ApiClass.prototype.params = req.params;
-    ApiClass.prototype.body = req.body;
-    ApiClass.prototype.query = req.query;
+    ApiClass.prototype.params = this.returnNullIfEmpty(req.params);
+    ApiClass.prototype.body = this.returnNullIfEmpty(req.body);
+    ApiClass.prototype.query = this.returnNullIfEmpty(req.query);
     ApiClass.prototype.request = req;
     const apiClass = new ApiClass();
     try {

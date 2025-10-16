@@ -9,19 +9,19 @@ export interface RequestMetadata {
 }
 
 export function Params(Schema: new () => Record<string, any>) {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(PARAMS, { Schema } as RequestMetadata, target);
   };
 }
 
 export function Body(Schema: new () => Record<string, any>) {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(BODY, { Schema } as RequestMetadata, target);
   };
 }
 
 export function Query(Schema: new () => Record<string, any>) {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(QUERY, { Schema } as RequestMetadata, target);
   };
 }

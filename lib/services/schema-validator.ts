@@ -6,7 +6,7 @@ export default async function schemaValidator(
   object: Record<string, any>,
 ) {
   const schema = plainToClass(Schema, object);
-  const errors = await validate(Schema, {
+  const errors = await validate(schema, {
     whitelist: true,
     forbidNonWhitelisted: true,
   });
@@ -21,5 +21,6 @@ export default async function schemaValidator(
     });
     return fieldsErrors;
   }
+
   return null;
 }

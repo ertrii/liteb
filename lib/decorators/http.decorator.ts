@@ -11,31 +11,31 @@ export interface HTTPMetadata {
 }
 
 export function Get(path: string = '') {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(GET, { path } as HTTPMetadata, target);
   };
 }
 
 export function Post(path: string = '') {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(POST, { path } as HTTPMetadata, target);
   };
 }
 
 export function Put(path: string = '') {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(PUT, { path } as HTTPMetadata, target);
   };
 }
 
 export function Delete(path: string = '') {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(DELETE, { path }, target);
   };
 }
 
 export function Patch(path: string = '') {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(PATCH, { path }, target);
   };
 }

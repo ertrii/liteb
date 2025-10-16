@@ -12,7 +12,7 @@ export interface PriorityMetadata {
  * @default 0 Por defecto todos tienen el valor 0
  */
 export function Priority(number: number) {
-  return function (target: new () => Api) {
+  return function (target: new () => Api<any, any, any>) {
     Reflect.defineMetadata(PRIORITY, { number } as PriorityMetadata, target);
   };
 }
