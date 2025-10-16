@@ -111,7 +111,9 @@ export default class Liteb extends Server {
       })
       .filter((apiReader) => apiReader)
       .sort((a, b) => {
-        if (a.priority === null) return 0;
+        if (a.priority === null && b.priority === null) return 0;
+        if (a.priority === null) return 1;
+        if (b.priority === null) return -1;
         return a.priority - b.priority;
       });
 
