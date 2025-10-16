@@ -19,7 +19,7 @@ export default class ErrorControl {
   private errorFields: Record<string, any> = {};
   private identifier = ErrorIdentifier.INTERNAL;
 
-  private identify() {
+  private identify = () => {
     if (this.error instanceof Error) {
       Logger.error(this.error);
       this.message = this.error.message;
@@ -53,9 +53,10 @@ export default class ErrorControl {
     } else if (typeof this.error === 'object' && this.error !== null) {
       this.isObject = true;
       this.status = HttpStatus.FORBIDDEN;
+      this.message = this.error?.message ?? this.message;
       this.response = this.error;
     }
-  }
+  };
 
   constructor(private error: ErrorType | Record<string, any>) {
     this.identify();

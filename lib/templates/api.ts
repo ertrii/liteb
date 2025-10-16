@@ -28,6 +28,12 @@ export abstract class Api<
   public body: B;
   public params: P;
   public query: Q;
+  public files:
+    | {
+        [fieldname: string]: Express.Multer.File[];
+      }
+    | Express.Multer.File[];
+  public file: Express.Multer.File;
   public request: Request<P, any, B, Q>;
   public response: Response;
   public db: DataSource;

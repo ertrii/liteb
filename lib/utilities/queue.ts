@@ -52,9 +52,9 @@ export class Queue {
    * Aplica todas las consultas acumuladas en la cola, confirma la transacción en la base de datos
    * y, opcionalmente, libera la conexión utilizada por el query runner. Utilice este método
    * para garantizar que todas las operaciones se ejecutan de forma atómica y los recursos se liberan correctamente.
-   * @param release Indica si se debe liberar la conexión después de ejecutar el commit (por defecto: true).
+   * @param release Indica si se debe liberar la conexión después de ejecutar el commit (por defecto: false).
    */
-  public commit = async (release = true) => {
+  public commit = async (release = false) => {
     await this.save();
     await this.queryRunner.commitTransaction();
     if (release) {
@@ -67,6 +67,13 @@ export class Queue {
    */
   public release = async () => {
     await this.queryRunner.release();
+  };
+
+  /**
+   * Rollbacks transaction. Error will be thrown if transaction was not started.
+   */
+  public rollback = async () => {
+    await this.queryRunner.rollbackTransaction();
   };
 
   public getManager = () => {

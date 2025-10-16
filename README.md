@@ -17,7 +17,7 @@ This project is designed for developers who are looking for a simple and fast al
 | Routing                     | ✔     |
 | Environment Vars            | ✔     |
 | API Documentation (Swagger) | ❌     |
-| File Upload                 | ❌     |
+| File Upload (Multer)        | ✔     |
 | Validation (Schema)         | ✔     |
 | Testing                     | ❌     |
 | Scheduler / Tasks           | ✔     |

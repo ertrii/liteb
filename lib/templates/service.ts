@@ -1,5 +1,5 @@
 import { plainToClassFromExist } from 'class-transformer';
-import { DataSource, QueryRunner } from 'typeorm';
+import { QueryRunner } from 'typeorm';
 
 export abstract class Service<T> {
   protected abstract entity: T;
