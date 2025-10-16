@@ -44,7 +44,7 @@ export class Logger {
   static router(message: string | ApiReader, ...args: any[]) {
     const logRouter = log4js.getLogger('router');
     if (message instanceof ApiReader) {
-      const priority = message.priority;
+      const priority = message.priority ?? '-';
       const method = message.method.toUpperCase();
       const moduleName = message.moduleName;
       const pathname = slash(path.join('/', moduleName, message.pathname));
@@ -61,7 +61,7 @@ export class Logger {
    */
   static clear(category: string) {
     try {
-      const logFile = path.join(__dirname, `../../logs/${category}.log`);
+      const logFile = path.join(process.cwd(), `logs/${category}.log`);
       fs.writeFileSync(logFile, '');
       return true;
     } catch (err) {

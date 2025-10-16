@@ -23,7 +23,7 @@ export default class ApiReader {
   public moduleName: string;
   public pathname: string;
   public method: 'get' | 'post' | 'put' | 'delete' | 'patch';
-  public priority: number = 0;
+  public priority: number | null = null;
   public ParamsSchema: new () => Record<string, any> = undefined;
   public BodySchema: new () => Record<string, any> = undefined;
   public QuerySchema: new () => Record<string, any> = undefined;

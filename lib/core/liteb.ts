@@ -110,7 +110,10 @@ export default class Liteb extends Server {
         return apiReader;
       })
       .filter((apiReader) => apiReader)
-      .sort((a, b) => a.priority - b.priority);
+      .sort((a, b) => {
+        if (a.priority === null) return 0;
+        return a.priority - b.priority;
+      });
 
     // Agrupar ApiReaders por módulo
     const apiReadersByModule = this.groupApiReaders(apiReaders);
