@@ -10,18 +10,6 @@ import { Middleware } from '../templates/middleware';
 import ErrorControl from '../utilities/error-control';
 
 export default class ApiHandler {
-  private returnNullIfEmpty = (obj: any) => {
-    if (
-      obj &&
-      typeof obj === 'object' &&
-      !Array.isArray(obj) &&
-      Object.keys(obj).length === 0
-    ) {
-      return null;
-    }
-    return obj ?? null;
-  };
-
   private isMiddlewareFunction = (
     funcOrClass: (new () => Middleware) | MiddlewareFn,
   ): funcOrClass is MiddlewareFn => {
@@ -90,11 +78,11 @@ export default class ApiHandler {
   public main = async (req: Request, res: Response) => {
     const ApiClass = this.apiReader.getApiClass();
     ApiClass.prototype.db = this.dbSource;
-    ApiClass.prototype.params = this.returnNullIfEmpty(req.params);
-    ApiClass.prototype.body = this.returnNullIfEmpty(req.body);
-    ApiClass.prototype.query = this.returnNullIfEmpty(req.query);
-    ApiClass.prototype.files = this.returnNullIfEmpty(req.files);
-    ApiClass.prototype.file = this.returnNullIfEmpty(req.file);
+    ApiClass.prototype.params = this.apiReader.ParamsSchema ? req.params : null;
+    ApiClass.prototype.body = this.apiReader.BodySchema ? req.body : null;
+    ApiClass.prototype.query = this.apiReader.QuerySchema ? req.query : null;
+    ApiClass.prototype.files = req.files;
+    ApiClass.prototype.file = req.file;
     ApiClass.prototype.request = req;
 
     const apiClass = new ApiClass();
