@@ -73,6 +73,7 @@ export class Queue {
    * Rollbacks transaction. Error will be thrown if transaction was not started.
    */
   public rollback = async () => {
+    if (!this.started) return;
     await this.queryRunner.rollbackTransaction();
   };
 
