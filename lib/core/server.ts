@@ -89,13 +89,16 @@ export default class Server {
    * Obtiene la instancia interna de la aplicación Express.
    * @returns Instancia de Express.
    */
-  public getApp = () => this.app;
+  public getApp = () => {
+    return this.app;
+  };
 
   /**
    * Permite agregar middlewares o lógica adicional a la aplicación Express.
    * @param callback Función que recibe la instancia de Express para ser modificada.
    */
   public use = (callback: (app: Express) => void) => {
-    callback(this.app);
+    this.app.use.bind(this.app);
+    this.app.use(callback);
   };
 }
