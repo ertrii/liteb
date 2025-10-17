@@ -1,5 +1,11 @@
 import cookieParser from 'cookie-parser';
-import express, { Express, Request, Response, Router } from 'express';
+import express, {
+  Express,
+  NextFunction,
+  Request,
+  Response,
+  Router,
+} from 'express';
 import morgan from 'morgan';
 import { Logger } from '../utilities/logger';
 import slash from 'slash';
@@ -97,7 +103,9 @@ export default class Server {
    * Permite agregar middlewares o lógica adicional a la aplicación Express.
    * @param callback Función que recibe la instancia de Express para ser modificada.
    */
-  public use = (callback: (app: Express) => void) => {
+  public use = (
+    callback: (req: Request, res: Response, next: NextFunction) => any,
+  ) => {
     this.app.use.bind(this.app);
     this.app.use(callback);
   };
