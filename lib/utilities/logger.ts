@@ -44,6 +44,7 @@ export class Logger {
   static router(message: string | ApiReader, ...args: any[]) {
     const logRouter = log4js.getLogger('router');
     if (message instanceof ApiReader) {
+      const type = 'API';
       const priority = message.priority ?? '-';
       const method = message.method.toUpperCase();
       const version = message.getVersionPath();
@@ -51,7 +52,7 @@ export class Logger {
       const pathname = slash(
         path.join('/', version, moduleName, message.pathname),
       );
-      const msg = `[${moduleName}] [${priority}] ${method} ${pathname}`;
+      const msg = `[${type}] [${moduleName}] [${priority}] ${method} ${pathname}`;
       return logRouter.trace(msg, ...args);
     }
     return logRouter.trace(message, ...args);

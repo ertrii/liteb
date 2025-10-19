@@ -14,4 +14,5 @@ export * from './utilities/config-service';
 export * from './templates/service';
 export * from './utilities/queue';
 export * from './interfaces/type-error';
+export * from './interfaces/utils';
 export { Liteb };

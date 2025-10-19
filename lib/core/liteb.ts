@@ -130,7 +130,7 @@ export default class Liteb extends Server {
     // Crear rutas y asociar handlers
     Logger.info('Creating routes...');
     Logger.clear('router');
-    Logger.router(`BASE PATH: ${this.basePathnameApi}`);
+    Logger.router(`[API] BASE PATH: ${this.basePathnameApi}`);
     Object.entries(apiReadersByModule).forEach(([moduleName, apiReaders]) => {
       const options = apiReaders.map((apiReader) => {
         const apiHandler = new ApiHandler(apiReader, this.dbSource);
