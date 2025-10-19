@@ -23,18 +23,17 @@ export default function enableSession(app: Express) {
 
   const isProd = app.get('env') === 'production';
   app.set('trust proxy', 1);
-  app.use(
-    session({
-      store,
-      secret: ConfigService.get('SECRET_KEY'),
-      resave: false,
-      saveUninitialized: true,
-      cookie: {
-        maxAge: 1000 * 60 * 60 * 1,
-        secure: isProd,
-        httpOnly: false,
-        sameSite: isProd ? 'none' : false,
-      },
-    }),
-  );
+
+  return session({
+    store,
+    secret: ConfigService.get('SECRET_KEY'),
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 1,
+      secure: isProd,
+      httpOnly: false,
+      sameSite: isProd ? 'none' : false,
+    },
+  });
 }

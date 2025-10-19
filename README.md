@@ -24,6 +24,7 @@ This project is designed for developers who are looking for a simple and fast al
 | Cookie Manager              | ✔     |
 | WebSockets                  | ❌     |
 | Email / Notifications       | ❌     |
+| View                        | ❌     |
 
 ## VARIABLES
 

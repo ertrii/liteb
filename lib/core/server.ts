@@ -56,16 +56,16 @@ export default class Server {
 
   /**
    * Registra múltiples rutas bajo un prefijo determinado en la aplicación.
-   * @param basePath Prefijo base bajo el cual se registrarán las rutas.
+   * @param moduleName Grupo base bajo el cual se registrarán las rutas.
    * @param options Arreglo de RouterOption que describe las rutas, métodos y handlers.
    */
-  protected router = (basePath: string, options: RouterOption[]) => {
+  protected router = (moduleName: string, options: RouterOption[]) => {
     const router = Router();
     options.forEach((option) => {
       const fullPath = slash(path.join('/', option.path));
       router[option.method](fullPath, ...option.getHandlers());
     });
-    this.app.use(slash(path.join('/', basePath)), router);
+    this.app.use(slash(path.join('/', moduleName)), router);
   };
 
   /**
@@ -109,4 +109,10 @@ export default class Server {
     this.app.use.bind(this.app);
     this.app.use(callback);
   };
+
+  public static = (pathname: string, root: string) => {
+    this.app.use(pathname, express.static(root));
+  };
+
+  public setViewEngine = () => {};
 }

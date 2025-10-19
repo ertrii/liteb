@@ -16,9 +16,9 @@ const dbSource = new DataSource({
 
 const liteb = new Liteb(dbSource);
 
-liteb.use(enableCors);
-liteb.use(enableSession);
-liteb.setApis(['./src/modules/**/apis/*.api.ts']);
+liteb.use(enableCors());
+liteb.use(enableSession(liteb.getApp()));
+liteb.setApis('/', ['./src/modules/**/apis/*.api.ts']);
 liteb.setTasks(['./src/modules/**/tasks/*.task.ts']);
 
 liteb.start(+ConfigService.get('SERVER_PORT'));

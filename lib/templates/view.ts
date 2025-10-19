@@ -1,22 +1,16 @@
-import { Request, Response } from 'express';
-import { Transaction } from '../utilities/transaction';
+import { Request } from 'express';
 import { DataSource } from 'typeorm';
 import { HttpStatus } from '../interfaces/http-status';
-import { ErrorType } from '../interfaces/type-error';
 import { ErrorResponse, SessionDataExtends } from '../interfaces/utils';
-
-export type DataJson =
-  | Record<string, any>
-  | Response<any, Record<string, any>>
-  | null;
+import { ErrorType } from '../interfaces/type-error';
 
 /**
- * Api parents
+ * View parents
  * @template P Params data
  * @template B Body data
  * @template Q Queries data
  */
-export abstract class Api<
+export default abstract class View<
   P extends Record<string, any> | null = null,
   B extends Record<string, any> | null = null,
   Q extends Record<string, any> | null = null,
@@ -39,12 +33,15 @@ export abstract class Api<
    * Se ejecuta antes del método principal (main)
    */
   public previous(): void | Promise<void> {}
+
   /**
-   * Método principal del endpoint.
-   * Debe implementar la lógica de negocio y devolver la respuesta al cliente.
-   * Puede retornar datos, objetos de error, o null según la lógica de la API.
+   * Método principal que ejecuta la lógica de renderizado del template engine (por ejemplo, EJS).
+   * Debe ser implementado en la vista concreta para generar la salida HTML a partir de los datos proporcionados.
+   * Este método es el encargado de preparar y retornar los datos que serán usados para renderizar la vista.
+   * Puede retornar un objeto con variables para el motor de templates o directamente el resultado procesado.
+   * Puede ser síncrono o retornar una promesa si requiere operaciones asíncronas.
    */
-  public abstract main(): DataJson | Promise<DataJson>;
+  public abstract render(): Record<string, any> | Promise<Record<string, any>>;
   /**
    * Maneja y procesa los errores generados durante la ejecución del método main.
    * Permite personalizar la respuesta de error que se envía al cliente, según el tipo de error recibido.
@@ -82,11 +79,4 @@ export abstract class Api<
   protected getSession(key: string) {
     return this.request?.session[key];
   }
-
-  /**
-   * @deprecated use createQueryRunner or queue
-   */
-  protected createTransaction = () => {
-    return new Transaction(this.db);
-  };
 }

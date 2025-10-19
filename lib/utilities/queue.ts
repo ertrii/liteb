@@ -42,7 +42,7 @@ export class Queue {
       this.started = true;
     }
     const saving = this.queues.map((data) => {
-      return data.commit(this.queryRunner);
+      return data.save(this.queryRunner.manager);
     });
     await Promise.all(saving);
     this.queues = [];

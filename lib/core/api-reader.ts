@@ -17,9 +17,10 @@ import { MiddlewareFn, USE, UseMetadata } from '../decorators/use.decorator';
 import { PRIORITY, PriorityMetadata } from '../decorators/priority.decorator';
 import { Api } from '../templates/api';
 import { Middleware } from '../templates/middleware';
+import { VERSION, VersionMetadata } from '../decorators/version.decorator';
 
 export default class ApiReader {
-  public version: number = 0;
+  public version: number = -1;
   public moduleName: string;
   public pathname: string;
   public method: 'get' | 'post' | 'put' | 'delete' | 'patch';
@@ -104,6 +105,16 @@ export default class ApiReader {
     }
   };
 
+  private getVersion = () => {
+    const versionDefine = Reflect.getMetadata(
+      VERSION,
+      this.ApiClass,
+    ) as VersionMetadata;
+    if (versionDefine) {
+      this.version = versionDefine.version;
+    }
+  };
+
   constructor(private ApiClass: new () => Api) {
     this.getModule();
     this.getHttp();
@@ -112,6 +123,7 @@ export default class ApiReader {
     this.getParams();
     this.getBody();
     this.getQuery();
+    this.getVersion();
   }
 
   public isInvalid = (): boolean => {
@@ -131,5 +143,12 @@ export default class ApiReader {
 
   public hasSchema = () => {
     return !!this.ParamsSchema || !!this.BodySchema || !!this.QuerySchema;
+  };
+
+  public getVersionPath = () => {
+    if (this.version > -1) {
+      return `v${this.version}`;
+    }
+    return '';
   };
 }

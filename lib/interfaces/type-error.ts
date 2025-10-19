@@ -14,7 +14,8 @@ export type ErrorType =
   | InternalError
   | NotFoundError
   | AuthError
-  | CustomError;
+  | CustomError
+  | Record<string, any>;
 
 export enum ErrorIdentifier {
   SCHEMA = 'schema',

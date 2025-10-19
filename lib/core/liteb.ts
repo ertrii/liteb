@@ -7,6 +7,7 @@ import { Logger } from '../utilities/logger';
 import { Api } from '../templates/api';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';
+import path from 'path';
 
 /**
  * This framework allows you to configure API and task patterns based on modules,
@@ -16,6 +17,7 @@ export default class Liteb extends Server {
   private modulesAsync: Promise<Array<new () => Api>>[] = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private started = false;
+  private basePathnameApi = '/';
 
   /**
    * Agrupa ApiReader por nombre de módulo.
@@ -37,16 +39,21 @@ export default class Liteb extends Server {
     );
   };
 
+  /**
+   * Crea una instancia de Liteb.
+   * @param dbSource Instancia de DataSource de TypeORM para acceso a base de datos.
+   */
   constructor(private dbSource: DataSource) {
     super();
   }
 
   /**
    * Defines the API patterns that will be read and analyzed.
-   *
+   * @param path Ruta base bajo la cual se registrarán los endpoints de la aplicación.
    * @param pattern Array of route patterns to API modules.
    */
-  public setApis = (pattern: string[]) => {
+  public setApis = (path: string, pattern: string[]) => {
+    this.basePathnameApi = path;
     const modulesAsync = pattern
       .map(async (apiPattern) => {
         const patternResolver = new PatternResolve<new () => Api>(apiPattern);
@@ -123,6 +130,7 @@ export default class Liteb extends Server {
     // Crear rutas y asociar handlers
     Logger.info('Creating routes...');
     Logger.clear('router');
+    Logger.router(`BASE PATH: ${this.basePathnameApi}`);
     Object.entries(apiReadersByModule).forEach(([moduleName, apiReaders]) => {
       const options = apiReaders.map((apiReader) => {
         const apiHandler = new ApiHandler(apiReader, this.dbSource);
@@ -137,7 +145,7 @@ export default class Liteb extends Server {
         Logger.router(apiReader);
         return option;
       });
-      this.router(moduleName, options);
+      this.router(path.join(this.basePathnameApi, moduleName), options);
     });
 
     // Iniciar el servidor HTTP
