@@ -2,7 +2,7 @@
   "name": "liteb",
   "npmName": "liteb",
   "version": "1.0.0-beta.5.0",
-  "description": "lite backend",
+  "description": "Is a simple backend framework",
   "main": "./dist/lib/index.js",
   "types": "./types/lib/index.d.ts",
   "bin": "./dist/bin/index.js",
@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "nodemon --legacy-watch ./src/index.ts",
     "build": "npx tsc -p ./tsconfig.build.json --declarationDir ./types",
+    "clear": "rimraf ./dist ./types",
     "seeds": "ts-node ./src/index.ts",
     "module": "npx ts-node ./bin module",
     "guard": "npx ts-node ./bin guard",
