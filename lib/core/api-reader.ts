@@ -18,7 +18,7 @@ import { PRIORITY, PriorityMetadata } from '../decorators/priority.decorator';
 import { Api } from '../templates/api';
 import { Middleware } from '../templates/middleware';
 import { VERSION, VersionMetadata } from '../decorators/version.decorator';
-import { VIEW, ViewMetadata } from '../decorators/render.decorator';
+import { TEMPLATE, TemplateMetadata } from '../decorators/render.decorator';
 
 export default class ApiReader {
   public version: number = -1;
@@ -117,8 +117,11 @@ export default class ApiReader {
     }
   };
 
-  private getView = () => {
-    const viewDefine = Reflect.getMetadata(VIEW, this.ApiClass) as ViewMetadata;
+  private getTemplate = () => {
+    const viewDefine = Reflect.getMetadata(
+      TEMPLATE,
+      this.ApiClass,
+    ) as TemplateMetadata;
     if (viewDefine) {
       this.view = viewDefine.path;
     }
@@ -133,7 +136,7 @@ export default class ApiReader {
     this.getBody();
     this.getQuery();
     this.getVersion();
-    this.getView();
+    this.getTemplate();
   }
 
   public isInvalid = (): boolean => {
@@ -162,7 +165,7 @@ export default class ApiReader {
     return '';
   };
 
-  public getViewPath = () => {
+  public getTemplatePath = () => {
     if (this.view) {
       return this.view;
     }

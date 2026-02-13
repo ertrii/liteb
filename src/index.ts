@@ -21,6 +21,6 @@ liteb.use(enableSession(liteb.getApp()));
 liteb.static('/public', './src/public');
 liteb.setApis('/', ['./src/modules/**/apis/*.api.ts']);
 liteb.setTasks(['./src/modules/**/tasks/*.task.ts']);
-liteb.setViews('pug', './src/modules/**/views');
+liteb.setTemplates('pug', './src/modules/**/views');
 
 liteb.start(+ConfigService.get('SERVER_PORT'));

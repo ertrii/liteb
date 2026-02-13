@@ -90,7 +90,7 @@ export default class ApiHandler {
       await apiClass.previous();
       const dataResponse = await apiClass.main();
       if (requiereRender) {
-        res.render(this.apiReader.getViewPath(), dataResponse);
+        res.render(this.apiReader.getTemplatePath(), dataResponse);
         return;
       }
       res.status(apiClass.httpStatus).json(dataResponse);

@@ -16,7 +16,7 @@ import path from 'path';
 export default class Liteb extends Server {
   private modulesAsync: Promise<Array<new () => Api>>[] = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
-  private viewsAsync: Promise<string[]>[] = [];
+  private templatesAsync: Promise<string[]>[] = [];
   private started = false;
   private basePathnameApi = '/';
 
@@ -72,7 +72,10 @@ export default class Liteb extends Server {
    * @param engine Motor de plantillas (ejemplo: 'ejs' o 'pug').
    * @param root Directorio raíz donde se encuentran las plantillas.
    */
-  public setViews = async (engine: 'ejs' | 'pug', root: string | string[]) => {
+  public setTemplates = async (
+    engine: 'ejs' | 'pug',
+    root: string | string[],
+  ) => {
     this.app.set('view engine', engine);
     const patternResolvers = Array.isArray(root)
       ? root.map((r) => new PatternResolve<string>(r))
@@ -85,7 +88,7 @@ export default class Liteb extends Server {
       .flat();
 
     // this.app.set('views', modules);
-    this.viewsAsync = modules;
+    this.templatesAsync = modules;
   };
 
   /**
@@ -125,10 +128,10 @@ export default class Liteb extends Server {
       return;
     }
 
-    if (this.viewsAsync.length > 0) {
-      Logger.info('Reading views...');
-      const views = await Promise.all(this.viewsAsync);
-      this.app.set('views', views.flat());
+    if (this.templatesAsync.length > 0) {
+      Logger.info('Reading templates...');
+      const templates = await Promise.all(this.templatesAsync);
+      this.app.set('views', templates.flat());
     }
 
     Logger.info('Reading API and creating routes...');

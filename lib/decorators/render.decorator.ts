@@ -1,13 +1,13 @@
 import { Api } from '../templates/api';
 
-export const VIEW = Symbol('__view__');
+export const TEMPLATE = Symbol('__template__');
 
-export interface ViewMetadata {
+export interface TemplateMetadata {
   path: string;
 }
 
-export function View(path: string) {
+export function Template(path: string) {
   return function (target: new () => Api<any, any, any>) {
-    Reflect.defineMetadata(VIEW, { path } as ViewMetadata, target);
+    Reflect.defineMetadata(TEMPLATE, { path } as TemplateMetadata, target);
   };
 }
