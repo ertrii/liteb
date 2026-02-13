@@ -24,8 +24,22 @@ This project is designed for developers who are looking for a simple and fast al
 | Cookie Manager              | ✔     |
 | WebSockets                  | ❌     |
 | Email / Notifications       | ❌     |
-| View                        | ✔     |
+| Templates                   | ✔     |
 | Static files                | ✔     |
+
+## Templates
+
+| Template | Engine | Description     |
+| -------- | ------ | --------------- |
+| EJS      | ejs    | Template engine |
+| Pug      | pug    | Template engine |
+
+```typescript
+// set templates
+liteb.setTemplates('ejs', './views');
+```
+
+> Compatible with ejs and pug, just set the template engine and the root path. Can you use patterns to render templates.
 
 ## VARIABLES
 
