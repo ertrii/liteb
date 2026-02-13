@@ -16,6 +16,7 @@ import path from 'path';
 export default class Liteb extends Server {
   private modulesAsync: Promise<Array<new () => Api>>[] = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
+  private viewsAsync: Promise<string[]>[] = [];
   private started = false;
   private basePathnameApi = '/';
 
@@ -57,12 +58,34 @@ export default class Liteb extends Server {
     const modulesAsync = pattern
       .map(async (apiPattern) => {
         const patternResolver = new PatternResolve<new () => Api>(apiPattern);
-        await patternResolver.read();
+        await patternResolver.readModule();
         if (!patternResolver.hasExport()) return;
         return patternResolver.getModules().flat();
       })
       .flat();
     this.modulesAsync = modulesAsync;
+  };
+
+  /**
+   * Configura el motor de plantillas y el directorio de vistas.
+   *
+   * @param engine Motor de plantillas (ejemplo: 'ejs' o 'pug').
+   * @param root Directorio raíz donde se encuentran las plantillas.
+   */
+  public setViews = async (engine: 'ejs' | 'pug', root: string | string[]) => {
+    this.app.set('view engine', engine);
+    const patternResolvers = Array.isArray(root)
+      ? root.map((r) => new PatternResolve<string>(r))
+      : [new PatternResolve<string>(root)];
+    const modules = patternResolvers
+      .map(async (r) => {
+        await r.readPath();
+        return r.getPaths();
+      })
+      .flat();
+
+    // this.app.set('views', modules);
+    this.viewsAsync = modules;
   };
 
   /**
@@ -74,7 +97,7 @@ export default class Liteb extends Server {
     const tasksAsync = pattern
       .map(async (taskPattern) => {
         const patternResolver = new PatternResolve<new () => Task>(taskPattern);
-        await patternResolver.read();
+        await patternResolver.readModule();
         if (!patternResolver.hasExport()) return;
         return patternResolver.getModules().flat();
       })
@@ -96,20 +119,24 @@ export default class Liteb extends Server {
     Logger.info('Loading database...');
     try {
       await this.dbSource.initialize();
-      Logger.info('DB Connected');
     } catch (error) {
       Logger.error('Error load database connect', error);
       this.started = false;
       return;
     }
 
+    if (this.viewsAsync.length > 0) {
+      Logger.info('Reading views...');
+      const views = await Promise.all(this.viewsAsync);
+      this.app.set('views', views.flat());
+    }
+
+    Logger.info('Reading API and creating routes...');
     // Resolver patrones de API
-    Logger.info('Resolving pattern...');
-    let modules = await Promise.all(this.modulesAsync);
+    const modules = await Promise.all(this.modulesAsync);
     const exporteds = modules.flat();
 
     // Leer y validar las clases exportadas de APIs
-    Logger.info('Reading API...');
     const apiReaders = exporteds
       .map((exported) => {
         const apiReader = new ApiReader(exported);
@@ -128,7 +155,6 @@ export default class Liteb extends Server {
     const apiReadersByModule = this.groupApiReaders(apiReaders);
 
     // Crear rutas y asociar handlers
-    Logger.info('Creating routes...');
     Logger.clear('router');
     Logger.router(`[API] BASE PATH: ${this.basePathnameApi}`);
     Object.entries(apiReadersByModule).forEach(([moduleName, apiReaders]) => {
@@ -152,16 +178,18 @@ export default class Liteb extends Server {
     Logger.info('Loading server...');
     await this.listen(port);
 
-    // Leer módulos de tareas
-    Logger.info('Reading and loader tasks');
-    const taskModules = await Promise.all(this.tasksAsync);
+    if (this.tasksAsync.length > 0) {
+      // Leer módulos de tareas
+      Logger.info('Reading and loader tasks');
+      const taskModules = await Promise.all(this.tasksAsync);
 
-    // Iniciar tareas
-    taskModules.flat().forEach((taskMod) => {
-      const interpreterTask = new InterpreterTask(taskMod, this.dbSource);
-      if (interpreterTask.isInvalid()) return;
-      interpreterTask.start();
-    });
+      // Iniciar tareas
+      taskModules.flat().forEach((taskMod) => {
+        const interpreterTask = new InterpreterTask(taskMod, this.dbSource);
+        if (interpreterTask.isInvalid()) return;
+        interpreterTask.start();
+      });
+    }
     Logger.info('Done!');
   };
 }

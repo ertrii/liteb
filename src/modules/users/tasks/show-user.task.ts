@@ -1,7 +1,7 @@
 import { Schedule, Task } from '../../../../lib';
 import { User } from '../entities/user.entity';
 
-@Schedule('* * * * *')
+@Schedule('0 * * * *')
 export class ShowUserTask extends Task {
   userRep = this.db.getRepository(User);
 

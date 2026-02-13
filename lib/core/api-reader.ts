@@ -18,12 +18,14 @@ import { PRIORITY, PriorityMetadata } from '../decorators/priority.decorator';
 import { Api } from '../templates/api';
 import { Middleware } from '../templates/middleware';
 import { VERSION, VersionMetadata } from '../decorators/version.decorator';
+import { VIEW, ViewMetadata } from '../decorators/render.decorator';
 
 export default class ApiReader {
   public version: number = -1;
   public moduleName: string;
   public pathname: string;
   public method: 'get' | 'post' | 'put' | 'delete' | 'patch';
+  public view: string | null = null;
   public priority: number | null = null;
   public ParamsSchema: new () => Record<string, any> = undefined;
   public BodySchema: new () => Record<string, any> = undefined;
@@ -115,6 +117,13 @@ export default class ApiReader {
     }
   };
 
+  private getView = () => {
+    const viewDefine = Reflect.getMetadata(VIEW, this.ApiClass) as ViewMetadata;
+    if (viewDefine) {
+      this.view = viewDefine.path;
+    }
+  };
+
   constructor(private ApiClass: new () => Api) {
     this.getModule();
     this.getHttp();
@@ -124,6 +133,7 @@ export default class ApiReader {
     this.getBody();
     this.getQuery();
     this.getVersion();
+    this.getView();
   }
 
   public isInvalid = (): boolean => {
@@ -150,5 +160,16 @@ export default class ApiReader {
       return `v${this.version}`;
     }
     return '';
+  };
+
+  public getViewPath = () => {
+    if (this.view) {
+      return this.view;
+    }
+    return '';
+  };
+
+  public requiereRender = () => {
+    return !!this.view;
   };
 }

@@ -111,7 +111,6 @@ export default class Server {
   };
 
   /**
-  /**
    * Registra un directorio de archivos estáticos en la aplicación Express bajo la ruta especificada.
    * Los archivos ubicados en el directorio raíz proporcionado serán servidos directamente si son solicitados a través del pathname.
    *
@@ -121,6 +120,4 @@ export default class Server {
   public static = (pathname: string, root: string) => {
     this.app.use(pathname, express.static(root));
   };
-
-  // public setViewEngine = () => {};
 }

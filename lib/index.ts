@@ -4,6 +4,7 @@ export { Body, Params, Query } from './decorators/request.decorator';
 export { Module } from './decorators/module.decorator';
 export { Priority } from './decorators/priority.decorator';
 export { Schedule } from './decorators/schedule.decorator';
+export { View } from './decorators/render.decorator';
 export * from './utilities/transaction';
 export * from './templates/api';
 export * from './templates/middleware';

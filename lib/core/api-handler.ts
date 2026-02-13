@@ -4,7 +4,6 @@ import schemaValidator from '../services/schema-validator';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorIdentifier } from '../interfaces/type-error';
 import { DataSource } from 'typeorm';
-import { Logger } from '../utilities/logger';
 import { MiddlewareFn } from '../decorators/use.decorator';
 import { Middleware } from '../templates/middleware';
 import ErrorControl from '../utilities/error-control';
@@ -85,10 +84,15 @@ export default class ApiHandler {
     ApiClass.prototype.file = req.file;
     ApiClass.prototype.request = req;
 
+    const requiereRender = this.apiReader.requiereRender();
     const apiClass = new ApiClass();
     try {
       await apiClass.previous();
       const dataResponse = await apiClass.main();
+      if (requiereRender) {
+        res.render(this.apiReader.getViewPath(), dataResponse);
+        return;
+      }
       res.status(apiClass.httpStatus).json(dataResponse);
     } catch (error) {
       try {
@@ -96,9 +100,21 @@ export default class ApiHandler {
         const errResult = new ErrorControl(
           errorResponse ? errorResponse : error,
         );
+        if (requiereRender) {
+          res.send(
+            `<html><body>${JSON.stringify(errResult.toJson())}</body></html>`,
+          );
+          return;
+        }
         res.status(errResult.getStatus()).json(errResult.toJson());
       } catch (error) {
         const errResult = new ErrorControl(error);
+        if (requiereRender) {
+          res.send(
+            `<html><body>${JSON.stringify(errResult.toJson())}</body></html>`,
+          );
+          return;
+        }
         res.status(errResult.getStatus()).json(errResult.toJson());
       }
     } finally {
