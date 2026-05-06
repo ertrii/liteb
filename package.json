@@ -1,11 +1,13 @@
 {
   "name": "liteb",
   "npmName": "liteb",
-  "version": "1.0.0-beta.5.0",
+  "version": "1.0.0-beta.6.0",
   "description": "Is a simple backend framework",
   "main": "./dist/lib/index.js",
   "types": "./types/lib/index.d.ts",
-  "bin": "./dist/bin/index.js",
+  "bin": {
+    "liteb": "dist/bin/index.js"
+  },
   "bugs": "https://github.com/ertrii/liteb/issues",
   "scripts": {
     "dev": "nodemon --legacy-watch ./src/index.ts",
