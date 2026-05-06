@@ -22,5 +22,10 @@ liteb.static('/public', './src/public');
 liteb.setApis('/', ['./src/modules/**/apis/*.api.ts']);
 liteb.setTasks(['./src/modules/**/tasks/*.task.ts']);
 liteb.setTemplates('pug', './src/modules/**/views');
+liteb.swagger('/docs', {
+  title: 'Liteb Sample API',
+  version: '1.0.0',
+  description: 'Demo of Liteb auto-generated OpenAPI docs.',
+});
 
 liteb.start(+ConfigService.get('SERVER_PORT'));

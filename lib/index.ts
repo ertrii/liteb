@@ -5,6 +5,17 @@ export { Module } from './decorators/module.decorator';
 export { Priority } from './decorators/priority.decorator';
 export { Schedule } from './decorators/schedule.decorator';
 export { Template } from './decorators/render.decorator';
+export {
+  ApiTag,
+  ApiSummary,
+  ApiDescription,
+  ApiResponse,
+} from './decorators/openapi.decorator';
+export { OpenAPIGenerator } from './services/openapi-generator';
+export type {
+  OpenAPIInfo,
+  OpenAPIDocument,
+} from './services/openapi-generator';
 export * from './utilities/transaction';
 export * from './templates/api';
 export * from './templates/middleware';

@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import swaggerUi from 'swagger-ui-express';
 import ApiHandler from './api-handler';
 import ApiReader from './api-reader';
 import PatternResolve from './pattern-resolver';
@@ -8,6 +9,10 @@ import { Api } from '../templates/api';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';
 import path from 'path';
+import {
+  OpenAPIGenerator,
+  OpenAPIInfo,
+} from '../services/openapi-generator';
 
 /**
  * This framework allows you to configure API and task patterns based on modules,
@@ -19,6 +24,10 @@ export default class Liteb extends Server {
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
   private basePathnameApi = '/';
+  private swaggerConfig: {
+    path: string;
+    info?: OpenAPIInfo;
+  } | null = null;
 
   /**
    * Agrupa ApiReader por nombre de módulo.
@@ -92,6 +101,25 @@ export default class Liteb extends Server {
   };
 
   /**
+   * Enable Swagger / OpenAPI docs. The spec is generated automatically from
+   * the same `@Module`/`@Get`/`@Post`/`@Body`/`@Params`/`@Query` decorators
+   * already used for routing. Optional `@ApiTag`, `@ApiSummary`,
+   * `@ApiDescription`, `@ApiResponse` decorators add detail.
+   *
+   * Mounts:
+   * - `<docsPath>` -> Swagger UI
+   * - `<docsPath>.json` -> raw OpenAPI 3 JSON
+   *
+   * Must be called before `start()`.
+   *
+   * @param docsPath Path under which the UI is served (e.g. `/docs`).
+   * @param info Optional title/version/description for the spec.
+   */
+  public swagger = (docsPath: string, info?: OpenAPIInfo) => {
+    this.swaggerConfig = { path: docsPath, info };
+  };
+
+  /**
    * Defines the task patterns (Tasks) that will be read and analyzed.
    *
    * @param pattern Array of path patterns to task modules.
@@ -153,6 +181,24 @@ export default class Liteb extends Server {
         if (b.priority === null) return -1;
         return a.priority - b.priority;
       });
+
+    // Mount Swagger UI first so /<docsPath> doesn't get shadowed by a
+    // module router that happens to share its prefix.
+    if (this.swaggerConfig) {
+      const generator = new OpenAPIGenerator();
+      const spec = generator.generate({
+        apiReaders,
+        basePath: this.basePathnameApi,
+        info: this.swaggerConfig.info,
+      });
+      const docsPath = this.swaggerConfig.path;
+      const jsonPath = docsPath.replace(/\/$/, '') + '.json';
+      this.app.get(jsonPath, (_req, res) => {
+        res.json(spec);
+      });
+      this.app.use(docsPath, swaggerUi.serve, swaggerUi.setup(spec));
+      Logger.info(`Swagger UI at ${docsPath} (spec: ${jsonPath})`);
+    }
 
     // Agrupar ApiReaders por módulo
     const apiReadersByModule = this.groupApiReaders(apiReaders);
