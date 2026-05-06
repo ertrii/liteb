@@ -1,4 +1,4 @@
-# Liteb (In progress...)
+# Liteb
 
 Liteb is a lightweight and simple backend framework. Its main goal is to facilitate the development of modern APIs with minimal configuration while following best practices. Liteb is inspired by the architecture and ease of use of frameworks like NestJS, offering modular organization, intuitive route handling, database integration through TypeORM, and support for scheduled tasks.
 
@@ -29,7 +29,7 @@ This project is designed for developers who are looking for a simple and fast al
 
 ## Swagger / OpenAPI
 
-Liteb auto-generates an OpenAPI 3.0.3 spec from the same decorators you already use for routing. One call enables it:
+Liteb generates an OpenAPI 3.0.3 spec straight from the decorators you already use for routing — no separate annotations, no extra build step. Enable it with a single call:
 
 ```typescript
 liteb.swagger('/docs', {
@@ -41,30 +41,30 @@ liteb.swagger('/docs', {
 liteb.start(5000);
 ```
 
-That mounts:
+This mounts:
 
-- `GET /docs` → Swagger UI (interactive)
+- `GET /docs` → interactive Swagger UI
 - `GET /docs.json` → raw OpenAPI 3 JSON
 
-Call it **before** `liteb.start()`.
+> Call `liteb.swagger(...)` **before** `liteb.start()`.
 
-### What's auto-detected
+### What gets documented automatically
 
-For every endpoint discovered by `setApis(...)`:
-
-| From | Becomes |
+| Source | Result in the spec |
 | --- | --- |
-| `@Module(basePath)` + `@Get/@Post/...(path)` | OpenAPI path + HTTP method |
-| `@Body(Dto)` (class with class-validator decorators) | `requestBody` with `$ref` to a schema in `components.schemas` |
-| `@Params(Dto)` | path parameters with types and `required` |
-| `@Query(Dto)` | query parameters with types and `required` |
-| `:foo` placeholders in the path with no `@Params` schema | inferred as `string` path parameters |
-| `@Module` basePath | default tag (override with `@ApiTag`) |
-| `@Template(...)` | endpoint excluded (returns HTML, not JSON) |
+| `@Module(basePath)` + `@Get`/`@Post`/... | path + HTTP method |
+| `@Body(Dto)` | `requestBody` (JSON) referencing a reusable schema |
+| `@Params(Dto)` | typed path parameters (always required) |
+| `@Query(Dto)` | typed query parameters (required driven by `@IsOptional`) |
+| `:foo` in the path without `@Params` | inferred as a `string` path parameter |
+| `@Module` basePath | default tag for the endpoint |
+| `@Template(...)` | excluded (HTML responses are not part of the spec) |
 
-DTOs are converted to JSON Schema via [`class-validator-jsonschema`](https://github.com/epiphone/class-validator-jsonschema), so `@IsString`, `@IsEnum`, `@IsUUID`, `@IsOptional`, `@MinLength`, etc. all map to their OpenAPI equivalents automatically.
+DTOs are turned into JSON Schema via [`class-validator-jsonschema`](https://github.com/epiphone/class-validator-jsonschema). Decorators like `@IsString`, `@IsEnum`, `@IsUUID`, `@IsOptional`, `@MinLength`, etc. map to their OpenAPI equivalents out of the box, so anything you already validate is also documented.
 
-### Optional decorators for richer docs
+### Adding richer docs (optional)
+
+Four extra decorators let you polish the output. They are fully optional — leave them off and you still get a valid spec.
 
 ```typescript
 import {
@@ -77,31 +77,57 @@ import {
   ApiDescription,
   ApiResponse,
 } from 'liteb';
+import { IsEmail, IsString, MinLength } from 'class-validator';
 
-class CreateUserDto { /* ... */ }
-class UserDto { /* ... */ }
-class ErrorDto { /* ... */ }
+class CreateUserDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+}
+
+class UserDto {
+  @IsString()
+  id: string;
+
+  @IsEmail()
+  email: string;
+}
+
+class ErrorDto {
+  @IsString()
+  message: string;
+}
 
 @Module('users')
 @Post()
 @Body(CreateUserDto)
-@ApiTag('users', 'admin')
+@ApiTag('users')
 @ApiSummary('Create a user')
 @ApiDescription('Creates a new user. Email must be unique.')
 @ApiResponse(201, { description: 'Created', Schema: UserDto })
 @ApiResponse(409, { description: 'Email already in use', Schema: ErrorDto })
 export class CreateUserApi extends Api<null, CreateUserDto> {
-  async main() { /* ... */ }
+  async main() {
+    // ...your logic
+  }
 }
 ```
 
-All four decorators are optional. With nothing extra, you still get a valid spec.
+| Decorator | Purpose |
+| --- | --- |
+| `@ApiTag(...names)` | Group endpoints under one or more tags (overrides the default module tag). |
+| `@ApiSummary(text)` | Short one-line summary shown in the endpoint list. |
+| `@ApiDescription(text)` | Longer description (Markdown supported). |
+| `@ApiResponse(status, { description?, Schema? })` | Document additional status codes and their response shape. Stack as many as you need. |
 
-### Limitations
+### Current limitations
 
-- Only `application/json` content-type is documented (multipart/form-data and urlencoded are not auto-generated).
-- No `securitySchemes` block is generated yet — endpoints render as unauthenticated.
-- The spec is built once when `start()` runs, not on each request.
+- Only `application/json` request/response bodies are documented — `multipart/form-data` and `application/x-www-form-urlencoded` are not auto-generated yet.
+- No `securitySchemes` are emitted, so endpoints render as unauthenticated in the UI.
+- The spec is built once when `start()` runs (not per-request).
 
 ## Templates
 
