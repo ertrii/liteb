@@ -14,16 +14,20 @@ import {
   OpenAPIInfo,
 } from '../services/openapi-generator';
 
+interface ApiGroup {
+  basePath: string;
+  modulesAsync: Promise<Array<new () => Api> | undefined>[];
+}
+
 /**
  * This framework allows you to configure API and task patterns based on modules,
  * resolving their routes and dynamically loading the defined controllers and tasks.
  */
 export default class Liteb extends Server {
-  private modulesAsync: Promise<Array<new () => Api>>[] = [];
+  private apiGroups: ApiGroup[] = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
-  private basePathnameApi = '/';
   private swaggerConfig: {
     path: string;
     info?: OpenAPIInfo;
@@ -57,22 +61,51 @@ export default class Liteb extends Server {
     super();
   }
 
-  /**
-   * Defines the API patterns that will be read and analyzed.
-   * @param path Ruta base bajo la cual se registrarán los endpoints de la aplicación.
-   * @param pattern Array of route patterns to API modules.
-   */
-  public setApis = (path: string, pattern: string[]) => {
-    this.basePathnameApi = path;
-    const modulesAsync = pattern
+  private resolveApiPatterns = (
+    pattern: string[],
+  ): ApiGroup['modulesAsync'] => {
+    return pattern
       .map(async (apiPattern) => {
         const patternResolver = new PatternResolve<new () => Api>(apiPattern);
         await patternResolver.readModule();
-        if (!patternResolver.hasExport()) return;
+        if (!patternResolver.hasExport()) return undefined;
         return patternResolver.getModules().flat();
       })
-      .flat();
-    this.modulesAsync = modulesAsync;
+      .flat() as ApiGroup['modulesAsync'];
+  };
+
+  /**
+   * Defines the API patterns that will be read and analyzed under a single
+   * base path. Replaces any previously configured groups.
+   *
+   * For multi-base-path setups (e.g. legacy under `/` plus new code under
+   * `/api`), use {@link addApis} instead.
+   *
+   * @param path Base path under which the resolved endpoints will be mounted.
+   * @param pattern Array of glob patterns pointing at API module files.
+   */
+  public setApis = (path: string, pattern: string[]) => {
+    this.apiGroups = [
+      { basePath: path, modulesAsync: this.resolveApiPatterns(pattern) },
+    ];
+  };
+
+  /**
+   * Adds another API group on top of any already configured. Each group
+   * has its own base path; the resolved endpoints are mounted at
+   * `path.join(basePath, @Module(name), @Get/@Post/...(path))`.
+   *
+   * Useful when different file globs should resolve under different prefixes
+   * (e.g. legacy controllers under `/`, new controllers under `/api`).
+   *
+   * @param path Base path for this group.
+   * @param pattern Array of glob patterns pointing at API module files.
+   */
+  public addApis = (path: string, pattern: string[]) => {
+    this.apiGroups.push({
+      basePath: path,
+      modulesAsync: this.resolveApiPatterns(pattern),
+    });
   };
 
   /**
@@ -163,32 +196,38 @@ export default class Liteb extends Server {
     }
 
     Logger.info('Reading API and creating routes...');
-    // Resolver patrones de API
-    const modules = await Promise.all(this.modulesAsync);
-    const exporteds = modules.flat();
-
-    // Leer y validar las clases exportadas de APIs
-    const apiReaders = exporteds
-      .map((exported) => {
-        const apiReader = new ApiReader(exported);
-        if (apiReader.isInvalid()) return;
-        return apiReader;
-      })
-      .filter((apiReader) => apiReader)
-      .sort((a, b) => {
-        if (a.priority === null && b.priority === null) return 0;
-        if (a.priority === null) return 1;
-        if (b.priority === null) return -1;
-        return a.priority - b.priority;
-      });
+    // Resolver patrones de API por grupo (cada grupo tiene su propio basePath)
+    const resolvedGroups: Array<{
+      basePath: string;
+      apiReaders: ApiReader[];
+    }> = [];
+    for (const group of this.apiGroups) {
+      const modules = await Promise.all(group.modulesAsync);
+      const exporteds = modules
+        .filter((m): m is Array<new () => Api> => m !== undefined)
+        .flat();
+      const apiReaders = exporteds
+        .map((exported) => {
+          const apiReader = new ApiReader(exported);
+          if (apiReader.isInvalid()) return;
+          return apiReader;
+        })
+        .filter((apiReader): apiReader is ApiReader => apiReader !== undefined)
+        .sort((a, b) => {
+          if (a.priority === null && b.priority === null) return 0;
+          if (a.priority === null) return 1;
+          if (b.priority === null) return -1;
+          return a.priority - b.priority;
+        });
+      resolvedGroups.push({ basePath: group.basePath, apiReaders });
+    }
 
     // Mount Swagger UI first so /<docsPath> doesn't get shadowed by a
     // module router that happens to share its prefix.
     if (this.swaggerConfig) {
       const generator = new OpenAPIGenerator();
       const spec = generator.generate({
-        apiReaders,
-        basePath: this.basePathnameApi,
+        groups: resolvedGroups,
         info: this.swaggerConfig.info,
       });
       const docsPath = this.swaggerConfig.path;
@@ -200,28 +239,33 @@ export default class Liteb extends Server {
       Logger.info(`Swagger UI at ${docsPath} (spec: ${jsonPath})`);
     }
 
-    // Agrupar ApiReaders por módulo
-    const apiReadersByModule = this.groupApiReaders(apiReaders);
-
-    // Crear rutas y asociar handlers
+    // Crear rutas y asociar handlers, una vez por grupo
     Logger.clear('router');
-    Logger.router(`[API] BASE PATH: ${this.basePathnameApi}`);
-    Object.entries(apiReadersByModule).forEach(([moduleName, apiReaders]) => {
-      const options = apiReaders.map((apiReader) => {
-        const apiHandler = new ApiHandler(apiReader, this.dbSource);
-        const option = new RouterOption(apiReader.pathname, apiReader.method);
-        if (apiReader.hasMiddleware()) {
-          option.setHandler(apiHandler.middleware);
-        }
-        if (apiReader.hasSchema()) {
-          option.setHandler(apiHandler.schema);
-        }
-        option.setHandler(apiHandler.main);
-        Logger.router(apiReader);
-        return option;
-      });
-      this.router(path.join(this.basePathnameApi, moduleName), options);
-    });
+    for (const { basePath, apiReaders } of resolvedGroups) {
+      Logger.router(`[API] BASE PATH: ${basePath}`);
+      const apiReadersByModule = this.groupApiReaders(apiReaders);
+      Object.entries(apiReadersByModule).forEach(
+        ([moduleName, moduleReaders]) => {
+          const options = moduleReaders.map((apiReader) => {
+            const apiHandler = new ApiHandler(apiReader, this.dbSource);
+            const option = new RouterOption(
+              apiReader.pathname,
+              apiReader.method,
+            );
+            if (apiReader.hasMiddleware()) {
+              option.setHandler(apiHandler.middleware);
+            }
+            if (apiReader.hasSchema()) {
+              option.setHandler(apiHandler.schema);
+            }
+            option.setHandler(apiHandler.main);
+            Logger.router(apiReader);
+            return option;
+          });
+          this.router(path.join(basePath, moduleName), options);
+        },
+      );
+    }
 
     // Iniciar el servidor HTTP
     Logger.info('Loading server...');

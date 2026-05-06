@@ -97,16 +97,32 @@ function paramsFromSchema(
   );
 }
 
+export interface OpenAPIGroup {
+  basePath: string;
+  apiReaders: ApiReader[];
+}
+
 /**
- * Generate an OpenAPI 3.0.3 spec from a list of registered ApiReaders.
+ * Generate an OpenAPI 3.0.3 spec from one or more groups of registered
+ * ApiReaders. Each group has its own basePath; routes are emitted at
+ * `path.join(group.basePath, reader.moduleName, reader.pathname)`.
  */
 export class OpenAPIGenerator {
+  generate(args: {
+    groups: OpenAPIGroup[];
+    info?: OpenAPIInfo;
+  }): OpenAPIDocument;
   generate(args: {
     apiReaders: ApiReader[];
     basePath: string;
     info?: OpenAPIInfo;
-  }): OpenAPIDocument {
-    const { apiReaders, basePath } = args;
+  }): OpenAPIDocument;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  generate(args: any): OpenAPIDocument {
+    const groups: OpenAPIGroup[] =
+      'groups' in args
+        ? args.groups
+        : [{ basePath: args.basePath, apiReaders: args.apiReaders }];
 
     // Convert all class-validator decorated DTOs into JSON schemas at once.
     // class-validator-jsonschema reads the global metadata storage, so any DTO
@@ -119,85 +135,91 @@ export class OpenAPIGenerator {
     const paths: OpenAPIDocument['paths'] = {};
     const tagSet = new Set<string>();
 
-    for (const reader of apiReaders) {
-      if (reader.requiereRender()) continue; // skip view-rendering endpoints
+    for (const group of groups) {
+      for (const reader of group.apiReaders) {
+        if (reader.requiereRender()) continue; // skip view-rendering endpoints
 
-      const url = fullPath(basePath, reader.moduleName, reader.pathname);
-      paths[url] = paths[url] || {};
-
-      const tags =
-        reader.apiTags.length > 0 ? reader.apiTags : [reader.moduleName];
-      tags.forEach((t) => tagSet.add(t));
-
-      const parameters: OpenAPIParameter[] = [];
-      if (reader.ParamsSchema) {
-        parameters.push(
-          ...paramsFromSchema(schemas[reader.ParamsSchema.name], 'path'),
+        const url = fullPath(
+          group.basePath,
+          reader.moduleName,
+          reader.pathname,
         );
-      }
-      if (reader.QuerySchema) {
-        parameters.push(
-          ...paramsFromSchema(schemas[reader.QuerySchema.name], 'query'),
-        );
-      }
-      // Infer path params from the URL if @Params didn't declare them.
-      // OpenAPI requires every {placeholder} in a path to have a parameter.
-      const declaredPathNames = new Set(
-        parameters.filter((p) => p.in === 'path').map((p) => p.name),
-      );
-      const inUrl = url.matchAll(/\{([^}]+)\}/g);
-      for (const m of inUrl) {
-        if (!declaredPathNames.has(m[1])) {
-          parameters.push({
-            name: m[1],
-            in: 'path',
-            required: true,
-            schema: { type: 'string' },
-          });
+        paths[url] = paths[url] || {};
+
+        const tags =
+          reader.apiTags.length > 0 ? reader.apiTags : [reader.moduleName];
+        tags.forEach((t) => tagSet.add(t));
+
+        const parameters: OpenAPIParameter[] = [];
+        if (reader.ParamsSchema) {
+          parameters.push(
+            ...paramsFromSchema(schemas[reader.ParamsSchema.name], 'path'),
+          );
         }
-      }
-
-      let requestBody: OpenAPIRequestBody | undefined;
-      if (reader.BodySchema) {
-        requestBody = {
-          required: true,
-          content: {
-            'application/json': {
-              schema: { $ref: REF_PREFIX + reader.BodySchema.name },
-            },
-          },
-        };
-      }
-
-      const responses: Record<string, OpenAPIResponse> = {};
-      if (reader.apiResponses.length > 0) {
-        for (const r of reader.apiResponses) {
-          const entry: OpenAPIResponse = {
-            description: r.description ?? `Status ${r.status}`,
-          };
-          if (r.Schema) {
-            entry.content = {
-              'application/json': {
-                schema: { $ref: REF_PREFIX + r.Schema.name },
-              },
-            };
+        if (reader.QuerySchema) {
+          parameters.push(
+            ...paramsFromSchema(schemas[reader.QuerySchema.name], 'query'),
+          );
+        }
+        // Infer path params from the URL if @Params didn't declare them.
+        // OpenAPI requires every {placeholder} in a path to have a parameter.
+        const declaredPathNames = new Set(
+          parameters.filter((p) => p.in === 'path').map((p) => p.name),
+        );
+        const inUrl = url.matchAll(/\{([^}]+)\}/g);
+        for (const m of inUrl) {
+          if (!declaredPathNames.has(m[1])) {
+            parameters.push({
+              name: m[1],
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            });
           }
-          responses[String(r.status)] = entry;
         }
-      } else {
-        responses['200'] = { description: 'OK' };
+
+        let requestBody: OpenAPIRequestBody | undefined;
+        if (reader.BodySchema) {
+          requestBody = {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: REF_PREFIX + reader.BodySchema.name },
+              },
+            },
+          };
+        }
+
+        const responses: Record<string, OpenAPIResponse> = {};
+        if (reader.apiResponses.length > 0) {
+          for (const r of reader.apiResponses) {
+            const entry: OpenAPIResponse = {
+              description: r.description ?? `Status ${r.status}`,
+            };
+            if (r.Schema) {
+              entry.content = {
+                'application/json': {
+                  schema: { $ref: REF_PREFIX + r.Schema.name },
+                },
+              };
+            }
+            responses[String(r.status)] = entry;
+          }
+        } else {
+          responses['200'] = { description: 'OK' };
+        }
+
+        const op: OpenAPIOperation = {
+          tags,
+          responses,
+        };
+        if (reader.apiSummary) op.summary = reader.apiSummary;
+        if (reader.apiDescription) op.description = reader.apiDescription;
+        if (parameters.length > 0) op.parameters = parameters;
+        if (requestBody) op.requestBody = requestBody;
+
+        paths[url][reader.method] = op;
       }
-
-      const op: OpenAPIOperation = {
-        tags,
-        responses,
-      };
-      if (reader.apiSummary) op.summary = reader.apiSummary;
-      if (reader.apiDescription) op.description = reader.apiDescription;
-      if (parameters.length > 0) op.parameters = parameters;
-      if (requestBody) op.requestBody = requestBody;
-
-      paths[url][reader.method] = op;
     }
 
     return {

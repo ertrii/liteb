@@ -27,6 +27,20 @@ This project is designed for developers who are looking for a simple and fast al
 | Templates                   | ✔     |
 | Static files                | ✔     |
 
+## Multi base path (`addApis`)
+
+By default, `liteb.setApis(basePath, patterns)` mounts every resolved endpoint under a single base path. When different file globs should resolve under different prefixes — for example, legacy endpoints under `/` and new endpoints under `/api` — use `addApis` instead:
+
+```typescript
+liteb.setApis('/',     ['./src/legacy/**/apis/*.api.ts']);
+liteb.addApis('/api',  ['./src/modules/**/presentation/controllers/**/*.controller.ts']);
+liteb.addApis('/api',  ['./src/application/**/*.use-case.ts']);
+
+liteb.start(5000);
+```
+
+Each call adds another group; `setApis` still resets all groups to a single one (backward compatible). All groups share the same Swagger spec — endpoints from every group appear in `/docs`.
+
 ## Swagger / OpenAPI
 
 Liteb generates an OpenAPI 3.0.3 spec straight from the decorators you already use for routing — no separate annotations, no extra build step. Enable it with a single call:
