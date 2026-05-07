@@ -276,12 +276,16 @@ export default class Liteb extends Server {
       Logger.info('Reading and loader tasks');
       const taskModules = await Promise.all(this.tasksAsync);
 
-      // Iniciar tareas
-      taskModules.flat().forEach((taskMod) => {
-        const interpreterTask = new InterpreterTask(taskMod, this.dbSource);
-        if (interpreterTask.isInvalid()) return;
-        interpreterTask.start();
-      });
+      // Iniciar tareas. Filtramos null/undefined porque `setTasks` puede emitir
+      // promesas resueltas a `undefined` cuando un patrón no matchea archivos.
+      taskModules
+        .flat()
+        .filter((taskMod): taskMod is new () => Task => taskMod != null)
+        .forEach((taskMod) => {
+          const interpreterTask = new InterpreterTask(taskMod, this.dbSource);
+          if (interpreterTask.isInvalid()) return;
+          interpreterTask.start();
+        });
     }
     Logger.info('Done!');
   };

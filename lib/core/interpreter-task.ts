@@ -10,6 +10,7 @@ export default class InterpreterTask {
   private started = false;
 
   private readSchedule() {
+    if (typeof this.TaskClass !== 'function') return;
     const metadata = Reflect.getMetadata(
       SCHEDULE,
       this.TaskClass,
