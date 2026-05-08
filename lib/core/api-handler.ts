@@ -12,11 +12,7 @@ export default class ApiHandler {
   private isMiddlewareFunction = (
     funcOrClass: (new () => Middleware) | MiddlewareFn,
   ): funcOrClass is MiddlewareFn => {
-    const propertyNames = Object.getOwnPropertyNames(funcOrClass);
-    return (
-      !propertyNames.includes('prototype') ||
-      propertyNames.includes('arguments')
-    );
+    return !/^\s*class\s/.test(Function.prototype.toString.call(funcOrClass));
   };
 
   constructor(

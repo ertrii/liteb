@@ -5,6 +5,8 @@ export { Module } from './decorators/module.decorator';
 export { Priority } from './decorators/priority.decorator';
 export { Schedule } from './decorators/schedule.decorator';
 export { Template } from './decorators/render.decorator';
+export { Use } from './decorators/use.decorator';
+export type { MiddlewareFn, UseMetadata } from './decorators/use.decorator';
 export {
   ApiTag,
   ApiSummary,
