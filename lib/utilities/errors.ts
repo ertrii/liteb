@@ -44,14 +44,14 @@ export class NotFoundError {
 }
 
 export class AuthError {
-  identifier: ErrorIdentifier.UNAUTHORIZED;
-  status: HttpStatus.UNAUTHORIZED;
+  identifier = ErrorIdentifier.UNAUTHORIZED;
+  status = HttpStatus.UNAUTHORIZED;
 
   constructor(public message: string) {}
 }
 
 export class CustomError {
-  identifier: ErrorIdentifier.CUSTOM;
+  identifier = ErrorIdentifier.CUSTOM;
   constructor(
     public status: HttpStatus,
     public message: string,

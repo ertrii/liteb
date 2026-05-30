@@ -79,6 +79,7 @@ export default class ApiHandler {
     ApiClass.prototype.files = req.files;
     ApiClass.prototype.file = req.file;
     ApiClass.prototype.request = req;
+    ApiClass.prototype.response = res;
 
     const requiereRender = this.apiReader.requiereRender();
     const apiClass = new ApiClass();
@@ -89,6 +90,9 @@ export default class ApiHandler {
         res.render(this.apiReader.getTemplatePath(), dataResponse);
         return;
       }
+      // El controller pudo escribir directo en `this.response` (binarios,
+      // HTML, streams). Si ya cerró la respuesta, no la pisamos.
+      if (res.headersSent) return;
       res.status(apiClass.httpStatus).json(dataResponse);
     } catch (error) {
       try {
@@ -102,6 +106,7 @@ export default class ApiHandler {
           );
           return;
         }
+        if (res.headersSent) return;
         res.status(errResult.getStatus()).json(errResult.toJson());
       } catch (error) {
         const errResult = new ErrorControl(error);
@@ -111,6 +116,7 @@ export default class ApiHandler {
           );
           return;
         }
+        if (res.headersSent) return;
         res.status(errResult.getStatus()).json(errResult.toJson());
       }
     } finally {
