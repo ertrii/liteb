@@ -205,7 +205,16 @@ export default class Liteb extends Server {
       const modules = await Promise.all(group.modulesAsync);
       const exporteds = modules
         .filter((m): m is Array<new () => Api> => m !== undefined)
-        .flat();
+        .flat()
+        // Un archivo de controller/view puede exportar cosas además de la
+        // clase (constantes, helpers, tipos). `Reflect.getMetadata` revienta
+        // con TypeError si recibe un primitivo, así que sólo consideramos
+        // clases que heredan de `Api`; el resto se ignora silenciosamente.
+        .filter(
+          (exported): exported is new () => Api =>
+            typeof exported === 'function' &&
+            exported.prototype instanceof Api,
+        );
       const apiReaders = exporteds
         .map((exported) => {
           const apiReader = new ApiReader(exported);
