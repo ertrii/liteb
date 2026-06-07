@@ -72,17 +72,28 @@ export default class ApiHandler {
 
   public main = async (req: Request, res: Response) => {
     const ApiClass = this.apiReader.getApiClass();
+    // `db` es estable entre requests, así que va en el prototype: queda
+    // disponible durante los field initializers (p. ej.
+    // `private rep = this.db.getRepository(...)`), que corren dentro de `new`.
     ApiClass.prototype.db = this.dbSource;
-    ApiClass.prototype.params = this.apiReader.ParamsSchema ? req.params : null;
-    ApiClass.prototype.body = this.apiReader.BodySchema ? req.body : null;
-    ApiClass.prototype.query = this.apiReader.QuerySchema ? req.query : null;
-    ApiClass.prototype.files = req.files;
-    ApiClass.prototype.file = req.file;
-    ApiClass.prototype.request = req;
-    ApiClass.prototype.response = res;
 
     const requiereRender = this.apiReader.requiereRender();
     const apiClass = new ApiClass();
+    // El resto del estado es POR REQUEST y se asigna en la INSTANCIA, no en el
+    // prototype. Con prototype, dos requests concurrentes al mismo endpoint se
+    // pisaban: una hacía `await` en `main()` y la otra reescribía
+    // `prototype.query/params/body` antes de que la primera los leyera, así que
+    // ambas terminaban con los datos de la última. Asignar en la instancia da a
+    // cada request su propio estado. (cast: la instancia está tipada con los
+    // genéricos por defecto `null`; el estado real lo aportan los DTOs.)
+    const state = apiClass as unknown as Record<string, unknown>;
+    state.params = this.apiReader.ParamsSchema ? req.params : null;
+    state.body = this.apiReader.BodySchema ? req.body : null;
+    state.query = this.apiReader.QuerySchema ? req.query : null;
+    state.files = req.files;
+    state.file = req.file;
+    state.request = req;
+    state.response = res;
     try {
       await apiClass.previous();
       const dataResponse = await apiClass.main();
