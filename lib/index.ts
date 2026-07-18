@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import Liteb from './core/liteb';
 export { Get, Post, Delete, Put, Patch } from './decorators/http.decorator';
 export { Body, Params, Query } from './decorators/request.decorator';
