@@ -7,6 +7,7 @@ import express, {
   Router,
 } from 'express';
 import morgan from 'morgan';
+import http from 'http';
 import { Logger } from '../utilities/logger';
 import slash from 'slash';
 import path from 'path';
@@ -41,6 +42,7 @@ export class RouterOption {
 
 export default class Server {
   protected app: Express;
+  protected server?: http.Server;
 
   /**
    * Inicializa la aplicación Express y configura middlewares básicos como body parser,
@@ -84,10 +86,21 @@ export default class Server {
    */
   protected listen = (port: number) => {
     return new Promise<void>((resolve) => {
-      this.app.listen(port, () => {
+      this.server = this.app.listen(port, () => {
         Logger.info(`Server running on port ${port}`);
         resolve();
       });
+    });
+  };
+
+  /**
+   * Cierra el servidor HTTP: deja de aceptar conexiones nuevas y espera a que
+   * terminen las peticiones en vuelo. Resuelve de inmediato si no hay servidor.
+   */
+  protected closeServer = () => {
+    return new Promise<void>((resolve, reject) => {
+      if (!this.server) return resolve();
+      this.server.close((error) => (error ? reject(error) : resolve()));
     });
   };
 

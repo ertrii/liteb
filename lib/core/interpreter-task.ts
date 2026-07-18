@@ -29,13 +29,16 @@ export default class InterpreterTask {
     this.readSchedule();
   }
 
-  public start = () => {
+  public start = (): cron.ScheduledTask | undefined => {
     if (this.started) return;
     this.started = true;
     this.TaskClass.prototype.db = this.dbSource;
     const task = new this.TaskClass();
-    task.start.bind(task);
-    cron.schedule(this.expression, (now) => task.start(now), this.options);
+    return cron.schedule(
+      this.expression,
+      (now) => task.start(now),
+      this.options,
+    );
   };
 
   public isInvalid = () => !this.valid;

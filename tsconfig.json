@@ -24,5 +24,5 @@
     "esModuleInterop": true
   },
   "compileOnSave": true,
-  "include": ["./src", "./bin", "jest.config.ts", "./lib"]
+  "include": ["./src", "jest.config.ts", "./lib"]
 }

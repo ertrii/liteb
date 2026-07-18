@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import cron from 'node-cron';
 import swaggerUi from 'swagger-ui-express';
 import ApiHandler from './api-handler';
 import ApiReader from './api-reader';
@@ -28,6 +29,8 @@ export default class Liteb extends Server {
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
+  private scheduledTasks: cron.ScheduledTask[] = [];
+  private shuttingDown = false;
   private swaggerConfig: {
     path: string;
     info?: OpenAPIInfo;
@@ -179,14 +182,16 @@ export default class Liteb extends Server {
     if (this.started) return;
     this.started = true;
 
-    // Inicializar base de datos
+    // Inicializar base de datos. Si falla es un error FATAL: relanzamos para
+    // que el proceso termine con código distinto de cero y el orquestador
+    // (Docker/PM2) lo reinicie, en lugar de quedar vivo sin servidor.
     Logger.info('Loading database...');
     try {
       await this.dbSource.initialize();
     } catch (error) {
-      Logger.error('Error load database connect', error);
+      Logger.error('Fatal: could not connect to the database', error);
       this.started = false;
-      return;
+      throw error;
     }
 
     if (this.templatesAsync.length > 0) {
@@ -293,9 +298,64 @@ export default class Liteb extends Server {
         .forEach((taskMod) => {
           const interpreterTask = new InterpreterTask(taskMod, this.dbSource);
           if (interpreterTask.isInvalid()) return;
-          interpreterTask.start();
+          const scheduled = interpreterTask.start();
+          if (scheduled) this.scheduledTasks.push(scheduled);
         });
     }
+
+    this.registerShutdownHooks();
     Logger.info('Done!');
+  };
+
+  /**
+   * Registra manejadores de SIGTERM/SIGINT para un apagado ordenado.
+   * Usa `process.once` para que una segunda señal no reentre.
+   */
+  private registerShutdownHooks = () => {
+    process.once('SIGTERM', () => void this.shutdown('SIGTERM'));
+    process.once('SIGINT', () => void this.shutdown('SIGINT'));
+  };
+
+  /**
+   * Apagado ordenado: detiene los cron, deja de aceptar peticiones nuevas y
+   * espera a las que están en vuelo, cierra la conexión de base de datos y
+   * termina el proceso. Seguro ante llamadas múltiples.
+   *
+   * @param signal Señal o motivo que disparó el apagado (sólo informativo).
+   */
+  public shutdown = async (signal: string = 'manual') => {
+    if (this.shuttingDown) return;
+    this.shuttingDown = true;
+    Logger.info(`Shutting down (${signal})...`);
+
+    // Red de seguridad: si el cierre ordenado se cuelga (p. ej. conexiones
+    // keep-alive), forzamos la salida para no bloquear el reinicio.
+    const forceExit = setTimeout(() => {
+      Logger.error('Shutdown timed out; forcing exit.');
+      process.exit(1);
+    }, 10_000);
+    forceExit.unref();
+
+    // 1. Detener tareas programadas para que no arranque nada nuevo.
+    this.scheduledTasks.forEach((task) => task.stop());
+
+    // 2. Cerrar el servidor HTTP: sin conexiones nuevas, esperar en vuelo.
+    try {
+      await this.closeServer();
+    } catch (error) {
+      Logger.error('Error closing HTTP server', error);
+    }
+
+    // 3. Cerrar la conexión de base de datos.
+    try {
+      if (this.dbSource.isInitialized) {
+        await this.dbSource.destroy();
+      }
+    } catch (error) {
+      Logger.error('Error closing database connection', error);
+    }
+
+    Logger.info('Shutdown complete.');
+    process.exit(0);
   };
 }
