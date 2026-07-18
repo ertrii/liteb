@@ -14,8 +14,7 @@ export default class ErrorControl {
   private status = HttpStatus.INTERNAL_SERVER_ERROR;
   private isObject = false;
   private response: Record<string, any> | null = null;
-  private message =
-    'The server has understood the request, but refuses to authorize it.';
+  private message = 'Internal server error.';
   private errorFields: Record<string, any> = {};
   private identifier = ErrorIdentifier.INTERNAL;
 

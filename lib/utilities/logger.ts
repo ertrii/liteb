@@ -47,10 +47,9 @@ export class Logger {
       const type = 'API';
       const priority = message.priority ?? '-';
       const method = message.method.toUpperCase();
-      const version = message.getVersionPath();
       const moduleName = message.moduleName;
       const pathname = slash(
-        path.join('/', version, moduleName, message.pathname),
+        path.join('/', moduleName, message.pathname),
       );
       const msg = `[${type}] [${moduleName}] [${priority}] ${method} ${pathname}`;
       return logRouter.trace(msg, ...args);
