@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { Request, Response } from 'express';
 import cron from 'node-cron';
 import swaggerUi from 'swagger-ui-express';
 import ApiHandler from './api-handler';
@@ -6,6 +7,8 @@ import ApiReader from './api-reader';
 import PatternResolve from './pattern-resolver';
 import Server, { RouterOption } from './server';
 import { Logger } from '../utilities/logger';
+import ErrorControl from '../utilities/error-control';
+import { NotFoundError } from '../utilities/errors';
 import { Api } from '../templates/api';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';
@@ -281,6 +284,10 @@ export default class Liteb extends Server {
       );
     }
 
+    // Fallback 404: va DESPUÉS de todos los routers para capturar sólo lo que
+    // ninguno atendió.
+    this.registerNotFoundHandler();
+
     // Iniciar el servidor HTTP
     Logger.info('Loading server...');
     await this.listen(port);
@@ -305,6 +312,25 @@ export default class Liteb extends Server {
 
     this.registerShutdownHooks();
     Logger.info('Done!');
+  };
+
+  /**
+   * Registra el manejador final para rutas no encontradas, de modo que un 404
+   * responda con el MISMO contrato de error que el resto del framework
+   * (`{ message, response, errorFields, identifier }`) en lugar del HTML por
+   * defecto de Express.
+   *
+   * Se registra al final del arranque, así que cualquier ruta que se agregue
+   * a mano vía `getApp()` DESPUÉS de `start()` quedaría detrás de este
+   * fallback y nunca se alcanzaría: agrégalas antes de arrancar.
+   */
+  private registerNotFoundHandler = () => {
+    this.app.use((req: Request, res: Response) => {
+      const errResult = new ErrorControl(
+        new NotFoundError(`Cannot ${req.method} ${req.originalUrl}`),
+      );
+      res.status(errResult.getStatus()).json(errResult.toJson());
+    });
   };
 
   /**
