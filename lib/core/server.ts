@@ -15,11 +15,6 @@ import path from 'path';
 export type Handler = (req: Request, res: Response, next: () => void) => void;
 
 export class RouterOption {
-  public readonly auth: 'token';
-  private cors = {
-    origin: ['*'],
-    additionalHeaders: ['cache-control', 'x-requested-with'],
-  };
   private handlers: Handler[] = [];
 
   constructor(
@@ -33,10 +28,6 @@ export class RouterOption {
 
   getHandlers = () => {
     return this.handlers;
-  };
-
-  getCors = () => {
-    return this.cors;
   };
 }
 
