@@ -1,19 +1,15 @@
 import type { Config } from 'jest';
-import { pathsToModuleNameMapper } from 'ts-jest';
-// import compilerOptions from './tsconfig.json';
 
+/**
+ * ts-jest puro: el framework es decorator-driven, así que la transformación
+ * DEBE honrar `experimentalDecorators` y `emitDecoratorMetadata` del
+ * tsconfig. Transformar con babel-jest rompería los decoradores.
+ */
 const config: Config = {
   preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/test'],
   verbose: true,
-  transform: {
-    '\\.[jt]sx?$': 'babel-jest',
-  },
-  moduleNameMapper: pathsToModuleNameMapper({
-    '@shared/*': ['shared/*'],
-    '@definitions': ['definitions/index.ts'],
-    liteb: ['app/index.ts'],
-  }),
-  modulePaths: ['<rootDir>'],
 };
 
 export default config;
