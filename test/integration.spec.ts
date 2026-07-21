@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import http from 'http';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import type { DataSource } from 'typeorm';
 import request from 'supertest';
@@ -17,6 +18,47 @@ const fakeDataSource = {
 
 const liteb = new Liteb(fakeDataSource);
 const app = () => liteb.getApp();
+
+/** Acceso al `http.Server` interno (protegido) para conocer el puerto efímero. */
+const internalServer = () =>
+  (liteb as unknown as { server: http.Server }).server;
+
+/**
+ * Petición con verbo arbitrario. Hace falta para QUERY: el `.query()` de
+ * supertest es el setter de query-string de superagent, no el método HTTP,
+ * así que ese verbo no se puede emitir con supertest.
+ */
+const rawRequest = (method: string, pathname: string, body?: unknown) =>
+  new Promise<{ status: number; body: any }>((resolve, reject) => {
+    const { port } = internalServer().address() as { port: number };
+    const payload = body === undefined ? undefined : JSON.stringify(body);
+    const req = http.request(
+      {
+        host: '127.0.0.1',
+        port,
+        path: pathname,
+        method,
+        headers: payload
+          ? {
+              'content-type': 'application/json',
+              'content-length': Buffer.byteLength(payload),
+            }
+          : {},
+      },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => (raw += chunk));
+        res.on('end', () =>
+          resolve({
+            status: res.statusCode as number,
+            body: raw ? JSON.parse(raw) : null,
+          }),
+        );
+      },
+    );
+    req.on('error', reject);
+    req.end(payload);
+  });
 
 beforeAll(async () => {
   liteb.setApis('/api', ['./test/fixtures/*.api.ts']);
@@ -79,6 +121,27 @@ describe('errores de dominio', () => {
       message: 'cliente no existe',
       identifier: ErrorIdentifier.NOT_FOUND,
     });
+  });
+});
+
+describe('método HTTP QUERY', () => {
+  it('rutea un endpoint QUERY y recibe los criterios en el cuerpo', async () => {
+    const res = await rawRequest('QUERY', '/api/busqueda/clientes', {
+      termino: 'erick',
+      ciudad: 'California',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ buscado: 'erick', ciudad: 'California' });
+  });
+
+  it('valida el cuerpo del QUERY con @Body', async () => {
+    const res = await rawRequest('QUERY', '/api/busqueda/clientes', {
+      ciudad: 'California',
+    });
+
+    expect(res.status).toBe(422);
+    expect(res.body.errors).toHaveProperty('termino');
   });
 });
 

@@ -56,18 +56,19 @@ export default class Server {
     const router = Router();
     options.forEach((option) => {
       const fullPath = slash(path.join('/', option.path));
-      router[option.method](fullPath, ...option.getHandlers());
+      const register = router[option.method];
+      // Un verbo puede no existir en el runtime (p. ej. QUERY en un Node cuyo
+      // parser HTTP todavía no lo reconoce): omitimos la ruta con un error
+      // claro en vez de tumbar el arranque con "is not a function".
+      if (typeof register !== 'function') {
+        Logger.error(
+          `HTTP method "${option.method.toUpperCase()}" is not supported by this Node/Express version; skipping route ${fullPath}`,
+        );
+        return;
+      }
+      register.call(router, fullPath, ...option.getHandlers());
     });
     this.app.use(slash(path.join('/', moduleName)), router);
-  };
-
-  /**
-   * Registra un endpoint individual en la raíz de la aplicación o bajo la ruta especificada.
-   * @param option Objeto RouterOption que describe la ruta, método y handlers a registrar.
-   */
-  protected enpoint = (option: RouterOption) => {
-    const fullPath = slash(path.join('/', option.path));
-    this.app[option.method](fullPath, ...option.getHandlers());
   };
 
   /**

@@ -1,6 +1,19 @@
 import 'reflect-metadata';
 import Liteb from './core/liteb';
-export { Get, Post, Delete, Put, Patch } from './decorators/http.decorator';
+export {
+  HttpGet,
+  HttpPost,
+  HttpDelete,
+  HttpPut,
+  HttpPatch,
+  HttpQuery,
+  // Alias deprecados, mantenidos para migrar sin presión.
+  Get,
+  Post,
+  Delete,
+  Put,
+  Patch,
+} from './decorators/http.decorator';
 export { Body, Params, Query } from './decorators/request.decorator';
 export { Module } from './decorators/module.decorator';
 export { Priority } from './decorators/priority.decorator';

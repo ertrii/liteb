@@ -5,6 +5,7 @@ import {
   PATCH,
   POST,
   PUT,
+  QUERY_METHOD,
 } from '../decorators/http.decorator';
 import { MODULE, ModuleMetadata } from '../decorators/module.decorator';
 import {
@@ -33,7 +34,7 @@ import {
 export default class ApiReader {
   public moduleName: string;
   public pathname: string;
-  public method: 'get' | 'post' | 'put' | 'delete' | 'patch';
+  public method: 'get' | 'post' | 'put' | 'delete' | 'patch' | 'query';
   public view: string | null = null;
   public priority: number | null = null;
   public ParamsSchema: new () => Record<string, any> = undefined;
@@ -62,6 +63,7 @@ export default class ApiReader {
       ['put', PUT],
       ['delete', DELETE],
       ['patch', PATCH],
+      ['query', QUERY_METHOD],
     ];
     for (const [method, KEY] of MethodKeys) {
       const metadata = Reflect.getMetadata(KEY, this.ApiClass) as HTTPMetadata;
