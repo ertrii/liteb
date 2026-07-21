@@ -84,7 +84,13 @@ export abstract class Api<
   }
 
   /**
-   * @deprecated use createQueryRunner or queue
+   * @deprecated Usa `this.db.transaction(cb)` de TypeORM. Se eliminará en una
+   * versión mayor futura.
+   *
+   * @example
+   * await this.db.transaction(async (manager) => {
+   *   await manager.save(cliente);
+   * }); // commit / rollback / release automáticos
    */
   protected createTransaction = () => {
     return new Transaction(this.db);

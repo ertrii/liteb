@@ -2,6 +2,27 @@ import { DataSource, QueryRunner, ReplicationMode } from 'typeorm';
 import { Service } from '../templates/service';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 
+/**
+ * @deprecated Usa `dataSource.transaction(cb)` de TypeORM. Se eliminará en una
+ * versión mayor futura.
+ *
+ * `Queue` nació para acumular servicios y guardarlos EN PARALELO dentro de una
+ * transacción, pero ese objetivo es inalcanzable: un `QueryRunner` envuelve una
+ * sola conexión, así que las sentencias se serializan igual. El `Promise.all`
+ * de `save()` no paraleliza nada y además deja el orden y la propagación de
+ * errores indefinidos. Para paralelizar de verdad harían falta varias
+ * conexiones, y entonces se pierde la atomicidad.
+ *
+ * @example
+ * // En lugar de Queue:
+ * await this.db.transaction(async (manager) => {
+ *   await manager.save(cliente);
+ *   await manager.save(deuda);
+ * }); // commit / rollback / release automáticos
+ *
+ * Se prefiere `transaction()` sobre `createQueryRunner()` porque libera la
+ * conexión sola: olvidar `release()` filtra conexiones hasta agotar el pool.
+ */
 export class Queue {
   private started = false;
   private queryRunner: QueryRunner;

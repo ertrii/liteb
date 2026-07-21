@@ -135,7 +135,6 @@ export default class Liteb extends Server {
       })
       .flat();
 
-    // this.app.set('views', modules);
     this.templatesAsync = modules;
   };
 

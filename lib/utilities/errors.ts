@@ -23,7 +23,13 @@ export class CustomerError<T = Record<string, string>> {
 }
 
 /**
- * @deprecated use Error
+ * @deprecated Lanza un `Error` nativo. Se eliminará en una versión mayor futura.
+ *
+ * `ErrorControl` ya mapea cualquier `Error` a un 500 conservando su mensaje y
+ * dejándolo en el log, así que envolverlo no aporta nada.
+ *
+ * @example
+ * throw new Error('No se pudo declarar el pago.');
  */
 export class InternalError {
   identifier = ErrorIdentifier.INTERNAL;

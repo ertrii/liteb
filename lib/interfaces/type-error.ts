@@ -20,9 +20,7 @@ export type ErrorType =
 export enum ErrorIdentifier {
   SCHEMA = 'schema',
   CUSTOMER = 'customer',
-  CLIENT = 'client',
   NOT_FOUND = 'not_found',
-  DEPENDENCY = 'dependency',
   INTERNAL = 'internal',
   UNAUTHORIZED = 'unauthorized',
   CUSTOM = 'custom',
