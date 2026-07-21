@@ -3,25 +3,26 @@ import { Service } from '../templates/service';
 import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 
 /**
- * @deprecated Usa `dataSource.transaction(cb)` de TypeORM. Se eliminará en una
- * versión mayor futura.
+ * @deprecated Use TypeORM's `dataSource.transaction(cb)`. Will be removed in a
+ * future major version.
  *
- * `Queue` nació para acumular servicios y guardarlos EN PARALELO dentro de una
- * transacción, pero ese objetivo es inalcanzable: un `QueryRunner` envuelve una
- * sola conexión, así que las sentencias se serializan igual. El `Promise.all`
- * de `save()` no paraleliza nada y además deja el orden y la propagación de
- * errores indefinidos. Para paralelizar de verdad harían falta varias
- * conexiones, y entonces se pierde la atomicidad.
+ * `Queue` was created to collect services and save them IN PARALLEL within a
+ * transaction, but that goal is unreachable: a `QueryRunner` wraps a single
+ * connection, so the statements are serialized anyway. The `Promise.all` in
+ * `save()` parallelizes nothing and, worse, leaves the ordering and error
+ * propagation undefined. Real parallelism would require several connections,
+ * and then atomicity is lost.
  *
  * @example
- * // En lugar de Queue:
+ * // Instead of Queue:
  * await this.db.transaction(async (manager) => {
- *   await manager.save(cliente);
- *   await manager.save(deuda);
- * }); // commit / rollback / release automáticos
+ *   await manager.save(customer);
+ *   await manager.save(charge);
+ * }); // automatic commit / rollback / release
  *
- * Se prefiere `transaction()` sobre `createQueryRunner()` porque libera la
- * conexión sola: olvidar `release()` filtra conexiones hasta agotar el pool.
+ * Prefer `transaction()` over `createQueryRunner()` because it releases the
+ * connection for you: forgetting `release()` leaks connections until the pool
+ * is exhausted.
  */
 export class Queue {
   private started = false;

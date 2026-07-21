@@ -10,9 +10,9 @@ export class EchoQueryDto {
 }
 
 /**
- * Devuelve el `value` que recibió, tras esperar `delay` ms. El retardo permite
- * solapar dos peticiones a propósito para verificar que el estado es POR
- * INSTANCIA y no por prototype (regresión de estado compartido).
+ * Returns the `value` it received, after waiting `delay` ms. The delay lets us
+ * overlap two requests on purpose to verify that state is PER INSTANCE and not
+ * per prototype (shared-state regression).
  */
 @Module('eco')
 @Get('')

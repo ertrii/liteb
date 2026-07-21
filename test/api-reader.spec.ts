@@ -34,7 +34,7 @@ class CreateUserApi extends Api {
   }
 }
 
-/** Sin decoradores: el lector debe descartarla. */
+/** No decorators: the reader must discard it. */
 class NakedApi extends Api {
   main() {
     return null;

@@ -23,13 +23,13 @@ export class CustomerError<T = Record<string, string>> {
 }
 
 /**
- * @deprecated Lanza un `Error` nativo. Se eliminará en una versión mayor futura.
+ * @deprecated Throw a native `Error`. Will be removed in a future major version.
  *
- * `ErrorControl` ya mapea cualquier `Error` a un 500 conservando su mensaje y
- * dejándolo en el log, así que envolverlo no aporta nada.
+ * `ErrorControl` already maps any `Error` to a 500, keeping its message and
+ * logging it, so wrapping it adds nothing.
  *
  * @example
- * throw new Error('No se pudo declarar el pago.');
+ * throw new Error('Could not record the payment.');
  */
 export class InternalError {
   identifier = ErrorIdentifier.INTERNAL;

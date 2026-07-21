@@ -1,7 +1,7 @@
 {
   "name": "liteb",
   "npmName": "liteb",
-  "version": "1.0.0-beta.7.5",
+  "version": "1.0.0-rc.1",
   "description": "Is a simple backend framework",
   "main": "./dist/lib/index.js",
   "types": "./types/lib/index.d.ts",
@@ -15,9 +15,10 @@
   },
   "files": [
     "dist",
-    "Readme.md",
-    "LICENSE",
-    "types"
+    "types",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "keywords": [
     "backed",
@@ -29,7 +30,7 @@
   "author": "Erick <ertriilive@gmail.com> (https://github.com/ertrii)",
   "license": "MIT",
   "engines": {
-    "node": ">=21.0.0"
+    "node": ">=20.0.0"
   },
   "repository": {
     "type": "git",

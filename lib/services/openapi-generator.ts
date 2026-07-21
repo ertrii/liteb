@@ -138,8 +138,8 @@ export class OpenAPIGenerator {
     for (const group of groups) {
       for (const reader of group.apiReaders) {
         if (reader.requiereRender()) continue; // skip view-rendering endpoints
-        // OpenAPI 3 no define QUERY como operación: incluirlo generaría un
-        // documento inválido, así que se omite del spec.
+        // OpenAPI 3 does not define QUERY as an operation: including it would
+        // produce an invalid document, so it is omitted from the spec.
         if (reader.method === 'query') continue;
 
         const url = fullPath(

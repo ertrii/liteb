@@ -8,5 +8,5 @@ export class HelloApi extends Api {
   }
 }
 
-/** Export extra a propósito: el lector debe ignorarlo sin reventar. */
+/** Extra export on purpose: the reader must ignore it without crashing. */
 export const NO_ES_UNA_API = { cualquier: 'cosa' };

@@ -57,9 +57,9 @@ export default class Server {
     options.forEach((option) => {
       const fullPath = slash(path.join('/', option.path));
       const register = router[option.method];
-      // Un verbo puede no existir en el runtime (p. ej. QUERY en un Node cuyo
-      // parser HTTP todavía no lo reconoce): omitimos la ruta con un error
-      // claro en vez de tumbar el arranque con "is not a function".
+      // A verb may not exist in the runtime (e.g. QUERY on a Node whose HTTP
+      // parser does not recognize it yet): skip the route with a clear error
+      // instead of crashing startup with "is not a function".
       if (typeof register !== 'function') {
         Logger.error(
           `HTTP method "${option.method.toUpperCase()}" is not supported by this Node/Express version; skipping route ${fullPath}`,
@@ -86,8 +86,8 @@ export default class Server {
   };
 
   /**
-   * Cierra el servidor HTTP: deja de aceptar conexiones nuevas y espera a que
-   * terminen las peticiones en vuelo. Resuelve de inmediato si no hay servidor.
+   * Closes the HTTP server: stops accepting new connections and waits for
+   * in-flight requests to finish. Resolves immediately if there is no server.
    */
   protected closeServer = () => {
     return new Promise<void>((resolve, reject) => {

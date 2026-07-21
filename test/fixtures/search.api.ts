@@ -11,8 +11,8 @@ export class SearchBodyDto {
 }
 
 /**
- * Método HTTP QUERY: seguro e idempotente como GET, pero con criterios en el
- * cuerpo (`@Body`) en vez del query-string.
+ * HTTP QUERY method: safe and idempotent like GET, but with criteria in the
+ * body (`@Body`) instead of the query string.
  */
 @Module('busqueda')
 @HttpQuery('clientes')

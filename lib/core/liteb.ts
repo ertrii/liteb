@@ -184,9 +184,9 @@ export default class Liteb extends Server {
     if (this.started) return;
     this.started = true;
 
-    // Inicializar base de datos. Si falla es un error FATAL: relanzamos para
-    // que el proceso termine con código distinto de cero y el orquestador
-    // (Docker/PM2) lo reinicie, en lugar de quedar vivo sin servidor.
+    // Initialize the database. If it fails it is a FATAL error: rethrow so the
+    // process exits with a non-zero code and the orchestrator (Docker/PM2)
+    // restarts it, instead of staying alive with no server.
     Logger.info('Loading database...');
     try {
       await this.dbSource.initialize();
@@ -283,8 +283,8 @@ export default class Liteb extends Server {
       );
     }
 
-    // Fallback 404: va DESPUÉS de todos los routers para capturar sólo lo que
-    // ninguno atendió.
+    // 404 fallback: goes AFTER every router so it only catches what none of
+    // them handled.
     this.registerNotFoundHandler();
 
     // Iniciar el servidor HTTP
@@ -314,14 +314,14 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Registra el manejador final para rutas no encontradas, de modo que un 404
-   * responda con el MISMO contrato de error que el resto del framework
-   * (`{ message, response, errorFields, identifier }`) en lugar del HTML por
-   * defecto de Express.
+   * Registers the final handler for unmatched routes, so a 404 responds with
+   * the SAME error contract as the rest of the framework
+   * (`{ message, response, errorFields, identifier }`) instead of Express's
+   * default HTML.
    *
-   * Se registra al final del arranque, así que cualquier ruta que se agregue
-   * a mano vía `getApp()` DESPUÉS de `start()` quedaría detrás de este
-   * fallback y nunca se alcanzaría: agrégalas antes de arrancar.
+   * It is registered at the end of startup, so any route added by hand via
+   * `getApp()` AFTER `start()` would sit behind this fallback and never be
+   * reached: add those before starting.
    */
   private registerNotFoundHandler = () => {
     this.app.use((req: Request, res: Response) => {
@@ -333,8 +333,8 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Registra manejadores de SIGTERM/SIGINT para un apagado ordenado.
-   * Usa `process.once` para que una segunda señal no reentre.
+   * Registers SIGTERM/SIGINT handlers for an ordered shutdown.
+   * Uses `process.once` so a second signal does not re-enter.
    */
   private registerShutdownHooks = () => {
     process.once('SIGTERM', () => void this.shutdown('SIGTERM'));
@@ -342,36 +342,36 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Apagado ordenado: detiene los cron, deja de aceptar peticiones nuevas y
-   * espera a las que están en vuelo, cierra la conexión de base de datos y
-   * termina el proceso. Seguro ante llamadas múltiples.
+   * Ordered shutdown: stops the cron tasks, stops accepting new requests and
+   * waits for in-flight ones, closes the database connection and ends the
+   * process. Safe against multiple calls.
    *
-   * @param signal Señal o motivo que disparó el apagado (sólo informativo).
+   * @param signal Signal or reason that triggered the shutdown (informational).
    */
   public shutdown = async (signal: string = 'manual') => {
     if (this.shuttingDown) return;
     this.shuttingDown = true;
     Logger.info(`Shutting down (${signal})...`);
 
-    // Red de seguridad: si el cierre ordenado se cuelga (p. ej. conexiones
-    // keep-alive), forzamos la salida para no bloquear el reinicio.
+    // Safety net: if the ordered shutdown hangs (e.g. keep-alive connections),
+    // force the exit so the restart is not blocked.
     const forceExit = setTimeout(() => {
       Logger.error('Shutdown timed out; forcing exit.');
       process.exit(1);
     }, 10_000);
     forceExit.unref();
 
-    // 1. Detener tareas programadas para que no arranque nada nuevo.
+    // 1. Stop scheduled tasks so nothing new starts.
     this.scheduledTasks.forEach((task) => task.stop());
 
-    // 2. Cerrar el servidor HTTP: sin conexiones nuevas, esperar en vuelo.
+    // 2. Close the HTTP server: no new connections, wait for in-flight ones.
     try {
       await this.closeServer();
     } catch (error) {
       Logger.error('Error closing HTTP server', error);
     }
 
-    // 3. Cerrar la conexión de base de datos.
+    // 3. Close the database connection.
     try {
       if (this.dbSource.isInitialized) {
         await this.dbSource.destroy();

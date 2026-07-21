@@ -42,7 +42,7 @@ describe('decoradores HTTP', () => {
   });
 
   it('los alias deprecados son los mismos decoradores', () => {
-    // Garantiza que el código existente sigue funcionando sin cambios.
+    // Guarantees existing code keeps working unchanged.
     expect(Get).toBe(HttpGet);
     expect(Patch).toBe(HttpPatch);
   });

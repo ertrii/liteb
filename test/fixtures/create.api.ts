@@ -15,7 +15,7 @@ export class CreateCustomerApi extends Api<null, CreateBodyDto> {
   }
 }
 
-/** Lanza un error de dominio: debe salir mapeado a 404 por ErrorControl. */
+/** Throws a domain error: it must come out mapped to 404 by ErrorControl. */
 @Module('clientes')
 @Post('falla')
 export class FailingApi extends Api {

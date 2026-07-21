@@ -49,8 +49,8 @@ describe('schemaValidator', () => {
   });
 
   it('no coacciona strings a number sin @Type: "2" no es un entero válido', async () => {
-    // Documenta el comportamiento real: los query params llegan como string,
-    // así que un DTO con @IsInt necesita @Type(() => Number) para pasar.
+    // Documents the real behavior: query params arrive as strings, so a DTO
+    // with @IsInt needs @Type(() => Number) to pass.
     const result = await schemaValidator(PageDto, { page: '2' });
 
     expect(result).not.toBeNull();

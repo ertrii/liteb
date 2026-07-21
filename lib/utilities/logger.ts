@@ -10,14 +10,14 @@ import log4js, {
 
 export class Logger {
   /**
-   * Configura el destino de los logs. Por defecto liteb escribe SÓLO a
-   * consola; pasar `dir` habilita además los archivos rotados.
+   * Configures the log destination. By default liteb writes to the console
+   * ONLY; passing `dir` also enables rotating files.
    *
-   * Llamar antes de `start()` para que el arranque quede registrado.
+   * Call before `start()` so startup is logged.
    *
    * @example
-   * Logger.configure({ dir: './logs' });   // habilita archivos
-   * Logger.configure({ level: 'off' });    // silencia todo (tests)
+   * Logger.configure({ dir: './logs' });   // enables files
+   * Logger.configure({ level: 'off' });    // silence everything (tests)
    */
   static configure(options: LoggerOptions = {}) {
     return configureLogger(options);
@@ -76,10 +76,10 @@ export class Logger {
   }
 
   /**
-   * Limpia el contenido del archivo de log para una categoría dada. Si el
-   * logging a archivo está desactivado (default), no hace nada.
-   * @param category Nombre de la categoría/log (ejemplo: 'info', 'warn', 'error', 'router').
-   * @returns true si la operación fue exitosa, false si no había nada que limpiar o hubo un error.
+   * Clears the contents of the log file for a given category. If file logging
+   * is disabled (the default), it does nothing.
+   * @param category Category/log name (e.g. 'info', 'warn', 'error', 'router').
+   * @returns true on success, false if there was nothing to clear or an error occurred.
    */
   static clear(category: string) {
     const dir = getLogDir();

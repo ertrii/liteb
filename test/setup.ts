@@ -1,3 +1,3 @@
-// Silencia el logger durante los tests. Va en `setupFiles` (antes de importar
-// los módulos de prueba) porque el logger se configura al importarse.
+// Silences the logger during tests. Goes in `setupFiles` (before importing the
+// test modules) because the logger is configured on import.
 process.env.LITEB_LOG_LEVEL = 'off';

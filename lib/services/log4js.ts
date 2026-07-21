@@ -4,14 +4,14 @@ import * as path from 'path';
 
 export interface LoggerOptions {
   /**
-   * Directorio donde escribir los archivos de log. Omitido o `null` = SÓLO
-   * consola (por defecto): el framework no toca el disco. Puede venir también
-   * de la variable de entorno `LITEB_LOG_DIR`.
+   * Directory to write log files to. Omitted or `null` = console ONLY (the
+   * default): the framework does not touch the disk. Can also come from the
+   * `LITEB_LOG_DIR` environment variable.
    */
   dir?: string | null;
   /**
-   * Nivel mínimo: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'off'.
-   * Por defecto 'trace'. También se puede fijar con `LITEB_LOG_LEVEL`.
+   * Minimum level: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'off'.
+   * Defaults to 'trace'. Can also be set with `LITEB_LOG_LEVEL`.
    */
   level?: string;
 }
@@ -41,16 +41,16 @@ const fileAppender = (dir: string, name: string, label: string) => ({
 
 let currentDir: string | null = null;
 
-/** Directorio de logs en uso, o `null` si sólo se escribe a consola. */
+/** Log directory in use, or `null` if writing to the console only. */
 export const getLogDir = () => currentDir;
 
 /**
- * (Re)configura el logger. Sin `dir` escribe únicamente a consola, que es el
- * comportamiento por defecto: así liteb arranca en contenedores y sistemas de
- * archivos de sólo lectura sin tocar el disco.
+ * (Re)configures the logger. Without `dir` it writes to the console only, which
+ * is the default behavior: this way liteb starts in containers and read-only
+ * file systems without touching the disk.
  *
- * Si el directorio pedido no se puede crear (permisos, FS de sólo lectura),
- * degrada a consola en lugar de hacer fallar el arranque.
+ * If the requested directory cannot be created (permissions, read-only FS), it
+ * degrades to console logging instead of failing to start.
  */
 export function configureLogger(options: LoggerOptions = {}) {
   const level = options.level ?? process.env.LITEB_LOG_LEVEL ?? 'trace';
@@ -60,7 +60,7 @@ export function configureLogger(options: LoggerOptions = {}) {
     try {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     } catch {
-      // Sin permiso de escritura: seguimos sólo con consola.
+      // No write permission: fall back to console only.
       dir = null;
     }
   }
@@ -77,8 +77,8 @@ export function configureLogger(options: LoggerOptions = {}) {
   const info = withFile('info', 'INFO');
   const warn = withFile('warn', 'WARN');
   const error = withFile('error', 'ERROR');
-  // El listado de rutas va al archivo cuando hay uno; si no, a consola (de lo
-  // contrario se perdería en silencio).
+  // The route listing goes to the file when there is one; otherwise to the
+  // console (else it would be silently lost).
   const router = dir ? ['router'] : ['console'];
   if (dir) appenders.router = fileAppender(dir, 'router', 'ROUTER');
 

@@ -19,35 +19,34 @@ const httpDecorator = (KEY: symbol) => {
   };
 };
 
-/** Registra la clase como endpoint HTTP GET. */
+/** Registers the class as an HTTP GET endpoint. */
 export const HttpGet = httpDecorator(GET);
-/** Registra la clase como endpoint HTTP POST. */
+/** Registers the class as an HTTP POST endpoint. */
 export const HttpPost = httpDecorator(POST);
-/** Registra la clase como endpoint HTTP PUT. */
+/** Registers the class as an HTTP PUT endpoint. */
 export const HttpPut = httpDecorator(PUT);
-/** Registra la clase como endpoint HTTP DELETE. */
+/** Registers the class as an HTTP DELETE endpoint. */
 export const HttpDelete = httpDecorator(DELETE);
-/** Registra la clase como endpoint HTTP PATCH. */
+/** Registers the class as an HTTP PATCH endpoint. */
 export const HttpPatch = httpDecorator(PATCH);
 /**
- * Registra la clase como endpoint HTTP QUERY: un método seguro e idempotente
- * que, a diferencia de GET, admite cuerpo. Pensado para búsquedas cuyos
- * criterios son demasiado grandes o complejos para el query-string; esos
- * criterios se declaran con `@Body`.
+ * Registers the class as an HTTP QUERY endpoint: a safe, idempotent method
+ * that, unlike GET, allows a body. Meant for searches whose criteria are too
+ * large or complex for the query string; declare those criteria with `@Body`.
  *
- * Ojo: QUERY es un borrador de la IETF (`draft-ietf-httpbis-safe-method-w-body`),
- * no un estándar cerrado. Requiere un Node cuyo parser HTTP lo reconozca y
- * puede no estar soportado por proxies, CDNs o clientes intermedios.
+ * Note: QUERY is an IETF draft (`draft-ietf-httpbis-safe-method-w-body`), not a
+ * finalized standard. It requires a Node whose HTTP parser recognizes it and
+ * may not be supported by proxies, CDNs or intermediate clients.
  */
 export const HttpQuery = httpDecorator(QUERY_METHOD);
 
-/** @deprecated usa `HttpGet`. Se eliminará en una versión mayor futura. */
+/** @deprecated use `HttpGet`. Will be removed in a future major version. */
 export const Get = HttpGet;
-/** @deprecated usa `HttpPost`. Se eliminará en una versión mayor futura. */
+/** @deprecated use `HttpPost`. Will be removed in a future major version. */
 export const Post = HttpPost;
-/** @deprecated usa `HttpPut`. Se eliminará en una versión mayor futura. */
+/** @deprecated use `HttpPut`. Will be removed in a future major version. */
 export const Put = HttpPut;
-/** @deprecated usa `HttpDelete`. Se eliminará en una versión mayor futura. */
+/** @deprecated use `HttpDelete`. Will be removed in a future major version. */
 export const Delete = HttpDelete;
-/** @deprecated usa `HttpPatch`. Se eliminará en una versión mayor futura. */
+/** @deprecated use `HttpPatch`. Will be removed in a future major version. */
 export const Patch = HttpPatch;

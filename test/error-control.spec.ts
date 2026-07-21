@@ -76,7 +76,7 @@ describe('ErrorControl', () => {
   });
 
   it('un error desconocido usa el mensaje por defecto, coherente con el 500', () => {
-    // Lanzar un primitivo no matchea ninguna rama conocida.
+    // Throwing a primitive matches no known branch.
     const control = new ErrorControl('boom' as unknown as Error);
 
     expect(control.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);

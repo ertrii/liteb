@@ -2,22 +2,22 @@ import { plainToClassFromExist } from 'class-transformer';
 import { EntityManager } from 'typeorm';
 
 /**
- * @deprecated Define tu propia clase base en la aplicación. Se eliminará en una
- * versión mayor futura.
+ * @deprecated Define your own base class in the application. Will be removed in
+ * a future major version.
  *
- * `Service` existía para alimentar a {@link Queue}: su `save(manager)` está
- * pensado para que la cola lo invoque con el manager de la transacción. Al
- * quedar `Queue` deprecado, ese contrato pierde sentido, y una clase base para
- * servicios de dominio es una decisión de la APLICACIÓN, no del framework.
+ * `Service` existed to feed {@link Queue}: its `save(manager)` is meant to be
+ * invoked by the queue with the transaction manager. With `Queue` deprecated,
+ * that contract no longer makes sense, and a base class for domain services is
+ * an APPLICATION decision, not a framework one.
  *
  * @example
- * // Guardar dentro de una transacción, sin intermediarios:
+ * // Save within a transaction, with no intermediaries:
  * await this.db.transaction(async (manager) => {
- *   await manager.save(cliente);
+ *   await manager.save(customer);
  * });
  *
- * // Y si te sirve el patrón "entidad + helpers", declaralo en tu proyecto
- * // con el contrato que necesites, en vez de heredarlo del framework.
+ * // And if the "entity + helpers" pattern is useful, declare it in your own
+ * // project with whatever contract you need, instead of inheriting it here.
  */
 export abstract class Service<T> {
   protected abstract entity: T;

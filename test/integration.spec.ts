@@ -7,8 +7,8 @@ import { Liteb } from '../lib';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 
 /**
- * DataSource de utilería: `start()` sólo necesita `initialize()`. Ninguna de
- * las APIs de prueba consulta la base, así que no hace falta Postgres.
+ * Throwaway DataSource: `start()` only needs `initialize()`. None of the test
+ * APIs query the database, so no Postgres is required.
  */
 const fakeDataSource = {
   initialize: async () => undefined,
@@ -19,14 +19,14 @@ const fakeDataSource = {
 const liteb = new Liteb(fakeDataSource);
 const app = () => liteb.getApp();
 
-/** Acceso al `http.Server` interno (protegido) para conocer el puerto efímero. */
+/** Access the internal (protected) `http.Server` to learn the ephemeral port. */
 const internalServer = () =>
   (liteb as unknown as { server: http.Server }).server;
 
 /**
- * Petición con verbo arbitrario. Hace falta para QUERY: el `.query()` de
- * supertest es el setter de query-string de superagent, no el método HTTP,
- * así que ese verbo no se puede emitir con supertest.
+ * Request with an arbitrary verb. Needed for QUERY: supertest's `.query()` is
+ * superagent's query-string setter, not the HTTP method, so that verb cannot be
+ * emitted with supertest.
  */
 const rawRequest = (method: string, pathname: string, body?: unknown) =>
   new Promise<{ status: number; body: any }>((resolve, reject) => {
@@ -62,12 +62,12 @@ const rawRequest = (method: string, pathname: string, body?: unknown) =>
 
 beforeAll(async () => {
   liteb.setApis('/api', ['./test/fixtures/*.api.ts']);
-  // Puerto 0 = efímero, para no chocar con nada en la máquina.
+  // Port 0 = ephemeral, so it doesn't clash with anything on the machine.
   await liteb.start(0);
 });
 
 afterAll(async () => {
-  // `shutdown()` llama a process.exit y mataría a jest: cerramos a mano.
+  // `shutdown()` calls process.exit and would kill jest: close by hand.
   const server = (liteb as unknown as { server?: { close: (cb: () => void) => void } })
     .server;
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -146,9 +146,9 @@ describe('método HTTP QUERY', () => {
 });
 
 describe('aislamiento de estado por petición', () => {
-  // Regresión: el estado de la request se asignaba en el prototype, así que
-  // dos peticiones concurrentes al MISMO endpoint se pisaban y ambas
-  // terminaban viendo los datos de la última.
+  // Regression: request state was assigned on the prototype, so two concurrent
+  // requests to the SAME endpoint overwrote each other and both ended up seeing
+  // the last one's data.
   it('dos peticiones concurrentes no se pisan el query', async () => {
     const lenta = request(app()).get('/api/eco').query({ value: 'a', delay: '60' });
     const rapida = request(app()).get('/api/eco').query({ value: 'b', delay: '0' });
