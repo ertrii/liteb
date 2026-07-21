@@ -9,6 +9,7 @@ const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/test'],
+  setupFiles: ['<rootDir>/test/setup.ts'],
   verbose: true,
 };
 

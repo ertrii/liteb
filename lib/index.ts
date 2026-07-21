@@ -24,6 +24,7 @@ export * from './templates/api';
 export * from './templates/middleware';
 export * from './templates/task';
 export * from './utilities/logger';
+export type { LoggerOptions } from './services/log4js';
 export * from './utilities/errors';
 export * from './utilities/config-service';
 export * from './templates/service';

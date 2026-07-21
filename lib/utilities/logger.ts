@@ -2,9 +2,27 @@ import * as fs from 'fs';
 import * as path from 'path';
 import ApiReader from '../core/api-reader';
 import slash from 'slash';
-import log4js from '../services/log4js';
+import log4js, {
+  configureLogger,
+  getLogDir,
+  LoggerOptions,
+} from '../services/log4js';
 
 export class Logger {
+  /**
+   * Configura el destino de los logs. Por defecto liteb escribe SÓLO a
+   * consola; pasar `dir` habilita además los archivos rotados.
+   *
+   * Llamar antes de `start()` para que el arranque quede registrado.
+   *
+   * @example
+   * Logger.configure({ dir: './logs' });   // habilita archivos
+   * Logger.configure({ level: 'off' });    // silencia todo (tests)
+   */
+  static configure(options: LoggerOptions = {}) {
+    return configureLogger(options);
+  }
+
   /**
    * Registra un mensaje a nivel 'info' en el archivo y consola.
    * @param message Mensaje principal a registrar.
@@ -58,14 +76,16 @@ export class Logger {
   }
 
   /**
-   * Limpia el contenido del archivo de log para una categoría dada.
+   * Limpia el contenido del archivo de log para una categoría dada. Si el
+   * logging a archivo está desactivado (default), no hace nada.
    * @param category Nombre de la categoría/log (ejemplo: 'info', 'warn', 'error', 'router').
-   * @returns true si la operación fue exitosa, false si hubo un error.
+   * @returns true si la operación fue exitosa, false si no había nada que limpiar o hubo un error.
    */
   static clear(category: string) {
+    const dir = getLogDir();
+    if (!dir) return false;
     try {
-      const logFile = path.join(process.cwd(), `logs/${category}.log`);
-      fs.writeFileSync(logFile, '');
+      fs.writeFileSync(path.join(dir, `${category}.log`), '');
       return true;
     } catch (err) {
       return false;
