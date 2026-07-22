@@ -7,7 +7,7 @@ export {
   HttpPut,
   HttpPatch,
   HttpQuery,
-  // Alias deprecados, mantenidos para migrar sin presión.
+  // Deprecated aliases, kept so you can migrate without pressure.
   Get,
   Post,
   Delete,

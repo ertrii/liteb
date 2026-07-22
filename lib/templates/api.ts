@@ -36,35 +36,36 @@ export abstract class Api<
   public httpStatus: HttpStatus = HttpStatus.OK;
 
   /**
-   * Se ejecuta antes del método principal (main)
+   * Runs before the main method (main).
    */
   public previous(): void | Promise<void> {}
   /**
-   * Método principal del endpoint.
-   * Debe implementar la lógica de negocio y devolver la respuesta al cliente.
-   * Puede retornar datos, objetos de error, o null según la lógica de la API.
+   * Main method of the endpoint.
+   * Must implement the business logic and return the response to the client.
+   * May return data, error objects, or null depending on the API's logic.
    */
   public abstract main(): DataJson | Promise<DataJson>;
   /**
-   * Maneja y procesa los errores generados durante la ejecución del método main.
-   * Permite personalizar la respuesta de error que se envía al cliente, según el tipo de error recibido.
-   * Puede utilizarse para registrar, transformar o modificar la estructura del error antes de devolverlo.
-   * @param error Instancia del error capturado en el método main.
-   * @returns Un objeto de error personalizado, nulo o una promesa, según la necesidad de la implementación.
+   * Handles and processes the errors raised while running the main method.
+   * Lets you customize the error response sent to the client based on the type
+   * of error received. Can be used to log, transform or reshape the error
+   * before returning it.
+   * @param error The error instance caught in the main method.
+   * @returns A custom error object, null, or a promise, as the implementation needs.
    */
   public error(error: ErrorType): ErrorResponse | Promise<ErrorResponse> {}
   /**
-   * Se ejecuta después de que el método principal (main) y la gestión de errores hayan finalizado.
-   * Útil para realizar tareas de limpieza, registro de logs o cualquier acción final posterior a la respuesta al cliente.
+   * Runs after the main method (main) and error handling have finished.
+   * Useful for cleanup, logging, or any final action after the client response.
    */
   public final(): void | Promise<void> {}
 
   /**
-   * Registra una sesión.
-   * @param key clave registro
+   * Stores a value in the session.
+   * @param key session key
    * @param value
    * @example
-   * // Equivalente a
+   * // Equivalent to
    * this.request.session.key = value
    */
   protected setSession(key: string, value: any) {
@@ -73,10 +74,10 @@ export abstract class Api<
   }
 
   /**
-   * Retorna el valor sesión por key
-   * @param key clave registro
+   * Returns the session value for a key.
+   * @param key session key
    * @example
-   * // Equivalente a
+   * // Equivalent to
    * this.request.session.key
    */
   protected getSession(key: string) {

@@ -40,10 +40,10 @@ export default class Liteb extends Server {
   } | null = null;
 
   /**
-   * Agrupa ApiReader por nombre de módulo.
+   * Groups ApiReaders by module name.
    *
-   * @param apiReaders Arreglo de instancias de ApiReader.
-   * @returns Un objeto que contiene los ApiReaders agrupados por nombre de módulo.
+   * @param apiReaders Array of ApiReader instances.
+   * @returns An object holding the ApiReaders grouped by module name.
    */
   private groupApiReaders = (apiReaders: ApiReader[]) => {
     return apiReaders.reduce(
@@ -60,8 +60,8 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Crea una instancia de Liteb.
-   * @param dbSource Instancia de DataSource de TypeORM para acceso a base de datos.
+   * Creates a Liteb instance.
+   * @param dbSource TypeORM DataSource instance for database access.
    */
   constructor(private dbSource: DataSource) {
     super();
@@ -115,10 +115,10 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Configura el motor de plantillas y el directorio de vistas.
+   * Configures the template engine and the views directory.
    *
-   * @param engine Motor de plantillas (ejemplo: 'ejs' o 'pug').
-   * @param root Directorio raíz donde se encuentran las plantillas.
+   * @param engine Template engine (e.g. 'ejs' or 'pug').
+   * @param root Root directory where the templates live.
    */
   public setTemplates = async (
     engine: 'ejs' | 'pug',
@@ -203,7 +203,7 @@ export default class Liteb extends Server {
     }
 
     Logger.info('Reading API and creating routes...');
-    // Resolver patrones de API por grupo (cada grupo tiene su propio basePath)
+    // Resolve API patterns per group (each group has its own basePath)
     const resolvedGroups: Array<{
       basePath: string;
       apiReaders: ApiReader[];
@@ -213,10 +213,10 @@ export default class Liteb extends Server {
       const exporteds = modules
         .filter((m): m is Array<new () => Api> => m !== undefined)
         .flat()
-        // Un archivo de controller/view puede exportar cosas además de la
-        // clase (constantes, helpers, tipos). `Reflect.getMetadata` revienta
-        // con TypeError si recibe un primitivo, así que sólo consideramos
-        // clases que heredan de `Api`; el resto se ignora silenciosamente.
+        // A controller/view file may export things besides the class
+        // (constants, helpers, types). `Reflect.getMetadata` blows up with a
+        // TypeError if given a primitive, so we only consider classes that
+        // extend `Api`; everything else is silently ignored.
         .filter(
           (exported): exported is new () => Api =>
             typeof exported === 'function' &&
@@ -255,7 +255,7 @@ export default class Liteb extends Server {
       Logger.info(`Swagger UI at ${docsPath} (spec: ${jsonPath})`);
     }
 
-    // Crear rutas y asociar handlers, una vez por grupo
+    // Create routes and attach handlers, once per group
     Logger.clear('router');
     for (const { basePath, apiReaders } of resolvedGroups) {
       Logger.router(`[API] BASE PATH: ${basePath}`);
@@ -287,17 +287,17 @@ export default class Liteb extends Server {
     // them handled.
     this.registerNotFoundHandler();
 
-    // Iniciar el servidor HTTP
+    // Start the HTTP server
     Logger.info('Loading server...');
     await this.listen(port);
 
     if (this.tasksAsync.length > 0) {
-      // Leer módulos de tareas
+      // Read task modules
       Logger.info('Reading and loader tasks');
       const taskModules = await Promise.all(this.tasksAsync);
 
-      // Iniciar tareas. Filtramos null/undefined porque `setTasks` puede emitir
-      // promesas resueltas a `undefined` cuando un patrón no matchea archivos.
+      // Start tasks. We filter out null/undefined because `setTasks` can emit
+      // promises resolved to `undefined` when a pattern matches no files.
       taskModules
         .flat()
         .filter((taskMod): taskMod is new () => Task => taskMod != null)

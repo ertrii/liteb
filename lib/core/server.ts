@@ -36,8 +36,8 @@ export default class Server {
   protected server?: http.Server;
 
   /**
-   * Inicializa la aplicación Express y configura middlewares básicos como body parser,
-   * cookie parser y morgan para logging de peticiones.
+   * Initializes the Express application and sets up basic middleware such as
+   * the body parser, cookie parser and morgan for request logging.
    */
   constructor() {
     this.app = express();
@@ -48,9 +48,9 @@ export default class Server {
   }
 
   /**
-   * Registra múltiples rutas bajo un prefijo determinado en la aplicación.
-   * @param moduleName Grupo base bajo el cual se registrarán las rutas.
-   * @param options Arreglo de RouterOption que describe las rutas, métodos y handlers.
+   * Registers multiple routes under a given prefix in the application.
+   * @param moduleName Base group under which the routes are registered.
+   * @param options Array of RouterOption describing the routes, methods and handlers.
    */
   protected router = (moduleName: string, options: RouterOption[]) => {
     const router = Router();
@@ -72,9 +72,9 @@ export default class Server {
   };
 
   /**
-   * Inicia el servidor escuchando en el puerto especificado.
-   * @param port Puerto donde se levantará el servidor HTTP.
-   * @returns Promesa que se resuelve cuando el servidor ha iniciado exitosamente.
+   * Starts the server listening on the given port.
+   * @param port Port the HTTP server will listen on.
+   * @returns Promise that resolves once the server has started successfully.
    */
   protected listen = (port: number) => {
     return new Promise<void>((resolve) => {
@@ -97,16 +97,16 @@ export default class Server {
   };
 
   /**
-   * Obtiene la instancia interna de la aplicación Express.
-   * @returns Instancia de Express.
+   * Returns the internal Express application instance.
+   * @returns The Express instance.
    */
   public getApp = () => {
     return this.app;
   };
 
   /**
-   * Permite agregar middlewares o lógica adicional a la aplicación Express.
-   * @param callback Función que recibe la instancia de Express para ser modificada.
+   * Lets you add middleware or extra logic to the Express application.
+   * @param callback Function that receives the Express instance to modify it.
    */
   public use = (
     callback: (req: Request, res: Response, next: NextFunction) => any,
@@ -116,11 +116,12 @@ export default class Server {
   };
 
   /**
-   * Registra un directorio de archivos estáticos en la aplicación Express bajo la ruta especificada.
-   * Los archivos ubicados en el directorio raíz proporcionado serán servidos directamente si son solicitados a través del pathname.
+   * Registers a directory of static files in the Express application under the
+   * given path. Files in the provided root directory are served directly when
+   * requested through the pathname.
    *
-   * @param pathname Ruta base en la que los archivos estáticos estarán disponibles (por ejemplo, '/public').
-   * @param root Ruta absoluta o relativa al directorio desde donde se servirán los archivos estáticos.
+   * @param pathname Base path where the static files are available (e.g. '/public').
+   * @param root Absolute or relative path to the directory the files are served from.
    */
   public static = (pathname: string, root: string) => {
     this.app.use(pathname, express.static(root));

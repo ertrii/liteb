@@ -28,7 +28,7 @@ export class Queue {
   private started = false;
   private queryRunner: QueryRunner;
   /**
-   * Colas
+   * Queues
    */
   private queues: Service<any>[] = [];
 
@@ -46,7 +46,7 @@ export class Queue {
   }
 
   /**
-   * Añade a la cola el servicio para el posterior registro a la base de datos.
+   * Adds the service to the queue for later persistence to the database.
    * @param service
    */
   public add = (service: Service<any>) => {
@@ -54,9 +54,9 @@ export class Queue {
   };
 
   /**
-   * Ejecuta todas las operaciones pendientes en la cola, realizando las consultas asociadas a cada servicio.
-   * Si la transacción aún no ha comenzado, la inicia automáticamente antes de aplicar los cambios.
-   * Limpia la cola tras procesar las operaciones.
+   * Runs every pending operation in the queue, executing the queries associated
+   * with each service. If the transaction has not started yet, it starts it
+   * automatically before applying the changes. Clears the queue afterwards.
    */
   public save = async () => {
     if (!this.started) {
@@ -71,10 +71,11 @@ export class Queue {
   };
 
   /**
-   * Aplica todas las consultas acumuladas en la cola, confirma la transacción en la base de datos
-   * y, opcionalmente, libera la conexión utilizada por el query runner. Utilice este método
-   * para garantizar que todas las operaciones se ejecutan de forma atómica y los recursos se liberan correctamente.
-   * @param release Indica si se debe liberar la conexión después de ejecutar el commit (por defecto: false).
+   * Applies every query accumulated in the queue, commits the transaction to
+   * the database and, optionally, releases the connection used by the query
+   * runner. Use this method to guarantee that all operations run atomically and
+   * that resources are released correctly.
+   * @param release Whether to release the connection after committing (default: false).
    */
   public commit = async (release = false) => {
     await this.save();

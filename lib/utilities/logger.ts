@@ -24,40 +24,40 @@ export class Logger {
   }
 
   /**
-   * Registra un mensaje a nivel 'info' en el archivo y consola.
-   * @param message Mensaje principal a registrar.
-   * @param args Argumentos extra para el logger.
-   * @returns Resultado de la función log4js info.
+   * Logs a message at the 'info' level to the file and console.
+   * @param message Main message to log.
+   * @param args Extra arguments for the logger.
+   * @returns Result of the log4js info call.
    */
   static info(message: any, ...args: any[]) {
     return log4js.getLogger('info').info(message, ...args);
   }
 
   /**
-   * Registra un mensaje a nivel 'warn' en el archivo y consola.
-   * @param message Mensaje principal a registrar.
-   * @param args Argumentos extra para el logger.
-   * @returns Resultado de la función log4js warn.
+   * Logs a message at the 'warn' level to the file and console.
+   * @param message Main message to log.
+   * @param args Extra arguments for the logger.
+   * @returns Result of the log4js warn call.
    */
   static warn(message: any, ...args: any[]) {
     return log4js.getLogger('warn').warn(message, ...args);
   }
 
   /**
-   * Registra un mensaje a nivel 'error' en el archivo y consola.
-   * @param message Mensaje principal a registrar.
-   * @param args Argumentos extra para el logger.
-   * @returns Resultado de la función log4js error.
+   * Logs a message at the 'error' level to the file and console.
+   * @param message Main message to log.
+   * @param args Extra arguments for the logger.
+   * @returns Result of the log4js error call.
    */
   static error(message: any, ...args: any[]) {
     return log4js.getLogger('error').error(message, ...args);
   }
 
   /**
-   * Registra un mensaje en el log de rutas ('router') y consola.
-   * @param message Mensaje a registrar, puede ser una cadena o una instancia de ApiReader.
-   * @param args Argumentos extra para el logger.
-   * @returns Resultado de la función log4js info para rutas.
+   * Logs a message to the route log ('router') and console.
+   * @param message Message to log; can be a string or an ApiReader instance.
+   * @param args Extra arguments for the logger.
+   * @returns Result of the log4js router trace call.
    */
   static router(message: string | ApiReader, ...args: any[]) {
     const logRouter = log4js.getLogger('router');

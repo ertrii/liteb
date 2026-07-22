@@ -72,20 +72,20 @@ export default class ApiHandler {
 
   public main = async (req: Request, res: Response) => {
     const ApiClass = this.apiReader.getApiClass();
-    // `db` es estable entre requests, así que va en el prototype: queda
-    // disponible durante los field initializers (p. ej.
-    // `private rep = this.db.getRepository(...)`), que corren dentro de `new`.
+    // `db` is stable across requests, so it lives on the prototype: it is
+    // available during field initializers (e.g.
+    // `private rep = this.db.getRepository(...)`), which run inside `new`.
     ApiClass.prototype.db = this.dbSource;
 
     const requiereRender = this.apiReader.requiereRender();
     const apiClass = new ApiClass();
-    // El resto del estado es POR REQUEST y se asigna en la INSTANCIA, no en el
-    // prototype. Con prototype, dos requests concurrentes al mismo endpoint se
-    // pisaban: una hacía `await` en `main()` y la otra reescribía
-    // `prototype.query/params/body` antes de que la primera los leyera, así que
-    // ambas terminaban con los datos de la última. Asignar en la instancia da a
-    // cada request su propio estado. (cast: la instancia está tipada con los
-    // genéricos por defecto `null`; el estado real lo aportan los DTOs.)
+    // The rest of the state is PER REQUEST and is assigned on the INSTANCE, not
+    // the prototype. With the prototype, two concurrent requests to the same
+    // endpoint overwrote each other: one `await`ed inside `main()` while the
+    // other rewrote `prototype.query/params/body` before the first one read
+    // them, so both ended up with the last one's data. Assigning on the
+    // instance gives each request its own state. (cast: the instance is typed
+    // with the default `null` generics; the real state comes from the DTOs.)
     const state = apiClass as unknown as Record<string, unknown>;
     state.params = this.apiReader.ParamsSchema ? req.params : null;
     state.body = this.apiReader.BodySchema ? req.body : null;
@@ -101,8 +101,8 @@ export default class ApiHandler {
         res.render(this.apiReader.getTemplatePath(), dataResponse);
         return;
       }
-      // El controller pudo escribir directo en `this.response` (binarios,
-      // HTML, streams). Si ya cerró la respuesta, no la pisamos.
+      // The controller may have written directly to `this.response` (binaries,
+      // HTML, streams). If it already ended the response, don't overwrite it.
       if (res.headersSent) return;
       res.status(apiClass.httpStatus).json(dataResponse);
     } catch (error) {

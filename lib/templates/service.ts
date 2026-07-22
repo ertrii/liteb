@@ -22,19 +22,19 @@ import { EntityManager } from 'typeorm';
 export abstract class Service<T> {
   protected abstract entity: T;
   /**
-   * Obtiene la entidad
+   * Returns the entity.
    */
   public getEntity = () => {
     return this.entity;
   };
   /**
-   * Realiza commits o realiza operaciones finales.
+   * Commits or performs final operations.
    * @param manager Manager
    */
   abstract save(manager: EntityManager): Promise<void>;
   /**
-   * Inyecta datos a las propiedades de la entidad.
-   * Recomendado solo para cosas puntuales.
+   * Injects data into the entity's properties.
+   * Recommended only for specific cases.
    * @param entity
    */
   public put = (entity: Partial<T>) => {

@@ -7,9 +7,9 @@ export interface PriorityMetadata {
 }
 
 /**
- * Orden de prioridad
- * @param number número de orden
- * @default 0 Por defecto todos tienen el valor 0
+ * Registration priority order.
+ * @param number order number
+ * @default 0 Everything defaults to 0
  */
 export function Priority(number: number) {
   return function (target: new () => Api<any, any, any>) {
