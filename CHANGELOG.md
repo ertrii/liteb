@@ -67,6 +67,32 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   is global rather than per module, because what decides the answer is the order
   Express saw them in, across every router.
 
+- **A scaffolding CLI** — `npx liteb create module billing`, plus `endpoint`,
+  `task`, `listener`, `entity` and `migration`, and `liteb build` (with
+  `--bytecode`). Built on commander.
+
+  A module is a shape — a manifest, globs that have to match, a migrations
+  index, permission keys namespaced by the module id — and every one of those is
+  a place to be one convention off and find out at boot, or not at all: a
+  `routes` glob that matches nothing starts cleanly and answers 404.
+
+  It knows nothing about the running application: no database, no config file,
+  no registry. It reads arguments and writes files. It edits files it did not
+  write only where the shape is certain (appending to the migrations index,
+  uncommenting a glob its own template left there, adding an entity to
+  `entities: []`); anything less certain prints as an instruction, because a
+  scaffolder that silently mangles a file you wrote is worse than one that tells
+  you what to add.
+
+  This is the redesign the 1.0 RC asked for when it deleted `bin/`. That CLI
+  died because its templates were loose assets nobody compiled and they drifted
+  until they generated decorators the framework no longer had. These templates
+  are TypeScript strings inside the same build as everything else, and
+  `test/cli.spec.ts` scaffolds a module — with an endpoint, a task, a listener,
+  an entity and a migration — and then BOOTS it against Postgres, checking that
+  the route answers, the permission key matches the manifest's, the entity was
+  registered and the migration ran.
+
 - **Modules can be delivered as V8 bytecode** — `.jsc` (bytenode) joined the
   extensions a module's globs match, so one manifest also works for a build
   shipped to a machine you do not control.

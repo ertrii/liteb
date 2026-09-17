@@ -1,6 +1,7 @@
 # compiled output
 /dist
 /.bytecode
+/test/.generated
 .tsbuildinfo
 /node_modules
 .env

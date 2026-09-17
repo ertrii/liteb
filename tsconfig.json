@@ -11,7 +11,10 @@
     "target": "es2017",
     "sourceMap": false,
     "outDir": "./dist",
-    "baseUrl": "*",
+    "baseUrl": ".",
+    // Dentro de este repo, `liteb` ES `lib/`: así el código que genera el CLI
+    // (que importa 'liteb', como un consumidor) se TYPECHEQUEA en las pruebas.
+    "paths": { "liteb": ["lib"], "liteb/*": ["lib/*"] },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,

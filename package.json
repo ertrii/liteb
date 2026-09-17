@@ -5,6 +5,9 @@
   "description": "Is a simple backend framework",
   "main": "./dist/lib/index.js",
   "types": "./types/lib/index.d.ts",
+  "bin": {
+    "liteb": "./bin/liteb.js"
+  },
   "bugs": "https://github.com/ertrii/liteb/issues",
   "scripts": {
     "dev": "nodemon --legacy-watch ./src/index.ts",
@@ -15,6 +18,7 @@
     "demo:bytecode": "node ./scripts/bytecode/run.js"
   },
   "files": [
+    "bin",
     "dist",
     "types",
     "README.md",
@@ -48,6 +52,7 @@
     "@types/multer": "^1.4.8",
     "class-transformer": "^0.5.1",
     "class-validator-jsonschema": "^5.1.0",
+    "commander": "^12.1.0",
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.3.1",
     "glob": "^10.3.3",

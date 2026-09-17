@@ -41,6 +41,52 @@ npm install liteb
 | Authentication seam         | ✔      |
 | Events between modules      | ✔      |
 | Extension points (slots)    | ✔      |
+| Scaffolding CLI             | ✔      |
+
+## Command line
+
+```bash
+npx liteb create module billing
+npx liteb create endpoint billing/issue-charge --method post
+npx liteb create entity billing/charge
+npx liteb create migration billing/create-charges
+npx liteb build --bytecode
+```
+
+A module is a **shape**: a manifest, globs that have to match, a migrations
+index, permission keys namespaced by the module id. Every one of those is a
+place to be one convention off and find out at boot — or not at all, since a
+`routes` glob that matches nothing starts cleanly and answers 404. The CLI
+writes the shape; you write the code.
+
+| Command | What it writes |
+| --- | --- |
+| `create module <name>` | `module.ts`, a first endpoint, the migrations index |
+| `create endpoint <module>/<name>` | An endpoint (`--method`, `--path`, `--group`, `--public`) |
+| `create task <module>/<name>` | A scheduled task (`--cron`), and turns on the `tasks` glob |
+| `create listener <module>/<name>` | A listener, and turns on the `listeners` glob |
+| `create entity <module>/<name>` | An entity, **registered in the manifest** (`--table`) |
+| `create migration <module>/<name>` | A timestamped migration, added to the module's ledger |
+| `build` | `tsc` + the files that were never TypeScript (`--bytecode`, `--out`, `--project`) |
+
+Shared flags: `--dir <path>` (where modules live, `src/modules` by default),
+`--from <specifier>` (what generated code imports liteb from) and `--force`.
+
+Two things it does **not** do, on purpose:
+
+- It does not know your application: no database, no config file, no registry of
+  what exists. It reads arguments and writes files.
+- It edits files it did not write **only** where the shape is certain —
+  appending to the migrations index, uncommenting a glob its own template left
+  there, adding an entity to `entities: []`. Anything less certain prints as an
+  instruction instead. A scaffolder that silently mangles a file you wrote is
+  worse than one that tells you what to add.
+
+> The 1.x CLI was deleted because its templates were loose assets nobody
+> compiled, and they drifted until they generated decorators the framework no
+> longer had. These templates are part of the same build as everything else, and
+> `test/cli.spec.ts` scaffolds a module and **boots it** — a template that stops
+> matching the framework fails the suite.
 
 ## Defining endpoints
 
@@ -204,8 +250,9 @@ registered twice. `*.d.ts` files are skipped.
 
 #### Loading a module compiled to V8 bytecode
 
-Compiling a build with [bytenode](https://github.com/bytenode/bytenode) turns
-each `.js` into a `.jsc` holding V8's code cache. liteb loads those like any
+`npx liteb build --bytecode` compiles the project, copies what was never
+TypeScript (templates, static files) and turns each `.js` into a `.jsc` holding
+V8's code cache, with the readable file deleted. liteb loads those like any
 other module file — **as long as the application registers the extension
 first**:
 

@@ -36,10 +36,28 @@ is **not** an application. Dual layout:
   `http/demo.http` is the request-by-request walkthrough.
 - **`test/`** — jest suite. Not published.
 
-`bin/` was removed in the 1.0 RC (its scaffolding generated decorators that never
-existed). Do not reintroduce it without a redesign.
+- **`bin/` + `lib/cli/`** — the scaffolding CLI (`npx liteb create ...`,
+  `liteb build`). It came back in 2.0 **with the redesign the old one needed**:
+  templates are TypeScript strings inside the build (the 1.x ones were loose
+  `.txt` assets nobody compiled, and they drifted until they generated
+  decorators the framework no longer had), and `test/cli.spec.ts` scaffolds a
+  module and BOOTS it against PGlite. If a template stops matching the
+  framework, the suite fails. **Do not turn the templates back into assets.**
 
 Comments and JSDoc are in **English**: they ship inside the `.d.ts`.
+
+The CLI's generators are **pure**: they return a plan (`files`, `edits`,
+`hints`) and the writer is the only part that touches disk, which is what makes
+the templates testable. `applyEdit()` returns `null` rather than guessing when
+a file does not look the way the edit expects — a manifest somebody rewrote by
+hand gets an instruction, not a mangled file.
+
+`tsconfig.json` maps `liteb` -> `lib` (`paths`) and `jest.config.ts` maps it at
+runtime (`moduleNameMapper`), so generated code can import `'liteb'` like a
+consumer does and still be type-checked here. In `test/cli.spec.ts`, **do not
+call `jest.resetModules()` before requiring a generated manifest**: a fresh
+registry gives it a different `Endpoint` class, `instanceof` fails in the
+loader, and zero routes mount.
 
 ## Commands
 
