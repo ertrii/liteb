@@ -24,7 +24,7 @@ import { ProductRestocked } from '../module';
 @HttpPost(':id/restock')
 @Params(ProductIdDto)
 @Body(RestockDto)
-export class RestockProductApi extends Endpoint<ProductIdDto, RestockDto> {
+export class RestockProductEndpoint extends Endpoint<ProductIdDto, RestockDto> {
   async main() {
     this.auth.assert('catalog.products.manage');
 

@@ -24,7 +24,7 @@ export default defineModule({
   // Fills an extension point catalog opened. Nothing in catalog changes.
   contributes: [{ slot: ProductBadges, value: lowStockBadge }],
 
-  routes: './apis/*.api.ts',
+  routes: './endpoints/*.endpoint.ts',
   tasks: './tasks/*.task.ts',
   listeners: './listeners/*.listener.ts',
 

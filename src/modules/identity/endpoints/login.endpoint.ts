@@ -11,7 +11,7 @@ import { verifyPassword } from '../services/password';
 @Module('auth')
 @HttpPost('login')
 @Body(LoginDto)
-export class LoginApi extends Endpoint<null, LoginDto> {
+export class LoginEndpoint extends Endpoint<null, LoginDto> {
   private readonly users = this.db.getRepository(User);
 
   async main() {

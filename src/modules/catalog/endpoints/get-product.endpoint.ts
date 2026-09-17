@@ -14,7 +14,7 @@ import { Product } from '../entities/product.entity';
 @HttpGet(':id')
 @Params(ProductIdDto)
 @Priority(2)
-export class GetProductApi extends Endpoint<ProductIdDto> {
+export class GetProductEndpoint extends Endpoint<ProductIdDto> {
   private readonly products = this.db.getRepository(Product);
 
   async main() {

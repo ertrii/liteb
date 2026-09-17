@@ -58,9 +58,9 @@ dist-tag so `npm i liteb` keeps installing `1.x`. That line is frozen on the
 
   ```
   [MAP] /api — registration order; the first match answers
-  #06 p1   GET    /api/products/page  (ProductsPageApi)
-  #08 p2   GET    /api/products/:id  (GetProductApi)
-  #10 auto GET    /api/products  (ListProductsApi)
+  #06 p1   GET    /api/products/page  (ProductsPageEndpoint)
+  #08 p2   GET    /api/products/:id  (GetProductEndpoint)
+  #10 auto GET    /api/products  (ListProductsEndpoint)
   ```
 
   It exists for one question — which route wins. Express matches in registration
@@ -68,6 +68,13 @@ dist-tag so `npm i liteb` keeps installing `1.x`. That line is frozen on the
   receives the literal string, a bug that reads like a data problem. The number
   is global rather than per module, because what decides the answer is the order
   Express saw them in, across every router.
+
+- **The scaffolding convention is `endpoints/<name>.endpoint.ts`**, with classes
+  named `<Name>Endpoint`. `Api` was the 1.x base class: a generator that keeps
+  writing it teaches the framework that no longer exists, and the demo under
+  `src/` was still doing the same. Both moved. The globs remain the author's
+  choice — liteb enforces no folder name — this is only what the CLI writes and
+  what the example shows.
 
 - **A CLI** — `npx liteb@alpha init my-app` writes a project that runs (package.json,
   tsconfig with the two decorator flags and `strictPropertyInitialization: false`,

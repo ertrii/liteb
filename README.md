@@ -62,7 +62,7 @@ export default defineModule({
 
   entities: [Charge],
   migrations,
-  routes: './apis/*.api.ts',        // extension-agnostic: .ts, .js, .jsc
+  routes: './endpoints/*.endpoint.ts',   // extension-agnostic: .ts, .js, .jsc
   tasks: './tasks/*.task.ts',
   listeners: './listeners/*.listener.ts',
 

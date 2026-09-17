@@ -3,7 +3,7 @@ import { User } from '../entities/user.entity';
 
 @Module('users')
 @HttpGet()
-export class ListUsersApi extends Endpoint {
+export class ListUsersEndpoint extends Endpoint {
   private readonly users = this.db.getRepository(User);
 
   main() {

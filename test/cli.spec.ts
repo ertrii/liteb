@@ -214,6 +214,18 @@ describe('un módulo generado y puesto a andar', () => {
     ]);
   });
 
+  it('el archivo se llama endpoint, no api: `Api` era la clase base de 1.x', () => {
+    // Un generador que sigue escribiendo el nombre viejo enseña el framework
+    // viejo. La carpeta y el sufijo son convención del CLI, no del framework.
+    const file = `${modulesDir}/inventory/endpoints/inventory.endpoint.ts`;
+
+    expect(fs.existsSync(path.join(workspace, file))).toBe(true);
+    expect(read(file)).toContain('class InventoryEndpoint extends Endpoint');
+    expect(read(`${modulesDir}/inventory/module.ts`)).toContain(
+      "routes: './endpoints/*.endpoint.ts',",
+    );
+  });
+
   it('el endpoint que vino con el módulo responde', async () => {
     const res = await request(server())
       .get('/api/inventory')

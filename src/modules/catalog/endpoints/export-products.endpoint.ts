@@ -19,7 +19,7 @@ import { Product } from '../entities/product.entity';
 @Module('products')
 @HttpGet('export')
 @Priority(1)
-export default class ExportProductsApi extends Endpoint {
+export default class ExportProductsEndpoint extends Endpoint {
   private readonly products = this.db.getRepository(Product);
 
   public async main(): Promise<DataJson> {

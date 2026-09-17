@@ -11,7 +11,7 @@ import { Product } from '../entities/product.entity';
 @Module('products')
 @HttpPost()
 @Body(CreateProductDto)
-export class CreateProductApi extends Endpoint<null, CreateProductDto> {
+export class CreateProductEndpoint extends Endpoint<null, CreateProductDto> {
   private readonly products = this.db.getRepository(Product);
 
   async main() {

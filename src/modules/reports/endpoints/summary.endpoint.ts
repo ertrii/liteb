@@ -9,7 +9,7 @@ import { ProductCatalog } from '../../catalog/module';
  */
 @Module('reports')
 @HttpGet('summary')
-export class SummaryApi extends Endpoint {
+export class SummaryEndpoint extends Endpoint {
   async main() {
     this.auth.assert('reports.view');
 

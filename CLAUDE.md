@@ -122,8 +122,8 @@ feature — those tests exercise the path consumers actually use.
 
 ### Module globs are extension-agnostic (and node_modules-safe)
 
-`withModuleExtensions()` rewrites `./apis/*.api.ts` to
-`./apis/*.api.{ts,js,cjs,mjs,jsc}`, and `pickOneFilePerModule()` keeps one file
+`withModuleExtensions()` rewrites `./endpoints/*.endpoint.ts` to
+`./endpoints/*.endpoint.{ts,js,cjs,mjs,jsc}`, and `pickOneFilePerModule()` keeps one file
 per name (`.ts` wins, `.jsc` loses to anything readable) and drops `*.d.ts`.
 
 Why it matters: `dir` is `__dirname`, so after `tsc` it points at the build,

@@ -36,7 +36,7 @@ export default defineModule({
 
   entities: [User],
   migrations,
-  routes: './apis/*.api.ts',
+  routes: './endpoints/*.endpoint.ts',
 
   // The vocabulary this module can gate. Every key MUST start with the module
   // id: all modules, including third-party ones, share a single space.

@@ -13,7 +13,7 @@ import { hashPassword } from '../services/password';
 @Module('users')
 @HttpPost()
 @Body(CreateUserDto)
-export class CreateUserApi extends Endpoint<null, CreateUserDto> {
+export class CreateUserEndpoint extends Endpoint<null, CreateUserDto> {
   private readonly users = this.db.getRepository(User);
 
   async main() {

@@ -235,7 +235,8 @@ worse than not starting.
 ### Shipping a module compiled, or as a package
 
 The `routes` and `tasks` globs are **extension-agnostic**. Write them however
-you like — `'./apis/*.api.ts'`, `'./apis/*.api.js'` or `'./apis/*.api'` — and
+you like — `'./endpoints/*.endpoint.ts'`, `'./endpoints/*.endpoint.js'` or
+`'./endpoints/*.endpoint'` — and
 liteb looks for `.ts`, `.js`, `.cjs`, `.mjs` and `.jsc`. You declare *which*
 files; the extension is not your problem.
 
@@ -715,11 +716,11 @@ Every boot writes the routes in the order they were mounted:
 
 ```
 [MAP] /api — registration order; the first match answers
-#01 auto GET    /api/auth/me  (MeApi)
-#06 p1   GET    /api/products/page  (ProductsPageApi)
-#07 p1   GET    /api/products/export  (ExportProductsApi)
-#08 p2   GET    /api/products/:id  (GetProductApi)
-#10 auto GET    /api/products  (ListProductsApi)
+#01 auto GET    /api/auth/me  (MeEndpoint)
+#06 p1   GET    /api/products/page  (ProductsPageEndpoint)
+#07 p1   GET    /api/products/export  (ExportProductsEndpoint)
+#08 p2   GET    /api/products/:id  (GetProductEndpoint)
+#10 auto GET    /api/products  (ListProductsEndpoint)
 ```
 
 It answers one question: **which route wins**. Express matches in registration

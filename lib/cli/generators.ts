@@ -106,7 +106,7 @@ export default defineModule({
 
   entities: [],
   migrations,
-  routes: './apis/*.api.ts',
+  routes: './endpoints/*.endpoint.ts',
   // tasks: './tasks/*.task.ts',
   // listeners: './listeners/*.listener.ts',
 
@@ -124,7 +124,7 @@ export {};
 `;
 
   const endpoint = endpointSource({
-    className: `${toPascal(id)}Api`,
+    className: `${toPascal(id)}Endpoint`,
     group: routeGroup,
     decorator: 'HttpGet',
     routePath: '',
@@ -143,7 +143,7 @@ export {};
     [
       { path: `${dir}/module.ts`, content: manifest },
       { path: `${dir}/migrations/index.ts`, content: migrationsIndex },
-      { path: `${dir}/apis/${id}.api.ts`, content: endpoint },
+      { path: `${dir}/endpoints/${id}.endpoint.ts`, content: endpoint },
     ],
     [
       {
@@ -210,12 +210,14 @@ export function createEndpoint(options: EndpointOptions): Plan {
   }
 
   const dir = moduleDir(options, target.module);
-  const className = `${toPascal(target.name)}Api`;
+  // `Endpoint`, never `Api`: `Api` was the 1.x base class, and a generator
+  // that keeps writing the old name teaches the old framework.
+  const className = `${toPascal(target.name)}Endpoint`;
 
   return plan(
     [
       {
-        path: `${dir}/apis/${target.name}.api.ts`,
+        path: `${dir}/endpoints/${target.name}.endpoint.ts`,
         content: endpointSource({
           className,
           group: options.group ?? target.module,

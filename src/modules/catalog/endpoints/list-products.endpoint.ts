@@ -6,7 +6,7 @@ import { ProductBadges } from '../module';
 @Module('products')
 @HttpGet()
 @Query(ListProductsQuery)
-export class ListProductsApi extends Endpoint<null, null, ListProductsQuery> {
+export class ListProductsEndpoint extends Endpoint<null, null, ListProductsQuery> {
   private readonly products = this.db.getRepository(Product);
 
   async main() {

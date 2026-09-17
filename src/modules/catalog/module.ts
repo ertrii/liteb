@@ -56,7 +56,7 @@ export default defineModule({
 
   entities: [Product, StockMove],
   migrations,
-  routes: './apis/*.api.ts',
+  routes: './endpoints/*.endpoint.ts',
 
   permissions: [
     { key: 'catalog.products.view', label: 'View products' },
