@@ -192,16 +192,40 @@ describe('la app de ejemplo (src/)', () => {
     expect(despues).toEqual(antes);
   });
 
-  it('@Priority(1) registra /page ANTES que /:id', async () => {
-    // Al revés, ':id' se comería la ruta y el DTO daría 422 sobre "page".
+  it('la página vive FUERA de /api, donde va una vista', async () => {
+    // `@Module('products', { basePath: '/' })`. Bajo /api sería
+    // `/api/products/page`, una URL que nadie enlazaría.
     const res = await request(server())
-      .get('/api/products/page')
+      .get('/products/page')
       .set('x-user', '2')
       .set('x-perms', STAFF.join(','));
 
     expect(res.status).toBe(200);
     expect(res.type).toBe('text/html');
     expect(res.text).toContain('Antenna 5GHz');
+  });
+
+  it('y bajo /api esa misma ruta no existe', async () => {
+    const res = await request(server())
+      .get('/api/products/page')
+      .set('x-user', '2')
+      .set('x-perms', STAFF.join(','));
+
+    // Se la come `/:id` como parámetro y el DTO lo frena: prueba de que el
+    // grupo se montó en otro lado, no en los dos.
+    expect(res.status).toBe(422);
+  });
+
+  it('@Priority(1) registra /export ANTES que /:id', async () => {
+    // Al revés, ':id' se comería la ruta y el DTO daría 422 sobre "export".
+    // Es el caso que `@Priority` existe para resolver: dos rutas del MISMO
+    // grupo que se solapan.
+    const res = await request(server())
+      .get('/api/products/export')
+      .set('x-user', '2')
+      .set('x-perms', STAFF.join(','));
+
+    expect(res.status).toBe(200);
   });
 
   it('el mismo catálogo, como planilla: csv() sale de main()', async () => {

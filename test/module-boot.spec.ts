@@ -35,6 +35,60 @@ const news = () =>
     routes: './controllers/*.controller.ts',
   });
 
+const siteDir = path.join(__dirname, 'fixtures/modules/site');
+
+/** Un módulo que sirve una vista Y una API. */
+const site = () =>
+  defineModule({
+    id: 'site',
+    version: '1.0.0',
+    core: true,
+    dir: siteDir,
+    routes: './endpoints/*.endpoint.ts',
+  });
+
+describe('un grupo con su propio basePath', () => {
+  let db: DataSource;
+  let app: Liteb;
+
+  afterEach(async () => {
+    await app?.close({ database: false }).catch(() => undefined);
+    await closeTestDb();
+  });
+
+  it('la vista queda fuera del prefijo y la API dentro, desde el MISMO módulo', async () => {
+    // Es el caso de un monolito: `/api/tienda/inicio` no es una URL que nadie
+    // vaya a enlazar, pero `/api/tienda/items` sí es la API.
+    db = await createTestDb();
+    app = await Liteb.create({
+      db,
+      modules: [site()],
+      basePath: '/api',
+      version: '2.0.0',
+    });
+    await app.start(0);
+    const server = app.getApp();
+
+    expect((await request(server).get('/tienda/inicio')).status).toBe(200);
+    expect((await request(server).get('/api/tienda/items')).status).toBe(200);
+  });
+
+  it('y ninguna de las dos contesta en el lugar de la otra', async () => {
+    db = await createTestDb();
+    app = await Liteb.create({
+      db,
+      modules: [site()],
+      basePath: '/api',
+      version: '2.0.0',
+    });
+    await app.start(0);
+    const server = app.getApp();
+
+    expect((await request(server).get('/api/tienda/inicio')).status).toBe(404);
+    expect((await request(server).get('/tienda/items')).status).toBe(404);
+  });
+});
+
 describe('arranque con módulos', () => {
   let db: DataSource;
   let app: Liteb;

@@ -74,3 +74,30 @@ describe('EndpointReader', () => {
     expect(reader.hasMiddleware()).toBe(false);
   });
 });
+
+describe('@Module(group, { basePath })', () => {
+  @Module('pages', { basePath: '/' })
+  @HttpGet('home')
+  class HomeEndpoint extends Endpoint {
+    main() {
+      return { ok: true };
+    }
+  }
+
+  @Module('pages')
+  @HttpGet('other')
+  class OtherEndpoint extends Endpoint {
+    main() {
+      return { ok: true };
+    }
+  }
+
+  it('recuerda dónde montar el grupo', () => {
+    expect(new EndpointReader(HomeEndpoint).mountAt).toBe('/');
+  });
+
+  it('sin opción, manda el basePath de la aplicación', () => {
+    // `null` y no `''`: son cosas distintas — `''` sería "montá en la raíz".
+    expect(new EndpointReader(OtherEndpoint).mountAt).toBeNull();
+  });
+});

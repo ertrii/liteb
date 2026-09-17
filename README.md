@@ -98,6 +98,19 @@ export default class CreateChargeApi extends Endpoint<null, CreateChargeDto> {
 return an output: `view('invoice', data)`, `pdf(bytes)`, `csv(rows)`,
 `file(content)`.
 
+`basePath` prefixes every route, but a group can opt out — which is what a
+monolith serving pages *and* an API needs, because `/api/products/page` is not
+a URL anybody would link to:
+
+```typescript
+@Module('products')                        // /api/products
+@Module('products', { basePath: '/' })     // /products      ← a page
+@Module('checkout', { basePath: '/shop' }) // /shop/checkout
+```
+
+Both can live in the same module: the JSON endpoints keep the prefix, the page
+declares its own.
+
 ## How modules meet
 
 | | Who answers | Reads the answer |

@@ -84,9 +84,10 @@ GET {{host}}/api/users
 
 ### ------------------------------------------------- 6. Answers that are not JSON
 ### A page: `main()` returns `view('products', ...)`, rendered from
-### `catalog/views/products.pug`. It resolves because `@Priority(1)` registers
-### it BEFORE `/products/:id` — `logs/router.log` shows the resulting order.
-GET {{host}}/api/products/page
+### `catalog/views/products.pug`. Note the URL: it is NOT under /api, because
+### the class says `@Module('products', { basePath: '/' })` — a page belongs
+### where people link to it. `logs/router.log` shows where everything mounted.
+GET {{host}}/products/page
 
 ### The same catalog as a spreadsheet: `main()` returns `csv(products, ...)`.
 ### Note the response headers — text/csv and a Content-Disposition with the

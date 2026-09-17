@@ -96,6 +96,32 @@ export default class Liteb extends Server {
   } | null = null;
 
   /**
+   * Splits a module's endpoints by where each one hangs from.
+   *
+   * An application that serves pages AND an API cannot share one prefix:
+   * `/api/products/page` is not a URL anybody would link to. So a group can
+   * declare its own with `@Module(group, { basePath })`, and the same module
+   * ends up mounted in more than one place — which is why this returns groups
+   * rather than one base path per module.
+   *
+   * Insertion order is kept, so `@Priority` still decides who answers first
+   * among routes that could shadow each other. Routes under different prefixes
+   * cannot shadow each other at all.
+   */
+  private byBasePath = (
+    readers: EndpointReader[],
+  ): Map<string, EndpointReader[]> => {
+    const groups = new Map<string, EndpointReader[]>();
+    for (const reader of readers) {
+      const base = reader.mountAt ?? this.moduleBasePath;
+      const current = groups.get(base) ?? [];
+      current.push(reader);
+      groups.set(base, current);
+    }
+    return groups;
+  };
+
+  /**
    * Groups EndpointReaders by module name.
    *
    * @param endpointReaders Array of EndpointReader instances.
@@ -499,10 +525,9 @@ export default class Liteb extends Server {
     }> = [];
     for (const loaded of this.loadedModules) {
       if (loaded.readers.length === 0) continue;
-      resolvedGroups.push({
-        basePath: this.moduleBasePath,
-        endpointReaders: loaded.readers,
-      });
+      for (const [basePath, endpointReaders] of this.byBasePath(loaded.readers)) {
+        resolvedGroups.push({ basePath, endpointReaders });
+      }
     }
 
     // Mount Swagger UI first so /<docsPath> doesn't get shadowed by a
@@ -528,9 +553,7 @@ export default class Liteb extends Server {
     // which route answers is the order Express saw them in, across every
     // router. A per-module number would read as a map and be one.
     Logger.clear('router');
-    Logger.router(
-      `[MAP] ${this.moduleBasePath} — registration order; the first match answers`,
-    );
+    Logger.router('[MAP] registration order; the first match answers');
     let order = 0;
     for (const { basePath, endpointReaders } of resolvedGroups) {
       const endpointReadersByModule = this.groupEndpointReaders(endpointReaders);

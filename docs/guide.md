@@ -162,6 +162,30 @@ Commit, rollback and release are the callback's contract, so they cannot be forg
 
 **About `@HttpQuery`**: QUERY is a safe, idempotent method that (unlike GET) allows a body — useful for searches whose criteria are too large for the query string. Declare the criteria with `@Body`. Note that QUERY is an IETF draft (`draft-ietf-httpbis-safe-method-w-body`): it needs a Node whose HTTP parser recognizes it, may not be supported by proxies/CDNs, and is excluded from the OpenAPI spec. If the runtime doesn't support the verb, the route is skipped with a clear log line instead of crashing startup.
 
+### Where a group is mounted
+
+`Liteb.create({ basePath: '/api' })` prefixes every route. A group can say it
+hangs somewhere else:
+
+```typescript
+@Module('products')                          // /api/products
+@Module('products', { basePath: '/' })       // /products
+@Module('checkout', { basePath: '/shop' })   // /shop/checkout
+```
+
+The override is per GROUP — per `@Module` decorator — and not per application
+or per module, because that is where the split actually falls: in a monolith
+that serves pages and an API, the same module has JSON endpoints that belong
+under `/api` and a page that does not. `/api/products/page` is not a URL
+anybody would link to.
+
+Two consequences:
+
+- Routes under different prefixes cannot shadow each other, so `@Priority` is
+  not needed between them.
+- The route map (`router.log`) prints the real URL of each one, so a group that
+  ended up somewhere unexpected is visible at startup.
+
 ### Schema, middleware and priority
 
 ```typescript

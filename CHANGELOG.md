@@ -69,6 +69,19 @@ dist-tag so `npm i liteb` keeps installing `1.x`. That line is frozen on the
   is global rather than per module, because what decides the answer is the order
   Express saw them in, across every router.
 
+- **A route group can be mounted outside the application's `basePath`** —
+  `@Module('products', { basePath: '/' })`.
+
+  `basePath: '/api'` is right for an API and wrong for everything else, and a
+  monolith serves both: `/api/products/page` is not a URL anybody would link
+  to. The override is per GROUP, not per application or per module, so the same
+  module keeps its JSON under the prefix and puts its page at the root — which
+  is how it actually splits.
+
+  A side effect worth knowing: routes under different prefixes cannot shadow
+  each other, so `@Priority` stops being needed between them. The demo's page
+  lost its `@Priority` when it moved off `/api`.
+
 - **`liteb migrate`, `liteb migrate --dry-run` and `liteb migrate:status`** —
   migrations already ran inside `start()`, which meant "boot the server to
   migrate": if a migration failed, the server was already up. Now they are two

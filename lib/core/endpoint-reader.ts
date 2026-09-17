@@ -33,6 +33,11 @@ import {
 
 export default class EndpointReader {
   public moduleName: string;
+  /**
+   * `@Module(group, { basePath })`: where this group hangs from instead of the
+   * application's prefix. `null` = the application's.
+   */
+  public mountAt: string | null = null;
   public pathname: string;
   public method: 'get' | 'post' | 'put' | 'delete' | 'patch' | 'query';
   public priority: number | null = null;
@@ -54,6 +59,7 @@ export default class EndpointReader {
     ) as ModuleMetadata;
     if (moduleDefine) {
       this.moduleName = moduleDefine.basePath;
+      this.mountAt = moduleDefine.mountAt ?? null;
     }
   };
 
