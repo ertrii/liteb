@@ -9,6 +9,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Work toward `2.0.0`, which turns liteb from a routing library into a module
 framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
+### Added
+
+- **`defineModule()`** — the manifest a module declares about itself: `id`,
+  `version`, `engine` range, `requires`, entities, migrations, route and task
+  globs, permissions and lifecycle hooks. It returns a `ResolvedModule` with
+  every default applied, so nothing downstream guards against `undefined`.
+
+  It validates what a module can know on its own — shape, formats, internal
+  duplicates — and throws `ModuleDefinitionError` naming the offending module,
+  at import time. Relational checks (a dependency exists, ids are unique, the
+  host satisfies `engine`) belong to the registry, which sees every module.
+
+  Two rules worth calling out: a permission key must be namespaced with the
+  module id (`billing.view`), because third-party modules share one permission
+  space; and `migrations` accepts both an array and the namespace object from
+  `import * as migrations`, flattening either to what TypeORM wants.
+
+  Contracts, events and slots are deliberately absent: each lands with its own
+  subsystem, so the manifest never describes something the framework cannot
+  honor.
+
+- `semver` as a direct dependency, to validate versions and `engine` ranges.
+
 ### Changed
 
 - **`Api` is now `Endpoint`.** The class models a single operation, not the whole

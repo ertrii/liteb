@@ -26,6 +26,18 @@ export type {
   OpenAPIInfo,
   OpenAPIDocument,
 } from './services/openapi-generator';
+export { defineModule } from './modules/define-module';
+export { ModuleDefinitionError } from './modules/module-manifest';
+export type {
+  ModuleManifest,
+  ResolvedModule,
+  ModulePermission,
+  ModuleContext,
+  ModuleHook,
+  ModuleEntity,
+  ModuleMigrations,
+  ModulePattern,
+} from './modules/module-manifest';
 export * from './templates/endpoint';
 export * from './templates/task';
 export * from './utilities/logger';
