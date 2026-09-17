@@ -11,6 +11,62 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Added
 
+- **Outputs: `view()`, `pdf()`, `csv()`, `file()`** — when the answer is not
+  JSON, `main()` returns the thing itself instead of the framework being told
+  up front what the endpoint produces.
+
+  ```typescript
+  public async main(): Promise<DataJson> {
+    const clients = await this.clients.find();
+    if (this.query.format === 'csv') return csv(clients, { filename: 'Clientes.csv' });
+    return { clients };
+  }
+  ```
+
+  The consequence is the point: the decision is made at run time, with the data
+  in hand, so ONE endpoint can answer JSON or a file depending on the request.
+
+  - `view(template, data?)` renders through the callback form, so a broken
+    template comes back as liteb's error contract instead of Express answering
+    a stack trace in HTML and bypassing it.
+  - `pdf(bytes, options?)` is `application/pdf`, shown in the browser by
+    default. liteb does not build the document: that is a library's job, and
+    baking one in would make every application carry it.
+  - `csv(rows, options?)` writes RFC 4180 (CRLF, quoting what would break the
+    row) with a BOM by default — without it a spreadsheet opens accents as
+    noise, the single most common complaint about exported CSVs. `columns`
+    chooses what goes out and its headers, so an export does not leak whatever
+    the query happened to select.
+  - `file(content, options?)` is the general case, any MIME type; the other
+    three are it with defaults. A stream is piped, not buffered, and a stream
+    that breaks mid-transfer destroys the response rather than writing a JSON
+    error into a file the client believes is complete.
+
+  `rows` and a view's `data` are typed `object`, not `Record<string, unknown>`:
+  what gets exported is almost always the result of a repository query, and a
+  TypeORM entity is a class with no index signature.
+
+- **`@ApiHidden()`** — mounts the endpoint and leaves it out of the OpenAPI
+  spec. It replaces what `@Template` did implicitly (a rendered page was skipped
+  because the decorator was there to see) and covers the rest of the same case:
+  a webhook meant for one provider, an internal route.
+
+- **A route map worth reading** — the `router` log now numbers routes across the
+  whole mount and prints the `@Priority` that put each one there:
+
+  ```
+  [MAP] /api — registration order; the first match answers
+  #06 p1   GET    /api/products/page  (ProductsPageApi)
+  #08 p2   GET    /api/products/:id  (GetProductApi)
+  #10 auto GET    /api/products  (ListProductsApi)
+  ```
+
+  It exists for one question — which route wins. Express matches in registration
+  order, so `:id` mounted before a literal route swallows it and the handler
+  receives the literal string, a bug that reads like a data problem. The number
+  is global rather than per module, because what decides the answer is the order
+  Express saw them in, across every router.
+
 - **Extension points (slots)** — `slot<T>(id)` opens one, a module fills it from
   its manifest with `contributes: [{ slot, use | factory | value }]`, and the
   module that opened it reads everything installed with `this.all(slot)`.
@@ -345,6 +401,28 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   `setApis` / `addApis` are untouched for now — the module system replaces them.
 
 ### Removed
+
+- **`@Template`**, replaced by `view()`. The decorator decided at boot, reading
+  metadata off the class, so an endpoint was "a view" or it was not, forever —
+  and the same endpoint could not answer JSON on another branch. It also only
+  ever covered HTML: a PDF or a CSV had nothing to use and ended up writing to
+  `this.response` by hand.
+
+  Migration is one line moved from the class into `main()`:
+
+  ```diff
+  -@Template('products')
+   export default class ProductsPageApi extends Endpoint {
+     public async main(): Promise<DataJson> {
+  -    return { products: await this.products.find() };
+  +    return view('products', { products: await this.products.find() });
+     }
+   }
+  ```
+
+  `setTemplates()` is unchanged — the engine and the views directory are still
+  the application's business. Endpoints that relied on `@Template` to stay out
+  of the OpenAPI spec now say so with `@ApiHidden()`.
 
 - **`Endpoint.error()` and `Endpoint.final()`**, and the `ErrorResponse` type
   with them. `previous()` stays.

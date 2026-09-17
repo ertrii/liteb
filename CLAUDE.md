@@ -31,7 +31,7 @@ is **not** an application. Dual layout:
   disabled), with per-module migrations and `synchronize: false`.
   **`test/demo-app.spec.ts` boots it against PGlite** — keep it that way. The
   previous demo had rotted unnoticed: `@Priority` was backwards so the literal
-  route resolved to `:id`, and a `@Template` endpoint could never render
+  route resolved to `:id`, and the endpoint rendering a page could never do it
   because nothing called `setTemplates`. Both were invisible without a test.
   `http/demo.http` is the request-by-request walkthrough.
 - **`test/`** — jest suite. Not published.
@@ -203,6 +203,38 @@ read `this.auth`.
   at login. The context is built **once per handler**, not per request: the
   DataSource and container are stable, only the request changes.
 
+### Answers that are not JSON (`lib/outputs/`)
+
+`main()` returns data and liteb serializes it; returning an `Output` instead
+(`view`, `pdf`, `csv`, `file`) writes the response itself. The handler checks
+`instanceof Output` after `headersSent`, applies `httpStatus`, and `await`s
+`send()`.
+
+- It replaced `@Template`, which decided at **boot** from class metadata: an
+  endpoint was a view forever, could not branch to JSON, and PDF/CSV had nothing
+  to use. **Do not reintroduce a per-format decorator** — the format depends on
+  the request, and only `main()` sees it.
+- `view()` renders with the **callback** form on purpose. `res.render(path, data)`
+  hands a broken template to Express's error handler, which answers a stack in
+  HTML and bypasses liteb's error contract entirely.
+- A stream that breaks mid-transfer destroys the response. Bytes are already on
+  the wire, so `headersSent` is what stops the catch from writing a JSON error
+  into the middle of a file the client is still downloading.
+- `csv(rows)` and `view(tpl, data)` take `object`, not `Record<string, unknown>`:
+  a TypeORM entity is a class and has no index signature, so the stricter type
+  forced a cast at every call site. There is a test for it.
+- Endpoints that relied on `@Template` to stay out of the OpenAPI spec now say
+  `@ApiHidden()`.
+
+### The route map (`router` log)
+
+`Logger.router(reader, { order, basePath })`, numbered with a counter that is
+**global to the whole mount**, not per module: what decides which route answers
+is the order Express saw them in, across every router. A per-module number would
+read like a map and not be one. `p1`/`auto` shows the `@Priority` behind the
+position. `@Priority` stays: it is optional, and it exists exactly for literal
+routes that would otherwise be swallowed by a `:param` sibling.
+
 ### Errors
 
 `ErrorControl` maps `SchemaError` (422), `CustomerError` (406), `NotFoundError`
@@ -228,6 +260,7 @@ same contract.
 | `Service`, `InternalError`, `Middleware` class | Removed |
 | `getSession(k)` / `setSession(k, v)` | `this.auth` + an `auth` resolver |
 | `SessionDataExtends<T>` | Removed (the framework no longer imports `express-session`) |
+| `@Template('x')` | `return view('x', data)` — plus `pdf()`, `csv()`, `file()` |
 
 The OpenAPI decorators (`ApiTag`, `ApiSummary`, `ApiDescription`, `ApiResponse`)
 keep their names: there "Api" means OpenAPI, not the base class.

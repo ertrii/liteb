@@ -6,10 +6,12 @@ import { Auth } from '../core/auth';
 import type { EventBus, EventToken } from '../modules/events';
 import type { Container, Contract } from '../modules/container';
 import type { Slot } from '../modules/slots';
+import type { Output } from '../outputs/output';
 
 export type DataJson =
   | Record<string, any>
   | Response<any, Record<string, any>>
+  | Output
   | null;
 
 /**
@@ -86,15 +88,6 @@ export abstract class Endpoint<
   }
 
   /**
-   * Runs before {@link main}, inside the instance.
-   *
-   * Kept while `error()` and `final()` were dropped because it is the only
-   * guard that sees validated state: `this.params`, `this.body` and
-   * `this.auth` are already there, where a `@Use` middleware only gets the raw
-   * request. Throwing from here skips `main()` and maps like any other error.
-   */
-
-  /**
    * Everything the installed modules contributed to an extension point.
    *
    * Where {@link get} asks ONE module for a capability, this asks whoever
@@ -136,11 +129,22 @@ export abstract class Endpoint<
     await this.events.emit(token, payload);
   }
 
+  /**
+   * Runs before {@link main}, inside the instance.
+   *
+   * Kept while `error()` and `final()` were dropped because it is the only
+   * guard that sees validated state: `this.params`, `this.body` and
+   * `this.auth` are already there, where a `@Use` middleware only gets the raw
+   * request. Throwing from here skips `main()` and maps like any other error.
+   */
   public previous(): void | Promise<void> {}
+
   /**
    * Main method of the endpoint.
-   * Must implement the business logic and return the response to the client.
-   * May return data, error objects, or null depending on the API's logic.
+   *
+   * Returns the data to answer with — serialized as JSON — or one of the
+   * outputs (`view()`, `pdf()`, `csv()`, `file()`) when the answer is not
+   * JSON. Returning `null` answers an empty body.
    */
   public abstract main(): DataJson | Promise<DataJson>;
 }

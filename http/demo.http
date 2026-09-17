@@ -82,10 +82,16 @@ Content-Type: application/json
 
 GET {{host}}/api/users
 
-### ---------------------------------------------------------------- 6. Templates
-### HTML instead of JSON, rendered from `catalog/views/products.pug`.
-### It resolves because `@Priority(1)` registers it BEFORE `/products/:id`.
+### ------------------------------------------------- 6. Answers that are not JSON
+### A page: `main()` returns `view('products', ...)`, rendered from
+### `catalog/views/products.pug`. It resolves because `@Priority(1)` registers
+### it BEFORE `/products/:id` — `logs/router.log` shows the resulting order.
 GET {{host}}/api/products/page
+
+### The same catalog as a spreadsheet: `main()` returns `csv(products, ...)`.
+### Note the response headers — text/csv and a Content-Disposition with the
+### accented filename sent twice, sanitized and as UTF-8.
+GET {{host}}/api/products/export
 
 ### ---------------------------------------------------------------- 7. An optional module
 ### `reports` is not core, so it installed DISABLED: this is 404, the route was

@@ -17,13 +17,14 @@ import {
 import { MiddlewareFn, USE, UseMetadata } from '../decorators/use.decorator';
 import { PRIORITY, PriorityMetadata } from '../decorators/priority.decorator';
 import { Endpoint } from '../templates/endpoint';
-import { TEMPLATE, TemplateMetadata } from '../decorators/render.decorator';
 import {
   API_DESCRIPTION,
+  API_HIDDEN,
   API_RESPONSES,
   API_SUMMARY,
   API_TAG,
   ApiDescriptionMetadata,
+  ApiHiddenMetadata,
   ApiResponseEntry,
   ApiResponsesMetadata,
   ApiSummaryMetadata,
@@ -34,7 +35,6 @@ export default class EndpointReader {
   public moduleName: string;
   public pathname: string;
   public method: 'get' | 'post' | 'put' | 'delete' | 'patch' | 'query';
-  public view: string | null = null;
   public priority: number | null = null;
   public ParamsSchema: new () => Record<string, any> = undefined;
   public BodySchema: new () => Record<string, any> = undefined;
@@ -44,6 +44,8 @@ export default class EndpointReader {
   public apiSummary: string | null = null;
   public apiDescription: string | null = null;
   public apiResponses: ApiResponseEntry[] = [];
+  /** `@ApiHidden`: mounted, but kept out of the OpenAPI spec. */
+  public apiHidden = false;
 
   private getModule = () => {
     const moduleDefine = Reflect.getMetadata(
@@ -121,16 +123,6 @@ export default class EndpointReader {
     }
   };
 
-  private getTemplate = () => {
-    const viewDefine = Reflect.getMetadata(
-      TEMPLATE,
-      this.EndpointClass,
-    ) as TemplateMetadata;
-    if (viewDefine) {
-      this.view = viewDefine.path;
-    }
-  };
-
   private getOpenApi = () => {
     const tagDefine = Reflect.getMetadata(
       API_TAG,
@@ -160,6 +152,13 @@ export default class EndpointReader {
     if (responsesDefine) {
       this.apiResponses = responsesDefine.responses;
     }
+    const hiddenDefine = Reflect.getMetadata(
+      API_HIDDEN,
+      this.EndpointClass,
+    ) as ApiHiddenMetadata;
+    if (hiddenDefine) {
+      this.apiHidden = hiddenDefine.hidden;
+    }
   };
 
   constructor(private EndpointClass: new () => Endpoint) {
@@ -170,7 +169,6 @@ export default class EndpointReader {
     this.getParams();
     this.getBody();
     this.getQuery();
-    this.getTemplate();
     this.getOpenApi();
   }
 
@@ -191,16 +189,5 @@ export default class EndpointReader {
 
   public hasSchema = () => {
     return !!this.ParamsSchema || !!this.BodySchema || !!this.QuerySchema;
-  };
-
-  public getTemplatePath = () => {
-    if (this.view) {
-      return this.view;
-    }
-    return '';
-  };
-
-  public requiereRender = () => {
-    return !!this.view;
   };
 }

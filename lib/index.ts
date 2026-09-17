@@ -12,7 +12,6 @@ export { Body, Params, Query } from './decorators/request.decorator';
 export { Module } from './decorators/module.decorator';
 export { Priority } from './decorators/priority.decorator';
 export { Schedule } from './decorators/schedule.decorator';
-export { Template } from './decorators/render.decorator';
 export { Use } from './decorators/use.decorator';
 export type { MiddlewareFn, UseMetadata } from './decorators/use.decorator';
 export {
@@ -20,7 +19,16 @@ export {
   ApiSummary,
   ApiDescription,
   ApiResponse,
+  ApiHidden,
 } from './decorators/openapi.decorator';
+export { Output, view, pdf, csv, file } from './outputs';
+export type {
+  FileContent,
+  FileOptions,
+  PdfOptions,
+  CsvColumn,
+  CsvOptions,
+} from './outputs';
 export { OpenAPIGenerator } from './services/openapi-generator';
 export type {
   OpenAPIInfo,

@@ -4,6 +4,7 @@ export const API_TAG = Symbol('__api_tag__');
 export const API_SUMMARY = Symbol('__api_summary__');
 export const API_DESCRIPTION = Symbol('__api_description__');
 export const API_RESPONSES = Symbol('__api_responses__');
+export const API_HIDDEN = Symbol('__api_hidden__');
 
 export interface ApiTagMetadata {
   tags: string[];
@@ -26,6 +27,10 @@ export interface ApiResponseEntry {
 
 export interface ApiResponsesMetadata {
   responses: ApiResponseEntry[];
+}
+
+export interface ApiHiddenMetadata {
+  hidden: boolean;
 }
 
 /**
@@ -81,5 +86,19 @@ export function ApiResponse(
       | undefined) ?? { responses: [] };
     existing.responses.push({ status, ...options });
     Reflect.defineMetadata(API_RESPONSES, existing, target);
+  };
+}
+
+/**
+ * Mounts the endpoint but keeps it out of the OpenAPI spec.
+ *
+ * For what the spec cannot describe honestly or should not advertise: a page
+ * rendered with `view()`, a webhook meant for one provider, an internal route.
+ * It changes documentation only — the route still answers, and it is still
+ * subject to the same auth.
+ */
+export function ApiHidden() {
+  return function (target: new () => Endpoint<any, any, any>) {
+    Reflect.defineMetadata(API_HIDDEN, { hidden: true } as ApiHiddenMetadata, target);
   };
 }

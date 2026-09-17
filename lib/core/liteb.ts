@@ -420,10 +420,17 @@ export default class Liteb extends Server {
       Logger.info(`Swagger UI at ${docsPath} (spec: ${jsonPath})`);
     }
 
-    // Create routes and attach handlers, once per group
+    // Create routes and attach handlers, once per group.
+    //
+    // The counter is global to the whole mount, not per module: what decides
+    // which route answers is the order Express saw them in, across every
+    // router. A per-module number would read as a map and be one.
     Logger.clear('router');
+    Logger.router(
+      `[MAP] ${this.moduleBasePath} — registration order; the first match answers`,
+    );
+    let order = 0;
     for (const { basePath, endpointReaders } of resolvedGroups) {
-      Logger.router(`[API] BASE PATH: ${basePath}`);
       const endpointReadersByModule = this.groupEndpointReaders(endpointReaders);
       Object.entries(endpointReadersByModule).forEach(
         ([moduleName, moduleReaders]) => {
@@ -447,7 +454,8 @@ export default class Liteb extends Server {
               option.setHandler(endpointHandler.schema);
             }
             option.setHandler(endpointHandler.main);
-            Logger.router(endpointReader);
+            order += 1;
+            Logger.router(endpointReader, { order, basePath });
             return option;
           });
           this.router(path.join(basePath, moduleName), options);

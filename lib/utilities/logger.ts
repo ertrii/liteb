@@ -54,25 +54,43 @@ export class Logger {
   }
 
   /**
-   * Logs a message to the route log ('router') and console.
-   * @param message Message to log; can be a string or an EndpointReader instance.
-   * @param args Extra arguments for the logger.
-   * @returns Result of the log4js router trace call.
+   * Writes one line of the route map ('router' log, `router.log` when file
+   * logging is on).
+   *
+   * The map exists for one question: WHICH ROUTE WINS. Express matches in
+   * registration order, so `/products/:id` registered before `/products/page`
+   * swallows the page and the handler receives the literal string "page" — a
+   * bug that looks like a data problem. The listing prints routes in the order
+   * they were mounted, with the `@Priority` that put each one there, so the
+   * answer is read off the file instead of guessed.
+   *
+   * @param message A line of text, or the endpoint to print.
+   * @param options `order` is the position in the whole mount (1 = matched
+   * first); `basePath` completes the URL.
    */
-  static router(message: string | EndpointReader, ...args: any[]) {
+  static router(
+    message: string | EndpointReader,
+    options: { order?: number; basePath?: string } = {},
+  ) {
     const logRouter = log4js.getLogger('router');
     if (message instanceof EndpointReader) {
-      const type = 'API';
-      const priority = message.priority ?? '-';
-      const method = message.method.toUpperCase();
-      const moduleName = message.moduleName;
+      const order =
+        options.order === undefined
+          ? '   '
+          : `#${String(options.order).padStart(2, '0')}`;
+      // `auto` and not `-`: no `@Priority` is the normal case, not a gap.
+      const priority =
+        message.priority === null ? 'auto' : `p${message.priority}`;
+      const method = message.method.toUpperCase().padEnd(6);
       const pathname = slash(
-        path.join('/', moduleName, message.pathname),
+        path.join('/', options.basePath ?? '', message.moduleName, message.pathname),
       );
-      const msg = `[${type}] [${moduleName}] [${priority}] ${method} ${pathname}`;
-      return logRouter.trace(msg, ...args);
+      const name = message.getEndpointClass().name;
+      return logRouter.trace(
+        `${order} ${priority.padEnd(4)} ${method} ${pathname}  (${name})`,
+      );
     }
-    return logRouter.trace(message, ...args);
+    return logRouter.trace(message);
   }
 
   /**

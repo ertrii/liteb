@@ -13,9 +13,9 @@ import { closeTestDb, createTestDb } from './helpers/test-db';
  * Runs the demo app under `src/` end to end.
  *
  * It exists because the previous demo had silently rotted — `@Priority` was
- * backwards so `/users/all` resolved to the `:id` route, and a `@Template`
- * endpoint could never render because nothing ever called `setTemplates`.
- * Example code nobody executes stops being an example.
+ * backwards so `/users/all` resolved to the `:id` route, and the endpoint that
+ * rendered a page could never do it because nothing ever called
+ * `setTemplates`. Example code nobody executes stops being an example.
  *
  * The session is replaced by a header-driven resolver: everything else —
  * migrations, routes, permissions, contracts, the transaction — is the real
@@ -52,6 +52,7 @@ describe('la app de ejemplo (src/)', () => {
     });
     // Igual que src/index.ts: las vistas viven dentro del módulo que las usa.
     await app.setTemplates('pug', path.join(__dirname, '../src/modules/*/views'));
+    app.swagger('/docs', { title: 'Liteb Demo API', version: '2.0.0' });
     await app.start(0);
   });
 
@@ -201,6 +202,38 @@ describe('la app de ejemplo (src/)', () => {
     expect(res.status).toBe(200);
     expect(res.type).toBe('text/html');
     expect(res.text).toContain('Antenna 5GHz');
+  });
+
+  it('el mismo catálogo, como planilla: csv() sale de main()', async () => {
+    const res = await request(server())
+      .get('/api/products/export')
+      .set('x-user', '2')
+      .set('x-perms', STAFF.join(','));
+
+    expect(res.status).toBe(200);
+    expect(res.type).toBe('text/csv');
+    // El nombre del archivo lleva acento: viaja saneado y en UTF-8.
+    expect(res.headers['content-disposition']).toBe(
+      "attachment; filename=\"Cat_logo de productos.csv\"; filename*=UTF-8''Cat%C3%A1logo%20de%20productos.csv",
+    );
+    const texto = res.text.replace(/^﻿/, '');
+    expect(texto.split('\r\n')[0]).toBe('Producto,Precio,Stock');
+    // Las columnas se declararon: el id interno NO se exporta.
+    expect(texto).not.toContain('id');
+  });
+
+  it('el CSV también pasa por los permisos', async () => {
+    const res = await request(server()).get('/api/products/export');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('@ApiHidden deja la página fuera del spec, pero montada', async () => {
+    const res = await request(server()).get('/docs.json');
+
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body.paths)).toContain('/api/products');
+    expect(Object.keys(res.body.paths)).not.toContain('/api/products/page');
   });
 
   it('un id no numérico lo frena el DTO, antes de main()', async () => {

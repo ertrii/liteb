@@ -28,7 +28,7 @@ npm install liteb
 | Schema validation           | ✔      |
 | Scheduler / Tasks           | ✔      |
 | API docs (Swagger / OpenAPI)| ✔      |
-| Templates (pug / ejs)       | ✔      |
+| Non-JSON answers (view/PDF/CSV) | ✔  |
 | Static files                | ✔      |
 | Cookie manager              | ✔      |
 | Environment vars            | ✔      |
@@ -531,7 +531,7 @@ This mounts:
 | `@Query(Dto)` | typed query parameters (required driven by `@IsOptional`) |
 | `:foo` in the path without `@Params` | inferred as a `string` path parameter |
 | `@Module` basePath | default tag for the endpoint |
-| `@Template(...)` | excluded (HTML responses are not part of the spec) |
+| `@ApiHidden()` | excluded (mounted, but kept out of the spec) |
 | `@HttpQuery` | excluded (QUERY is not an OpenAPI operation) |
 
 DTOs are turned into JSON Schema via [`class-validator-jsonschema`](https://github.com/epiphone/class-validator-jsonschema). Decorators like `@IsString`, `@IsEnum`, `@IsUUID`, `@IsOptional`, `@MinLength`, etc. map to their OpenAPI equivalents out of the box, so anything you already validate is also documented.
@@ -596,6 +596,7 @@ export class CreateUserApi extends Endpoint<null, CreateUserDto> {
 | `@ApiSummary(text)` | Short one-line summary shown in the endpoint list. |
 | `@ApiDescription(text)` | Longer description (Markdown supported). |
 | `@ApiResponse(status, { description?, Schema? })` | Document additional status codes and their response shape. Stack as many as you need. |
+| `@ApiHidden()` | Mount the endpoint but leave it out of the spec — a page, a webhook, an internal route. |
 
 ### Current limitations
 
@@ -623,13 +624,81 @@ You can also configure it via environment variables — handy for containers:
 
 If the directory can't be created (permissions, read-only FS), liteb degrades to console logging instead of failing to start.
 
-## Templates (pug / ejs)
+### The route map (`router.log`)
 
-```typescript
-liteb.setTemplates('pug', './views');
+Every boot writes the routes in the order they were mounted:
+
+```
+[MAP] /api — registration order; the first match answers
+#01 auto GET    /api/auth/me  (MeApi)
+#06 p1   GET    /api/products/page  (ProductsPageApi)
+#07 p1   GET    /api/products/export  (ExportProductsApi)
+#08 p2   GET    /api/products/:id  (GetProductApi)
+#10 auto GET    /api/products  (ListProductsApi)
 ```
 
-Set the engine and root path; a controller renders a view with `@Template('view-name')`, and `main()` returns the data passed to it. Works with `pug` and `ejs` (install the engine you use).
+It answers one question: **which route wins**. Express matches in registration
+order, so `/products/:id` mounted before `/products/page` swallows the page and
+the handler receives the literal string `"page"` — a bug that looks like a data
+problem. `#nn` is the position across the whole mount, and `p1`/`auto` is the
+`@Priority` that put it there (`auto` = none declared, which is the normal
+case). With `dir` set it lands in `router.log`; without it, it goes to the
+console.
+
+## Answers that are not JSON
+
+`main()` normally returns data and liteb serializes it. When the answer is a
+page, a document or a file, return one of the **outputs** instead:
+
+```typescript
+import { csv, file, pdf, view } from 'liteb';
+
+@Module('clients')
+@HttpGet()
+@Query(ListClientsDto)
+export class ListClientsApi extends Endpoint<null, null, ListClientsDto> {
+  async main() {
+    const clients = await this.db.getRepository(Client).find();
+
+    if (this.query.format === 'csv') {
+      return csv(clients, {
+        filename: 'Clientes.csv',
+        columns: [
+          { key: 'name', header: 'Nombre' },
+          { key: 'createdAt', header: 'Alta' },
+        ],
+      });
+    }
+
+    return { clients };   // plain data is still JSON
+  }
+}
+```
+
+The decision is made **inside `main()`, with the data in hand** — the same
+endpoint can answer JSON or a file depending on what was asked. (Until 2.0 this
+was `@Template`, a class decorator read at boot, so an endpoint was "a view" or
+it wasn't, forever, and PDF or CSV had nothing to use at all.)
+
+| Output | What it does |
+| --- | --- |
+| `view(template, data?)` | Renders a template and sends the HTML. A template that fails to render comes back as liteb's error contract, not an Express stack page. |
+| `pdf(content, options?)` | `application/pdf`. Shown in the browser by default; `download: true` saves it. liteb does not build the document — pass the bytes from whatever produced them. |
+| `csv(rows, options?)` | Builds the file from a list of rows. `columns` chooses which fields go out and their headers; a BOM is written by default so a spreadsheet reads accents correctly. |
+| `file(content, options?)` | The general case — any MIME type. `pdf` and `csv` are this with the defaults filled in. |
+
+`content` may be a `Buffer`, a `Uint8Array`, a string or a **stream**, which is
+piped rather than buffered. Filenames with accents are sent both sanitized and
+as UTF-8 (RFC 5987), so they survive old clients.
+
+Templates still need an engine and a root path:
+
+```typescript
+await liteb.setTemplates('pug', './views');   // or 'ejs'
+```
+
+Pages are usually worth marking `@ApiHidden()` so they stay out of the OpenAPI
+spec.
 
 ## Scheduled tasks
 
@@ -671,7 +740,7 @@ Three modules, on purpose:
 | Module | | What it shows |
 | --- | --- | --- |
 | `identity` | core | Entity + migration with seed data, login/logout/me, a contract other modules consume, permissions |
-| `catalog` | core | `requires`, validation DTOs, `@Priority` done right, a pug view, `db.transaction()` for two writes that must land together |
+| `catalog` | core | `requires`, validation DTOs, `@Priority` done right, a page with `view()`, an export with `csv()`, `db.transaction()` for two writes that must land together |
 | `reports` | optional | Installs **disabled**; consumes two contracts without importing either module; a scheduled task that only runs while enabled |
 
 ```bash

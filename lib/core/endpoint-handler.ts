@@ -9,6 +9,7 @@ import type { Container, Contract } from '../modules/container';
 import { Auth, AuthContext, AuthResolver } from './auth';
 import type { EventBus } from '../modules/events';
 import type { PermissionRegistry } from '../modules/permissions';
+import { Output } from '../outputs/output';
 
 export default class EndpointHandler {
   constructor(
@@ -92,7 +93,6 @@ export default class EndpointHandler {
     // it goes on the prototype and is there before the instance exists.
     EndpointClass.prototype.events = this.eventBus;
 
-    const requiereRender = this.endpointReader.requiereRender();
     const endpointClass = new EndpointClass();
     // The rest of the state is PER REQUEST and is assigned on the INSTANCE, not
     // the prototype. With the prototype, two concurrent requests to the same
@@ -109,8 +109,8 @@ export default class EndpointHandler {
     state.file = req.file;
     state.request = req;
     state.response = res;
-    // Anonymous until the resolver says otherwise, so `error()` and `final()`
-    // still find an `auth` if resolution itself blows up.
+    // Anonymous until the resolver says otherwise, so an endpoint still finds
+    // an `auth` if resolution itself blows up.
     state.auth = new Auth(
       null,
       this.authResolver !== undefined,
@@ -129,24 +129,26 @@ export default class EndpointHandler {
       }
       await endpointClass.previous();
       const dataResponse = await endpointClass.main();
-      if (requiereRender) {
-        res.render(this.endpointReader.getTemplatePath(), dataResponse);
-        return;
-      }
       // The controller may have written directly to `this.response` (binaries,
       // HTML, streams). If it already ended the response, don't overwrite it.
       if (res.headersSent) return;
+      // Not JSON: a page, a PDF, a spreadsheet. The endpoint decided that at
+      // run time, with the data in hand, so nothing here had to be declared up
+      // front. `httpStatus` still applies — a view answering 404 is normal.
+      if (dataResponse instanceof Output) {
+        res.status(endpointClass.httpStatus);
+        await dataResponse.send(res);
+        return;
+      }
       res.status(endpointClass.httpStatus).json(dataResponse);
     } catch (error) {
       // One layer of catching is enough now that no endpoint hook runs in here:
       // the nested catch only existed because `error()` could itself throw.
       const errResult = new ErrorControl(error);
-      if (requiereRender) {
-        res.send(
-          `<html><body>${JSON.stringify(errResult.toJson())}</body></html>`,
-        );
-        return;
-      }
+      // Includes a template that failed to render and a stream that broke
+      // mid-transfer. The second one has already sent bytes, so `headersSent`
+      // is what keeps this from writing a JSON error into the middle of a
+      // file the client is still downloading.
       if (res.headersSent) return;
       res.status(errResult.getStatus()).json(errResult.toJson());
     }
