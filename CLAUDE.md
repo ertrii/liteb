@@ -98,6 +98,22 @@ Practical fallout for tests: a route-level test needs a real database now,
 because booting modules touches `_modules`. Use the PGlite harness. That is a
 feature — those tests exercise the path consumers actually use.
 
+### Module globs are extension-agnostic (and node_modules-safe)
+
+`withModuleExtensions()` rewrites `./apis/*.api.ts` to
+`./apis/*.api.{ts,js,cjs,mjs}`, and `pickOneFilePerModule()` keeps one file per
+name (`.ts` wins) and drops `*.d.ts`.
+
+Why it matters: `dir` is `__dirname`, so after `tsc` it points at the build,
+where nothing ends in `.ts`. The old literal glob found zero files, liteb logged
+one warning and started **serving 404 to everything** — a deployment that looks
+alive. The same thing blocked a module published as a package, which only ever
+ships `.js`.
+
+The `node_modules` ignore is **anchored to the module's `dir`**, not global: a
+module installed as a package lives under `node_modules`, and an unanchored
+ignore of that name matches none of its files.
+
 ### Module system (`lib/modules/`)
 
 | File | Responsibility |
@@ -108,7 +124,7 @@ feature — those tests exercise the path consumers actually use.
 | `reconcile-modules.ts` | Code vs. recorded state (**pure**) |
 | `module-store.ts` | `_modules` I/O |
 | `module-migrator.ts` | Per-module migrations + `_module_migrations` |
-| `module-loader.ts` | Reads endpoints/tasks from a module's globs |
+| `module-loader.ts` | Reads endpoints/tasks from a module's globs, any extension |
 | `container.ts` / `build-container.ts` | Contracts between modules |
 | `collect-entities.ts` | Union of every module's entities |
 

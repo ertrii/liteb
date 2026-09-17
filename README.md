@@ -177,6 +177,29 @@ pending migrations **in dependency order**, registers the contracts, and mounts
 only what is enabled. Any failure there stops the boot: serving half-mounted is
 worse than not starting.
 
+### Shipping a module compiled, or as a package
+
+The `routes` and `tasks` globs are **extension-agnostic**. Write them however
+you like — `'./apis/*.api.ts'`, `'./apis/*.api.js'` or `'./apis/*.api'` — and
+liteb looks for `.ts`, `.js`, `.cjs` and `.mjs`. You declare *which* files; the
+extension is not your problem.
+
+That is what lets **one manifest** work in three places:
+
+- from source in development (`.ts`)
+- from a build you ship to a customer's server (`.js`)
+- from `node_modules`, when the module is published as a package
+
+```typescript
+import billing from '@acme/liteb-billing';   // a module someone else wrote
+
+const app = await Liteb.create({ db, modules: [identity, billing] });
+```
+
+If a source tree and its build sit side by side, only one of each file is
+loaded (`.ts` wins), so routes are never registered twice. `*.d.ts` files are
+skipped.
+
 ### Calling another module
 
 A module reaches another through its contract, never by importing it — which is

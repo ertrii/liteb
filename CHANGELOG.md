@@ -164,6 +164,25 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Fixed
 
+- **A module's globs now find its files whatever extension they have**, and a
+  module can live under `node_modules`.
+
+  `dir` is `__dirname`, so after `tsc` it points at the build output, where
+  nothing ends in `.ts`. A manifest saying `routes: './apis/*.api.ts'` matched
+  zero files: liteb logged one warning and started anyway, **serving 404 to
+  every route**. An installation shipped to a customer's server would look
+  alive and answer nothing. The same wall stopped a module published as a
+  package, which only ever ships `.js`.
+
+  Globs are now rewritten to cover `.ts`, `.js`, `.cjs` and `.mjs`, so ONE
+  manifest works from source, from a build, and from `node_modules`. Where a
+  source tree and its build sit side by side only one file per name is loaded
+  (`.ts` wins) so nothing registers twice, and `*.d.ts` is skipped.
+
+  The `node_modules` exclusion is now anchored to the module's own folder. It
+  was global, which meant a module installed as a package — living under
+  `node_modules` by definition — matched none of its own files.
+
 - `npm run build` now clears `dist/` and `types/` first. Without it the tarball
   shipped files from deleted modules — `templates/api`, `utilities/queue`,
   `utilities/transaction`, `templates/service`, `templates/middleware` — so a

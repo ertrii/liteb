@@ -1,6 +1,7 @@
 import path from 'path';
+import { Glob } from 'glob';
+import slash from 'slash';
 import EndpointReader from '../core/endpoint-reader';
-import PatternResolve from '../core/pattern-resolver';
 import { Endpoint } from '../templates/endpoint';
 import { Task } from '../templates/task';
 import { ResolvedModule } from './module-manifest';
@@ -11,6 +12,12 @@ export interface LoadedModule {
   module: ResolvedModule;
   readers: EndpointReader[];
 }
+
+/**
+ * Extensions a module's files may have, in the order liteb prefers them when
+ * the same file exists more than once.
+ */
+const MODULE_EXTENSIONS = ['.ts', '.js', '.cjs', '.mjs'] as const;
 
 /**
  * Turns a module's glob into an absolute one, resolved against the module's own
@@ -25,6 +32,55 @@ export function resolveModulePattern(
 ): string {
   if (path.isAbsolute(pattern)) return pattern;
   return path.resolve(dir ?? process.cwd(), pattern);
+}
+
+/**
+ * Makes a glob indifferent to the extension, so ONE manifest works from source
+ * and from a build.
+ *
+ * `routes: './apis/*.api.ts'` used to find nothing once compiled: `dir` is
+ * `__dirname`, which after `tsc` points at the build output where every file
+ * ends in `.js`. liteb warned and started with zero routes — an installation
+ * that boots and answers 404 to everything, with one line in the log. The same
+ * thing blocked a module shipped as a package, which is only ever `.js`.
+ *
+ * The author declares WHICH files, liteb decides the extension.
+ *
+ * Exported for testing.
+ */
+export function withModuleExtensions(pattern: string): string {
+  const known = MODULE_EXTENSIONS.find((ext) => pattern.endsWith(ext));
+  const base = known ? pattern.slice(0, -known.length) : pattern;
+  return `${base}.{${MODULE_EXTENSIONS.map((ext) => ext.slice(1)).join(',')}}`;
+}
+
+/**
+ * One file per module, when a source tree and its build sit side by side.
+ *
+ * Matching every extension means `user.api.ts` and `user.api.js` can both turn
+ * up — compiling in place is enough — and loading both would register every
+ * route twice. Type declarations are dropped for the same reason: `*.api.d.ts`
+ * matches the `.ts` branch but is not a module.
+ *
+ * Exported for testing.
+ */
+export function pickOneFilePerModule(paths: string[]): string[] {
+  const rank = (file: string) => {
+    const index = MODULE_EXTENSIONS.findIndex((ext) => file.endsWith(ext));
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  };
+
+  const chosen = new Map<string, string>();
+  for (const file of paths) {
+    if (file.endsWith('.d.ts')) continue;
+
+    const ext = MODULE_EXTENSIONS.find((candidate) => file.endsWith(candidate));
+    const key = ext ? file.slice(0, -ext.length) : file;
+    const current = chosen.get(key);
+    if (!current || rank(file) < rank(current)) chosen.set(key, file);
+  }
+
+  return [...chosen.values()];
 }
 
 /**
@@ -56,6 +112,29 @@ function byPriority(a: EndpointReader, b: EndpointReader): number {
   return a.priority - b.priority;
 }
 
+/**
+ * Every file matching the module's glob, whatever extension it ended up with.
+ *
+ * The `node_modules` exclusion is anchored to the module's own folder, NOT
+ * global: a module installed as a package LIVES under `node_modules`, and an
+ * unanchored ignore of that name would silently match none of its files.
+ * Anchored, it still keeps a broad glob from descending into a nested one.
+ */
+async function readFiles(
+  pattern: string,
+  dir: string | null,
+): Promise<string[]> {
+  const resolved = withModuleExtensions(resolveModulePattern(pattern, dir));
+  const ignore = dir ? [slash(path.join(dir, '**/node_modules/**'))] : [];
+
+  const found: string[] = [];
+  for await (const file of new Glob(slash(resolved), { ignore, absolute: true })) {
+    found.push(file);
+  }
+
+  return pickOneFilePerModule(found);
+}
+
 /** Reads every export matching the module's patterns. */
 async function readExports(
   patterns: string[],
@@ -64,10 +143,10 @@ async function readExports(
   const found: unknown[] = [];
 
   for (const pattern of patterns) {
-    const resolver = new PatternResolve(resolveModulePattern(pattern, dir));
-    await resolver.readModule();
-    if (!resolver.hasExport()) continue;
-    found.push(...resolver.getModules().flat());
+    for (const file of await readFiles(pattern, dir)) {
+      const exported = await require(file);
+      found.push(...Object.values(exported));
+    }
   }
 
   return found;
