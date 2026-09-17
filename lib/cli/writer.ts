@@ -102,20 +102,23 @@ export function applyEdit(source: string, edit: FileEdit): string | null {
   }
 
   if (edit.arrayEntry) {
-    const { field, value, importLine } = edit.arrayEntry;
+    const { field, value, importLine, unless } = edit.arrayEntry;
     const pattern = new RegExp(`(\\b${field}\\s*:\\s*\\[)([^\\]]*)(\\])`);
     const match = source.match(pattern);
     if (!match) return null;
 
     const current = match[2].trim();
-    if (new RegExp(`\\b${value}\\b`).test(current)) return source;
+    const already = unless
+      ? current.includes(unless)
+      : new RegExp(`\\b${value}\\b`).test(current);
+    if (already) return source;
 
     const filled = current
       ? `${match[1]}${match[2].replace(/\s*$/, '')}, ${value}${match[3]}`
       : `${match[1]}${value}${match[3]}`;
     const withEntry = source.replace(pattern, filled);
 
-    return withImport(withEntry, importLine);
+    return importLine ? withImport(withEntry, importLine) : withEntry;
   }
 
   return null;

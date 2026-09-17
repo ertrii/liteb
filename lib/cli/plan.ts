@@ -31,10 +31,16 @@ export interface FileEdit {
   arrayEntry?: {
     /** The field holding the array, e.g. `entities`. */
     field: string;
-    /** What to add, e.g. `Product`. */
+    /** What to add, e.g. `Product` or a whole object literal. */
     value: string;
-    /** The import that makes it resolve. */
-    importLine: string;
+    /** The import that makes it resolve, when it needs one. */
+    importLine?: string;
+    /**
+     * Plain substring that means "already there". Without it the check is
+     * `value` as a whole word, which only holds for an identifier — an object
+     * literal would be read as a regular expression.
+     */
+    unless?: string;
   };
 }
 

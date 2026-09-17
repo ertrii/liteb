@@ -172,8 +172,8 @@ describe('un módulo generado y puesto a andar', () => {
         path: 'count',
         // `--permission`: la aserción se escribe VIVA. Es opt-in justamente
         // porque exige un resolutor `auth`, que un proyecto recién creado no
-        // tiene.
-        permission: 'inventory.view',
+        // tiene. Clave NUEVA a propósito: el generador tiene que declararla.
+        permission: 'inventory.count',
       }),
     );
     scaffold(createEntity({ target: 'inventory/item', modulesDir, from: 'liteb' }));
@@ -215,6 +215,8 @@ describe('un módulo generado y puesto a andar', () => {
     // que id, versión, engine y claves de permiso pasaron.
     expect(app.permissions()).toEqual([
       { key: 'inventory.view', label: 'View inventory', moduleId: 'inventory' },
+      // La segunda la declaró `create endpoint --permission`.
+      { key: 'inventory.count', label: 'Count inventory', moduleId: 'inventory' },
     ]);
   });
 
@@ -264,7 +266,7 @@ describe('un módulo generado y puesto a andar', () => {
   it('el endpoint agregado después se monta con su método y su ruta', async () => {
     const res = await request(server())
       .post('/api/inventory/count')
-      .set('x-perms', 'inventory.view');
+      .set('x-perms', 'inventory.count');
 
     expect(res.status).toBe(200);
   });
@@ -273,6 +275,27 @@ describe('un módulo generado y puesto a andar', () => {
     const res = await request(server()).post('/api/inventory/count');
 
     expect(res.status).toBe(401);
+  });
+
+  it('y con OTRO permiso es 403: hay actor, le falta la clave', async () => {
+    const res = await request(server())
+      .post('/api/inventory/count')
+      .set('x-perms', 'inventory.view');
+
+    expect(res.status).toBe(403);
+  });
+
+  it('--permission declara la clave en el manifiesto, no sólo la assertea', () => {
+    // Sin esto sería un 500 "Unknown permission" en vez de un 403: el
+    // generador habría escrito código que no puede correr. La etiqueta es un
+    // punto de partida legible, para la pantalla de roles.
+    expect(read(`${modulesDir}/inventory/module.ts`)).toContain(
+      "{ key: 'inventory.count', label: 'Count inventory' }",
+    );
+    expect(app.permissions().map((permission) => permission.key)).toEqual([
+      'inventory.view',
+      'inventory.count',
+    ]);
   });
 
   it('una app SIN resolutor `auth` igual contesta: auth es opcional', async () => {

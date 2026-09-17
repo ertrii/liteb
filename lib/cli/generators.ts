@@ -247,6 +247,42 @@ export function createEndpoint(options: EndpointOptions): Plan {
   // that keeps writing the old name teaches the old framework.
   const className = `${toPascal(target.name)}Endpoint`;
 
+  const permission =
+    options.permission === false
+      ? null
+      : typeof options.permission === 'string'
+        ? { key: options.permission, active: true }
+        : { key: `${target.module}.view`, active: false };
+
+  // A key that no module declares is a 500, not a 403 — on purpose, because it
+  // is a typo and not a missing grant. So asking for one here has to DECLARE
+  // it too, or the generator would write code that cannot run.
+  const edits =
+    permission?.active && permission.key.startsWith(`${target.module}.`)
+      ? [
+          {
+            path: `${dir}/module.ts`,
+            arrayEntry: {
+              field: 'permissions',
+              value: `{ key: '${permission.key}', label: '${permissionLabel(permission.key)}' }`,
+              unless: `'${permission.key}'`,
+            },
+          },
+        ]
+      : [];
+
+  const hints = [
+    'Validate what comes in with @Body(Dto) / @Params(Dto) / @Query(Dto).',
+    'A literal route that a `:param` sibling would swallow needs @Priority(1); the router log shows the resulting order.',
+  ];
+  if (permission?.active) {
+    hints.push(
+      permission.key.startsWith(`${target.module}.`)
+        ? `The label of "${permission.key}" is a guess: it is what a roles screen shows, so make it read the way you would explain it.`
+        : `"${permission.key}" belongs to another module, so it was not declared here. It must exist in that module's "permissions" or the assertion is a 500, not a 403.`,
+    );
+  }
+
   return plan(
     [
       {
@@ -256,22 +292,29 @@ export function createEndpoint(options: EndpointOptions): Plan {
           group: options.group ?? null,
           decorator,
           routePath: options.path ?? '',
-          permission:
-            options.permission === false
-              ? null
-              : typeof options.permission === 'string'
-                ? { key: options.permission, active: true }
-                : { key: `${target.module}.view`, active: false },
+          permission,
           from: relativeFrom(options.from, 3),
         }),
       },
     ],
-    [],
-    [
-      'Validate what comes in with @Body(Dto) / @Params(Dto) / @Query(Dto).',
-      'A literal route that a `:param` sibling would swallow needs @Priority(1); the router log shows the resulting order.',
-    ],
+    edits,
+    hints,
   );
+}
+
+/**
+ * A first label for a permission key: last segment is the action, the rest is
+ * what it acts on. `catalog.products.manage` -> "Manage catalog products".
+ *
+ * It is a placeholder that reads like a sentence, not a guess at intent — the
+ * label is what a roles screen shows a human, so it is meant to be edited.
+ */
+function permissionLabel(key: string): string {
+  const parts = key.split('.');
+  if (parts.length < 2) return toPascal(key).replace(/([a-z])([A-Z])/g, '$1 $2');
+  const action = parts[parts.length - 1];
+  const subject = parts.slice(0, -1).join(' ').replace(/-/g, ' ');
+  return `${action.charAt(0).toUpperCase()}${action.slice(1)} ${subject}`;
 }
 
 export interface TaskOptions extends CommonOptions {

@@ -48,7 +48,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The assertion is now written COMMENTED, above the key the manifest already
   declares, and you uncomment it together with the resolver.
   `liteb create endpoint --permission <key>` writes it live for an application
-  that already has `auth`; `--public` leaves the line out entirely.
+  that already has `auth`, and DECLARES the key in that module's manifest —
+  without it the assertion is a 500 ("unknown permission") rather than a 403,
+  so a generator that wrote only the assertion wrote code that cannot run.
+  `--public` leaves the line out entirely.
 
   `auth` was never mandatory — an endpoint that does not read `this.auth` needs
   no resolver — but the generated code made it look that way.
