@@ -1,22 +1,26 @@
 import 'reflect-metadata';
 import http from 'http';
+import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
-import type { DataSource } from 'typeorm';
 import request from 'supertest';
-import { Liteb } from '../lib';
+import { defineModule, Liteb } from '../lib';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
+import { closeTestDb, createTestDb } from './helpers/test-db';
 
 /**
- * Throwaway DataSource: `start()` only needs `initialize()`. None of the test
- * APIs query the database, so no Postgres is required.
+ * The fixtures mounted as what they would be in a real app: a module. Since
+ * `setApis` went away there is no other way in, which is the point — these
+ * tests now exercise the same path consumers do, `_modules` ledger included.
  */
-const fakeDataSource = {
-  initialize: async () => undefined,
-  isInitialized: false,
-  destroy: async () => undefined,
-} as unknown as DataSource;
+const fixtures = defineModule({
+  id: 'fixtures',
+  version: '1.0.0',
+  core: true,
+  dir: path.join(__dirname, 'fixtures'),
+  routes: './*.api.ts',
+});
 
-const liteb = new Liteb(fakeDataSource);
+let liteb: Liteb;
 const app = () => liteb.getApp();
 
 /** Access the internal (protected) `http.Server` to learn the ephemeral port. */
@@ -61,16 +65,20 @@ const rawRequest = (method: string, pathname: string, body?: unknown) =>
   });
 
 beforeAll(async () => {
-  liteb.setApis('/api', ['./test/fixtures/*.api.ts']);
+  const db = await createTestDb();
+  liteb = await Liteb.create({
+    db,
+    modules: [fixtures],
+    version: '2.0.0-dev.0',
+  });
   // Port 0 = ephemeral, so it doesn't clash with anything on the machine.
   await liteb.start(0);
 });
 
 afterAll(async () => {
   // `shutdown()` calls process.exit and would kill jest: close by hand.
-  const server = (liteb as unknown as { server?: { close: (cb: () => void) => void } })
-    .server;
-  if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
+  await liteb.close({ database: false }).catch(() => undefined);
+  await closeTestDb();
 });
 
 describe('ruteo', () => {

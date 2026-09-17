@@ -40,8 +40,11 @@ describe('arranque con módulos', () => {
   let app: Liteb;
 
   const boot = async (modules: ReturnType<typeof billing>[]) => {
-    app = new Liteb(db);
-    app.useModules(modules, { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: modules,
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
     return app.getApp();
   };
@@ -97,8 +100,11 @@ describe('arranque con módulos', () => {
     await app.close({ database: false });
 
     // Segundo arranque, misma base: ahora monta.
-    app = new Liteb(db);
-    app.useModules([news()], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [news()],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
 
     const res = await request(app.getApp()).get('/api/facturacion/cargos');
@@ -110,8 +116,11 @@ describe('arranque con módulos', () => {
     await boot([billing()]);
     await app.close({ database: false });
 
-    app = new Liteb(db);
-    app.useModules([billing()], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [billing()],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
 
     expect(await new ModuleMigrator(db).pending([billing()])).toEqual([]);
@@ -126,8 +135,11 @@ describe('arranque con módulos', () => {
       engine: '^9.0.0',
     });
 
-    app = new Liteb(db);
-    app.useModules([futuro], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [futuro],
+      version: '2.0.0-dev.0',
+    });
 
     await expect(app.start(0)).rejects.toThrow(/needs a host matching/);
   });
@@ -141,15 +153,14 @@ describe('arranque con módulos', () => {
       requires: ['fantasma'],
     });
 
-    app = new Liteb(db);
-    app.useModules([huerfano]);
+    app = await Liteb.create({ db, modules: [huerfano] });
 
     await expect(app.start(0)).rejects.toThrow(/is not installed/);
   });
 
   it('sin módulos, el arranque es el de siempre', async () => {
     db = await createTestDb();
-    app = new Liteb(db);
+    app = await Liteb.create({ db, modules: [] });
     await app.start(0);
 
     expect(await tableNames(db)).not.toContain('_modules');

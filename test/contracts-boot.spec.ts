@@ -47,8 +47,11 @@ describe('contratos entre módulos', () => {
   });
 
   const boot = async (modules: ReturnType<typeof billing>[]) => {
-    app = new Liteb(db);
-    app.useModules(modules, { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: modules,
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
     return app.getApp();
   };
@@ -73,8 +76,11 @@ describe('contratos entre módulos', () => {
       provides: [{ token: BillingService, use: BillingServiceImpl }],
     });
 
-    app = new Liteb(db);
-    app.useModules([billingOpcional, sales()], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [billingOpcional, sales()],
+      version: '2.0.0-dev.0',
+    });
 
     // sales lo requiere, así que la falla llega antes: el grafo no resuelve.
     await expect(app.start(0)).rejects.toThrow(/requires "billing", which is disabled/);
@@ -90,8 +96,11 @@ describe('contratos entre módulos', () => {
       core: true,
     });
 
-    app = new Liteb(db);
-    app.useModules([billingMudo, sales()], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [billingMudo, sales()],
+      version: '2.0.0-dev.0',
+    });
 
     await expect(app.start(0)).rejects.toThrow(
       /consumes the contract "billing.service", which no enabled module provides/,
@@ -108,7 +117,7 @@ describe('contratos entre módulos', () => {
 
   it('sin módulos, pedir un contrato explica qué falta', async () => {
     db = await createTestDb();
-    app = new Liteb(db);
+    app = await Liteb.create({ db, modules: [] });
     await app.start(0);
 
     // Un endpoint suelto sin contenedor: el mensaje debe decir qué hacer.

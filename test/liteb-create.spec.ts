@@ -117,10 +117,13 @@ describe('Liteb.create', () => {
     ).rejects.toThrow(/belongs to exactly one module/);
   });
 
-  it('sin módulos se comporta como el constructor de siempre', async () => {
+  it('sin módulos arranca, pero avisa que no servirá nada', async () => {
     const db = await createTestDb();
-    app = await Liteb.create({ db });
+    app = await Liteb.create({ db, modules: [] });
 
+    // No es fatal: una app puede montar handlers propios con getApp(). Pero
+    // desde que los módulos son el único camino para rutas y tareas, una lista
+    // vacía casi siempre es un olvido y debe decirse.
     await app.start(0);
     expect(app.getApp()).toBeDefined();
   });

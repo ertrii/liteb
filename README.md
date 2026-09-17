@@ -43,7 +43,7 @@ npm install liteb
 
 ## Defining endpoints
 
-Every endpoint is **its own class** that extends `Endpoint` and implements `main()`. Routing metadata comes from decorators; the class is discovered by glob (see below).
+Every endpoint is **its own class** that extends `Endpoint` and implements `main()`. Routing metadata comes from decorators; the class is discovered by the `routes` glob of the module it belongs to (see [Modules](#modules)).
 
 ```typescript
 import { Endpoint, Module, HttpGet, Params, NotFoundError } from 'liteb';
@@ -270,27 +270,32 @@ Notes:
 - Without a resolver, reading `this.auth.actor` raises a plain `Error` (500), not
   a 401: an app that never wired auth up has a bug, not an unauthorized visitor.
 
-With `new Liteb(dataSource)` instead of `create()`, set it with
-`app.setAuth(resolver)` before `start()`.
-
 ## Bootstrapping
 
+`Liteb.create()` is the only way to build an application, and **modules are the only way to mount anything**. There is no glob-mounting API: a route or a task belongs to a module or it does not exist.
+
 ```typescript
-import { DataSource } from 'typeorm';
 import { Liteb } from 'liteb';
+import identity from './modules/identity/module';
+import billing from './modules/billing/module';
 
-const dbSource = new DataSource({ type: 'postgres', /* ... */ });
-const liteb = new Liteb(dbSource);
+const app = await Liteb.create({
+  db: { type: 'postgres', /* ... */ },   // or a DataSource you already own
+  modules: [identity, billing],
+  version: '3.0.0',
+  basePath: '/api',
+});
 
-liteb.setApis('/', ['./src/modules/**/apis/*.api.ts']);
-liteb.setTasks(['./src/modules/**/tasks/*.task.ts']);
-liteb.start(5000);
+await app.start(5000);
 ```
 
-Files are discovered by **glob** and every exported class that extends `Endpoint` is registered. `start()`:
+`start()`:
 
 - fails fast if the database can't be reached (throws, so the process exits non-zero and your orchestrator restarts it);
-- registers `SIGTERM`/`SIGINT` handlers for a **graceful shutdown** (stops scheduled tasks, drains in-flight requests, closes the database). You can also trigger it with `liteb.shutdown()`.
+- aborts if the module graph is broken or a migration fails — serving half-mounted is worse than not starting;
+- registers `SIGTERM`/`SIGINT` handlers for a **graceful shutdown** (stops scheduled tasks, drains in-flight requests, closes the database). You can also trigger it with `app.shutdown()`, or `app.close()` to stop without ending the process.
+
+An empty `modules` array is allowed but warns on start: the app will serve nothing beyond what you mounted by hand through `getApp()`.
 
 ### CORS
 
@@ -304,21 +309,7 @@ liteb.use(cors({ origin: ['https://app.example.com'], credentials: true }));
 
 ### API versioning
 
-There is no version decorator. Version by **URL prefix** using `addApis` (see below): mount `v1` and `v2` from different file globs, e.g. `addApis('/api/v2', [...])`.
-
-## Multi base path (`addApis`)
-
-By default, `liteb.setApis(basePath, patterns)` mounts every resolved endpoint under a single base path. When different file globs should resolve under different prefixes — for example, legacy endpoints under `/` and new endpoints under `/api` — use `addApis` instead:
-
-```typescript
-liteb.setApis('/',     ['./src/legacy/**/apis/*.api.ts']);
-liteb.addApis('/api',  ['./src/modules/**/presentation/controllers/**/*.controller.ts']);
-liteb.addApis('/api',  ['./src/application/**/*.use-case.ts']);
-
-liteb.start(5000);
-```
-
-Each call adds another group; `setApis` still resets all groups to a single one (backward compatible). All groups share the same Swagger spec — endpoints from every group appear in `/docs`.
+There is no version decorator. Version by **module**: a `billing-v2` module with its own `@Module('billing/v2')` endpoints runs beside `billing`, and can be enabled or disabled on its own.
 
 ## Swagger / OpenAPI
 
@@ -464,7 +455,7 @@ export class HourlyTask extends Task {
 }
 ```
 
-Point `liteb.setTasks([...])` at your task globs. Tasks are stopped automatically on graceful shutdown.
+Point the module's `tasks` glob at them. Only **enabled** modules get their tasks started, and everything is stopped on graceful shutdown.
 
 ## Environment configuration
 

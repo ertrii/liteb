@@ -1,10 +1,11 @@
 import 'reflect-metadata';
+import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
-import { DataSource } from 'typeorm';
 import request from 'supertest';
-import { Auth, AuthError, ForbiddenError, Liteb } from '../lib';
+import { Auth, AuthError, defineModule, ForbiddenError, Liteb } from '../lib';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { testAuthResolver } from './fixtures/auth/actor';
+import { closeTestDb, createTestDb } from './helpers/test-db';
 
 const actorDe = (userId: number) => ({ userId }) as LitebAuth.Actor;
 
@@ -84,28 +85,31 @@ describe('Auth (sin servidor)', () => {
 });
 
 describe('Auth (extremo a extremo)', () => {
-  const fakeDataSource = {
-    initialize: async () => undefined,
-    isInitialized: false,
-    destroy: async () => undefined,
-  } as unknown as DataSource;
+  const fixtures = defineModule({
+    id: 'auth-fixtures',
+    version: '1.0.0',
+    core: true,
+    dir: path.join(__dirname, 'fixtures/auth'),
+    routes: './*.api.ts',
+  });
 
-  const liteb = new Liteb(fakeDataSource);
+  let liteb: Liteb;
   const app = () => liteb.getApp();
 
   beforeAll(async () => {
-    liteb.setAuth(testAuthResolver);
-    liteb.setApis('/api', ['./test/fixtures/auth/*.api.ts']);
+    const db = await createTestDb();
+    liteb = await Liteb.create({
+      db,
+      modules: [fixtures],
+      version: '2.0.0-dev.0',
+      auth: testAuthResolver,
+    });
     await liteb.start(0);
   });
 
   afterAll(async () => {
-    const server = (
-      liteb as unknown as { server?: { close: (cb: () => void) => void } }
-    ).server;
-    if (server) {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    }
+    await liteb.close({ database: false }).catch(() => undefined);
+    await closeTestDb();
   });
 
   it('el endpoint lee el actor sin saber de dónde salió', async () => {
@@ -167,34 +171,5 @@ describe('Auth (extremo a extremo)', () => {
 
     expect(uno.body).toEqual({ userId: 1 });
     expect(dos.body).toEqual({ userId: 2 });
-  });
-});
-
-describe('Liteb.create({ auth })', () => {
-  let app: Liteb | undefined;
-
-  afterAll(async () => {
-    await app?.close({ database: false }).catch(() => undefined);
-  });
-
-  it('la opción auth llega a los endpoints igual que setAuth', async () => {
-    // `Object.create(DataSource.prototype)` para que pase el `instanceof` de
-    // create() sin levantar una base: esta prueba es del cableado, no del ORM.
-    const db = Object.assign(Object.create(DataSource.prototype), {
-      initialize: async () => undefined,
-      isInitialized: false,
-      destroy: async () => undefined,
-    }) as DataSource;
-
-    app = await Liteb.create({ db, auth: testAuthResolver });
-    app.setApis('/api', ['./test/fixtures/auth/whoami.api.ts']);
-    await app.start(0);
-
-    const res = await request(app.getApp())
-      .get('/api/yo/actual')
-      .set('x-user', '9');
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ userId: 9 });
   });
 });

@@ -217,6 +217,24 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Removed
 
+- **`setApis()`, `addApis()`, `setTasks()`**, and the public constructor and
+  `useModules()`. `Liteb.create({ db, modules })` is the only entry point, and
+  `modules` is required.
+
+  They were the 1.x way to mount code by glob, and keeping them made the module
+  manifest optional: an application could define routes outside any module, so
+  the module system was a second path rather than the path. Now anything that
+  serves a request belongs to a module, which means it can always be traced to
+  something installable, disableable and versioned. Versioning by URL prefix,
+  which `addApis` used to serve, is a module per prefix.
+
+  The constructor is private because the only instances it could build are an
+  application with no modules — and therefore nothing to serve — or one whose
+  DataSource never learned about its modules' entities, which fails later, at
+  the first query.
+
+  `setAuth()` went with them: with one entry point, `create({ auth })` is it.
+
 - **`Endpoint.getSession()` / `setSession()`** and the `SessionDataExtends<T>`
   type. They returned `any` (666 untyped call sites in the main consumer, for
   two keys) and hard-wired the framework to `express-session`. Replaced by

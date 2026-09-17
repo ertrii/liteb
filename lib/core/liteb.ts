@@ -9,7 +9,6 @@ import Server, { RouterOption } from './server';
 import { Logger } from '../utilities/logger';
 import ErrorControl from '../utilities/error-control';
 import { NotFoundError } from '../utilities/errors';
-import { Endpoint } from '../templates/endpoint';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';
 import path from 'path';
@@ -39,8 +38,11 @@ export interface LitebOptions {
    */
   db: DataSourceOptions | DataSource;
 
-  /** Manifests built with `defineModule()`. */
-  modules?: ResolvedModule[];
+  /**
+   * Manifests built with `defineModule()`. Required, and the ONLY way to mount
+   * routes or tasks: an application is its modules.
+   */
+  modules: ResolvedModule[];
 
   /** Prefix for every module route. Defaults to `/api`. */
   basePath?: string;
@@ -55,17 +57,11 @@ export interface LitebOptions {
   auth?: AuthResolver;
 }
 
-interface EndpointGroup {
-  basePath: string;
-  modulesAsync: Promise<Array<new () => Endpoint> | undefined>[];
-}
-
 /**
  * This framework allows you to configure API and task patterns based on modules,
  * resolving their routes and dynamically loading the defined controllers and tasks.
  */
 export default class Liteb extends Server {
-  private endpointGroups: EndpointGroup[] = [];
   private modules: ResolvedModule[] = [];
   private moduleBasePath = '/api';
   private hostVersion?: string;
@@ -73,7 +69,6 @@ export default class Liteb extends Server {
   private container?: Container;
   private authResolver?: AuthResolver;
   private moduleTasks: Array<new () => Task> = [];
-  private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
   private scheduledTasks: cron.ScheduledTask[] = [];
@@ -104,15 +99,15 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Creates a Liteb instance.
+   * Private on purpose: {@link Liteb.create} is the only way in.
    *
-   * Prefer {@link Liteb.create} when the application has modules: the
-   * DataSource has to know their entities, and only `create` can add them
-   * before the connection is built.
+   * A hand-built instance could only ever be an application with no modules —
+   * and therefore no routes and no tasks — or one whose DataSource never
+   * learned about its modules' entities, which fails later, at the first query.
    *
    * @param dbSource TypeORM DataSource instance for database access.
    */
-  constructor(private dbSource: DataSource) {
+  private constructor(private dbSource: DataSource) {
     super();
   }
 
@@ -140,7 +135,7 @@ export default class Liteb extends Server {
    * await app.start(4000);
    */
   public static create = async (options: LitebOptions): Promise<Liteb> => {
-    const modules = options.modules ?? [];
+    const modules = options.modules;
 
     const dataSource =
       options.db instanceof DataSource
@@ -155,82 +150,13 @@ export default class Liteb extends Server {
 
     const app = new Liteb(dataSource);
 
-    if (options.auth) app.setAuth(options.auth);
-
-    if (modules.length > 0) {
-      app.useModules(modules, {
-        basePath: options.basePath,
-        version: options.version,
-      });
-    }
+    app.authResolver = options.auth;
+    app.useModules(modules, {
+      basePath: options.basePath,
+      version: options.version,
+    });
 
     return app;
-  };
-
-  /**
-   * Sets how a request becomes an actor, for applications built with
-   * `new Liteb(dataSource)`. {@link Liteb.create} takes it as the `auth`
-   * option instead.
-   *
-   * It has to be set before `start()`: handlers capture the resolver when the
-   * routes are mounted.
-   *
-   * @example
-   * app.setAuth((req) => {
-   *   const userId = req.session?.userId;
-   *   if (!userId) return null;
-   *   return { actor: { userId }, permissions: req.session.permissions };
-   * });
-   */
-  public setAuth = (resolver: AuthResolver) => {
-    this.authResolver = resolver;
-  };
-
-  private resolveApiPatterns = (
-    pattern: string[],
-  ): EndpointGroup['modulesAsync'] => {
-    return pattern
-      .map(async (apiPattern) => {
-        const patternResolver = new PatternResolve<new () => Endpoint>(apiPattern);
-        await patternResolver.readModule();
-        if (!patternResolver.hasExport()) return undefined;
-        return patternResolver.getModules().flat();
-      })
-      .flat() as EndpointGroup['modulesAsync'];
-  };
-
-  /**
-   * Defines the API patterns that will be read and analyzed under a single
-   * base path. Replaces any previously configured groups.
-   *
-   * For multi-base-path setups (e.g. legacy under `/` plus new code under
-   * `/api`), use {@link addApis} instead.
-   *
-   * @param path Base path under which the resolved endpoints will be mounted.
-   * @param pattern Array of glob patterns pointing at API module files.
-   */
-  public setApis = (path: string, pattern: string[]) => {
-    this.endpointGroups = [
-      { basePath: path, modulesAsync: this.resolveApiPatterns(pattern) },
-    ];
-  };
-
-  /**
-   * Adds another API group on top of any already configured. Each group
-   * has its own base path; the resolved endpoints are mounted at
-   * `path.join(basePath, @Module(name), @Get/@Post/...(path))`.
-   *
-   * Useful when different file globs should resolve under different prefixes
-   * (e.g. legacy controllers under `/`, new controllers under `/api`).
-   *
-   * @param path Base path for this group.
-   * @param pattern Array of glob patterns pointing at API module files.
-   */
-  public addApis = (path: string, pattern: string[]) => {
-    this.endpointGroups.push({
-      basePath: path,
-      modulesAsync: this.resolveApiPatterns(pattern),
-    });
   };
 
   /**
@@ -277,23 +203,6 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Defines the task patterns (Tasks) that will be read and analyzed.
-   *
-   * @param pattern Array of path patterns to task modules.
-   */
-  public setTasks = (pattern: string[]) => {
-    const tasksAsync = pattern
-      .map(async (taskPattern) => {
-        const patternResolver = new PatternResolve<new () => Task>(taskPattern);
-        await patternResolver.readModule();
-        if (!patternResolver.hasExport()) return;
-        return patternResolver.getModules().flat();
-      })
-      .flat();
-    this.tasksAsync = tasksAsync;
-  };
-
-  /**
    * Registers the modules this application is made of.
    *
    * On start they go through the full cycle: their state is read from
@@ -304,7 +213,7 @@ export default class Liteb extends Server {
    * @param options `basePath` prefixes every module route (default `/api`);
    * `version` is the host version checked against each module's `engine`.
    */
-  public useModules = (
+  private useModules = (
     modules: ResolvedModule[],
     options: { basePath?: string; version?: string } = {},
   ) => {
@@ -400,7 +309,13 @@ export default class Liteb extends Server {
       throw error;
     }
 
-    if (this.modules.length > 0) {
+    if (this.modules.length === 0) {
+      // Not fatal — an application may mount its own Express handlers through
+      // `getApp()` — but it is almost always a mistake worth saying out loud.
+      Logger.warn(
+        'This application declares no modules: it will serve nothing but what you mounted by hand.',
+      );
+    } else {
       Logger.info('Loading modules...');
       try {
         await this.bootModules();
@@ -420,43 +335,13 @@ export default class Liteb extends Server {
     }
 
     Logger.info('Reading API and creating routes...');
-    // Resolve API patterns per group (each group has its own basePath)
+    // Every route belongs to a module. Grouping by module keeps each one's
+    // routers, OpenAPI spec and logging together, and lets a disabled module
+    // contribute nothing at all.
     const resolvedGroups: Array<{
       basePath: string;
       endpointReaders: EndpointReader[];
     }> = [];
-    for (const group of this.endpointGroups) {
-      const modules = await Promise.all(group.modulesAsync);
-      const exporteds = modules
-        .filter((m): m is Array<new () => Endpoint> => m !== undefined)
-        .flat()
-        // A controller/view file may export things besides the class
-        // (constants, helpers, types). `Reflect.getMetadata` blows up with a
-        // TypeError if given a primitive, so we only consider classes that
-        // extend `Endpoint`; everything else is silently ignored.
-        .filter(
-          (exported): exported is new () => Endpoint =>
-            typeof exported === 'function' &&
-            exported.prototype instanceof Endpoint,
-        );
-      const endpointReaders = exporteds
-        .map((exported) => {
-          const endpointReader = new EndpointReader(exported);
-          if (endpointReader.isInvalid()) return;
-          return endpointReader;
-        })
-        .filter((endpointReader): endpointReader is EndpointReader => endpointReader !== undefined)
-        .sort((a, b) => {
-          if (a.priority === null && b.priority === null) return 0;
-          if (a.priority === null) return 1;
-          if (b.priority === null) return -1;
-          return a.priority - b.priority;
-        });
-      resolvedGroups.push({ basePath: group.basePath, endpointReaders });
-    }
-
-    // Module routes share the pipeline with the configured groups, so they get
-    // the same OpenAPI spec, the same logging and the same 404 behind them.
     for (const loaded of this.loadedModules) {
       if (loaded.readers.length === 0) continue;
       resolvedGroups.push({
@@ -523,25 +408,18 @@ export default class Liteb extends Server {
     Logger.info('Loading server...');
     await this.listen(port);
 
-    if (this.tasksAsync.length > 0 || this.moduleTasks.length > 0) {
-      // Read task modules
-      Logger.info('Reading and loader tasks');
-      const taskModules = await Promise.all(this.tasksAsync);
-
-      // Start tasks. We filter out null/undefined because `setTasks` can emit
-      // promises resolved to `undefined` when a pattern matches no files.
-      [...taskModules.flat(), ...this.moduleTasks]
-        .filter((taskMod): taskMod is new () => Task => taskMod != null)
-        .forEach((taskMod) => {
-          const interpreterTask = new InterpreterTask(
-            taskMod,
-            this.dbSource,
-            this.container,
-          );
-          if (interpreterTask.isInvalid()) return;
-          const scheduled = interpreterTask.start();
-          if (scheduled) this.scheduledTasks.push(scheduled);
-        });
+    if (this.moduleTasks.length > 0) {
+      Logger.info('Starting module tasks...');
+      this.moduleTasks.forEach((taskMod) => {
+        const interpreterTask = new InterpreterTask(
+          taskMod,
+          this.dbSource,
+          this.container,
+        );
+        if (interpreterTask.isInvalid()) return;
+        const scheduled = interpreterTask.start();
+        if (scheduled) this.scheduledTasks.push(scheduled);
+      });
     }
 
     this.registerShutdownHooks();

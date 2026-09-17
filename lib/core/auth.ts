@@ -55,6 +55,8 @@ export interface AuthResult {
  * session today, a bearer token from the mobile app, an API key from a
  * third-party extension — all of them are this one function.
  *
+ * Passed as `Liteb.create({ auth })`.
+ *
  * It runs once per request, before `previous()`, so keep it cheap. Throwing
  * from here is legitimate (a malformed token is a 401) and maps through the
  * usual error handling.
@@ -154,7 +156,7 @@ export class Auth {
     if (this.result) return this.result.actor;
     if (!this.configured) {
       throw new Error(
-        'This application resolves no actor: pass `auth` to Liteb.create() (or call setAuth()) before reading this.auth.',
+        'This application resolves no actor: pass `auth` to Liteb.create() before reading this.auth.',
       );
     }
     throw new AuthError('Unauthorized.');

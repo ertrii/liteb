@@ -76,6 +76,20 @@ order is not incidental — each step depends on the one before:
 Any failure in 2–5 aborts the boot. Serving half-mounted is worse than not
 starting.
 
+### Modules are the only way in
+
+`Liteb.create()` is the sole entry point — the constructor and `useModules()`
+are private — and there is no glob-mounting API. `setApis`/`addApis`/`setTasks`
+were removed: they let an application define routes outside any module, which
+made the manifest optional and the module system a second-class path. The
+consequence is deliberate: **anything that serves a request lives in a module**,
+so a route can always be traced to something installable, disableable and
+versioned.
+
+Practical fallout for tests: a route-level test needs a real database now,
+because booting modules touches `_modules`. Use the PGlite harness. That is a
+feature — those tests exercise the path consumers actually use.
+
 ### Module system (`lib/modules/`)
 
 | File | Responsibility |
@@ -128,8 +142,8 @@ callers whose actors must not cross.
 
 ### Auth seam (2.x)
 
-`lib/core/auth.ts`. One `AuthResolver` (`LitebOptions.auth` or `setAuth()`)
-turns a request into `{ actor, permissions }`; endpoints read `this.auth`.
+`lib/core/auth.ts`. One `AuthResolver` (`LitebOptions.auth`) turns a request
+into `{ actor, permissions }`; endpoints read `this.auth`.
 
 - `Actor` is declared **empty** in a `declare global { namespace LitebAuth }`
   block. An interface re-exported from the package entry cannot be merged from
@@ -158,7 +172,9 @@ same contract.
 | --- | --- |
 | `Api` | `Endpoint` (`lib/templates/endpoint.ts`) |
 | `ApiReader` / `ApiHandler` | `EndpointReader` / `EndpointHandler` |
-| `new Liteb(ds)` + `setApis(...)` | `Liteb.create({ db, modules })` |
+| `new Liteb(ds)` + `setApis(...)` | `Liteb.create({ db, modules })` — the constructor is private |
+| `addApis()` (multi base path) | A module per prefix |
+| `setTasks(globs)` | The module's `tasks` glob |
 | Entities by global glob | Declared per module |
 | One migrations folder | Per module, own ledger |
 | `Get`/`Post`/… | `HttpGet`/`HttpPost`/… |

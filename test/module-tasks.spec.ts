@@ -46,8 +46,11 @@ describe('tareas de los módulos', () => {
 
   it('arranca la tarea de un módulo habilitado', async () => {
     db = await createTestDb();
-    app = new Liteb(db);
-    app.useModules([heartbeat(true)], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [heartbeat(true)],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
 
     expect(await waitFor(() => beats.count > 0)).toBe(true);
@@ -55,8 +58,11 @@ describe('tareas de los módulos', () => {
 
   it('le inyecta db y contenedor, como a un endpoint', async () => {
     db = await createTestDb();
-    app = new Liteb(db);
-    app.useModules([heartbeat(true)], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [heartbeat(true)],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
 
     await waitFor(() => beats.count > 0);
@@ -67,8 +73,11 @@ describe('tareas de los módulos', () => {
 
   it('NO arranca la tarea de un módulo apagado', async () => {
     db = await createTestDb();
-    app = new Liteb(db);
-    app.useModules([heartbeat(false)], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [heartbeat(false)],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
 
     // Un módulo apagado no puede dejar un cron corriendo.
@@ -79,14 +88,20 @@ describe('tareas de los módulos', () => {
   it('una vez encendido, su tarea sí corre', async () => {
     db = await createTestDb();
 
-    app = new Liteb(db);
-    app.useModules([heartbeat(false)], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [heartbeat(false)],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
     await new ModuleStore(db).enable('heartbeat');
     await app.close({ database: false });
 
-    app = new Liteb(db);
-    app.useModules([heartbeat(false)], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [heartbeat(false)],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
 
     expect(await waitFor(() => beats.count > 0)).toBe(true);
@@ -94,8 +109,11 @@ describe('tareas de los módulos', () => {
 
   it('cerrar la aplicación detiene la tarea', async () => {
     db = await createTestDb();
-    app = new Liteb(db);
-    app.useModules([heartbeat(true)], { version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      db: db,
+      modules: [heartbeat(true)],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
 
     await waitFor(() => beats.count > 0);
