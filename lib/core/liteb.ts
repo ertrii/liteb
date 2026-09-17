@@ -21,7 +21,11 @@ import { ResolvedModule } from '../modules/module-manifest';
 import { ModuleStore } from '../modules/module-store';
 import { ModuleMigrator } from '../modules/module-migrator';
 import { resolveModules } from '../modules/resolve-modules';
-import { LoadedModule, loadModules } from '../modules/module-loader';
+import {
+  LoadedModule,
+  loadModules,
+  loadModuleTasks,
+} from '../modules/module-loader';
 import { collectModuleEntities } from '../modules/collect-entities';
 import { buildContainer } from '../modules/build-container';
 import { Container } from '../modules/container';
@@ -60,6 +64,7 @@ export default class Liteb extends Server {
   private hostVersion?: string;
   private loadedModules: LoadedModule[] = [];
   private container?: Container;
+  private moduleTasks: Array<new () => Task> = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
@@ -327,6 +332,13 @@ export default class Liteb extends Server {
     }
 
     this.loadedModules = await loadModules(active);
+
+    // Scheduled tasks follow the same rule as routes: only enabled modules get
+    // theirs started. A disabled module must not keep a cron running.
+    this.moduleTasks = [];
+    for (const mod of active) {
+      this.moduleTasks.push(...(await loadModuleTasks(mod)));
+    }
     Logger.info(
       `Modules enabled: ${active.map((mod) => mod.id).join(', ') || 'none'}`,
     );
@@ -481,15 +493,14 @@ export default class Liteb extends Server {
     Logger.info('Loading server...');
     await this.listen(port);
 
-    if (this.tasksAsync.length > 0) {
+    if (this.tasksAsync.length > 0 || this.moduleTasks.length > 0) {
       // Read task modules
       Logger.info('Reading and loader tasks');
       const taskModules = await Promise.all(this.tasksAsync);
 
       // Start tasks. We filter out null/undefined because `setTasks` can emit
       // promises resolved to `undefined` when a pattern matches no files.
-      taskModules
-        .flat()
+      [...taskModules.flat(), ...this.moduleTasks]
         .filter((taskMod): taskMod is new () => Task => taskMod != null)
         .forEach((taskMod) => {
           const interpreterTask = new InterpreterTask(

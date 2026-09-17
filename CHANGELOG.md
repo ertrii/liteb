@@ -159,6 +159,11 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   than a failure on whichever request needed it first, in production. The
   framework cannot infer it by reading code, which is why it is declared.
 
+- **Scheduled tasks from modules** — a module's `tasks` globs are loaded and
+  started on boot, receiving `db` and the container like an endpoint does. They
+  follow the same rule as routes: only enabled modules get theirs started, so a
+  disabled module never leaves a cron running, and `close()` stops them.
+
 - `semver` as a direct dependency, to validate versions and `engine` ranges.
 
 ### Changed
