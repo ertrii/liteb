@@ -30,6 +30,21 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   subsystem, so the manifest never describes something the framework cannot
   honor.
 
+- **`resolveModules()`** — orders a set of modules so each one starts after its
+  dependencies, and refuses the set when it cannot start safely: duplicate ids,
+  missing dependencies, cycles, host incompatibility, or depending on a module
+  that is installed but disabled. Throws `ModuleResolutionError`.
+
+  A cycle is reported as the chain that forms it (`a -> b -> c -> a`), which is
+  why the sort is a DFS rather than Kahn's algorithm. Unrelated modules keep
+  their input order, so an installation migrates and mounts in the same
+  sequence on every run.
+
+  `engine` is matched against the host's base version: a host on `2.0.0-dev.0`
+  satisfies `^2.0.0`. Strict semver ranks a prerelease below its own release,
+  which would leave a prerelease host unable to load anything — exactly while
+  2.0 is being built. It only drops the tag: `3.0.0-alpha` still fails `^2.0.0`.
+
 - `semver` as a direct dependency, to validate versions and `engine` ranges.
 
 ### Changed

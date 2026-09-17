@@ -28,6 +28,8 @@ export type {
 } from './services/openapi-generator';
 export { defineModule } from './modules/define-module';
 export { ModuleDefinitionError } from './modules/module-manifest';
+export { resolveModules, ModuleResolutionError } from './modules/resolve-modules';
+export type { ResolveModulesOptions } from './modules/resolve-modules';
 export type {
   ModuleManifest,
   ResolvedModule,
