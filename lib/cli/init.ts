@@ -109,9 +109,19 @@ export async function createApp() {
 
     basePath: '/api',
 
-    // How a request becomes an actor. Until there is one, \`this.auth\` is
-    // anonymous and reading \`this.auth.actor\` is an error.
-    // auth: async (request, { db, get }) => ({ actor: { userId: 1 }, permissions: [] }),
+    // How a request becomes an actor. OPTIONAL: an endpoint that never reads
+    // \`this.auth\` needs no resolver, and a plain API works without this.
+    //
+    // Uncomment it together with the \`this.auth.assert(...)\` line your
+    // endpoints carry commented out — asserting with no resolver is a
+    // configuration error, not a 401, and answers 500 on purpose.
+    //
+    // auth: async (request, { db, get }) => {
+    //   const userId = Number(request.headers['x-user']);
+    //   if (!userId) return null;              // anonymous: 401 where asserted
+    //   // \`*\` grants everything; real ones are the keys your modules declare.
+    //   return { actor: { userId }, permissions: ['*'] };
+    // },
   });
 }
 

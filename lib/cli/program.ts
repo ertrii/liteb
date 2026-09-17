@@ -151,7 +151,11 @@ export function buildProgram(): Command {
       .option('--method <verb>', 'get, post, put, patch, delete, query', 'get')
       .option('--path <path>', 'path under the group, e.g. ":id"')
       .option('--group <name>', 'route prefix (@Group); defaults to the module id')
-      .option('--public', 'no permission assertion'),
+      .option(
+        '--permission <key>',
+        'assert this key from the start (needs an `auth` resolver)',
+      )
+      .option('--public', 'no permission line at all'),
   ).action((target, flags) => {
     report(
       createEndpoint({
@@ -161,7 +165,7 @@ export function buildProgram(): Command {
         method: flags.method,
         path: flags.path,
         group: flags.group,
-        permission: flags.public ? false : undefined,
+        permission: flags.public ? false : flags.permission,
       }),
       flags,
     );

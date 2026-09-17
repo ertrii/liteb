@@ -37,6 +37,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The scaffold no longer answers 500 to the first request.** `liteb init`
+  writes `auth` commented out, while `liteb create module/endpoint` wrote
+  `this.auth.assert(...)` live — so a freshly generated project failed with
+  "this application resolves no actor" on the first call to its own endpoint.
+  The two halves contradicted each other, and the CLI tests missed it because
+  they built the application themselves, with a resolver, instead of using the
+  entry point `init` writes.
+
+  The assertion is now written COMMENTED, above the key the manifest already
+  declares, and you uncomment it together with the resolver.
+  `liteb create endpoint --permission <key>` writes it live for an application
+  that already has `auth`; `--public` leaves the line out entirely.
+
+  `auth` was never mandatory — an endpoint that does not read `this.auth` needs
+  no resolver — but the generated code made it look that way.
+
 - **An endpoint without the decorator is no longer dropped in silence.**
   `isInvalid()` required a group, so forgetting `@Module` produced a clean
   boot, a healthy log and 404 forever — the failure had no symptom to search

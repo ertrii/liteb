@@ -128,7 +128,9 @@ export {};
     group: null,
     decorator: 'HttpGet',
     routePath: '',
-    permission: `${id}.view`,
+    // Declared in the manifest, asserted only once there is an `auth` resolver
+    // to assert against. The first request to a new project must answer.
+    permission: { key: `${id}.view`, active: false },
     from: relativeFrom(options.from, 3),
   });
 
@@ -163,19 +165,42 @@ export {};
   );
 }
 
+/**
+ * The permission line, live or commented.
+ *
+ * It is commented by DEFAULT, and that is the whole point: `auth` is optional
+ * in liteb — an endpoint that never touches `this.auth` needs no resolver —
+ * but `assert()` does need one, and a scaffold that ships the assertion live
+ * while `init` ships `auth` commented out answers 500 to the first request
+ * anybody makes. Standing an API up must not require deciding who your users
+ * are first.
+ */
+function permissionBlock(
+  permission: { key: string; active: boolean } | null,
+): string {
+  if (!permission) return '';
+  if (permission.active) {
+    return `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert('${permission.key}');\n\n`;
+  }
+  return (
+    `    // Gate this endpoint by uncommenting the line below. It needs an \`auth\`\n` +
+    `    // resolver in Liteb.create(): without one there is nobody to check, so\n` +
+    `    // reading \`this.auth\` is a configuration error and not a 401.\n` +
+    `    // this.auth.assert('${permission.key}');\n\n`
+  );
+}
+
 function endpointSource(args: {
   className: string;
   /** `null` leaves the decorator out: the module id is already the prefix. */
   group: string | null;
   decorator: string;
   routePath: string;
-  permission: string | null;
+  permission: { key: string; active: boolean } | null;
   from: string;
 }): string {
   const route = args.routePath ? `'${args.routePath}'` : '';
-  const assertion = args.permission
-    ? `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert('${args.permission}');\n\n`
-    : '';
+  const assertion = permissionBlock(args.permission);
   const imports = ['DataJson', 'Endpoint', args.decorator];
   if (args.group) imports.splice(2, 0, 'Group');
   const group = args.group ? `@Group('${args.group}')\n` : '';
@@ -198,7 +223,12 @@ export interface EndpointOptions extends CommonOptions {
   path?: string;
   /** Route prefix (`@Group`). Defaults to the module id, with no decorator. */
   group?: string;
-  /** Permission to assert, or `false` for a public endpoint. */
+  /**
+   * A key to assert LIVE, or `false` for an endpoint with no permission line
+   * at all. Left out, the key is `<module>.view` and the assertion is written
+   * commented, because asserting needs an `auth` resolver and a fresh project
+   * has none.
+   */
   permission?: string | false;
 }
 
@@ -229,7 +259,9 @@ export function createEndpoint(options: EndpointOptions): Plan {
           permission:
             options.permission === false
               ? null
-              : (options.permission ?? `${target.module}.view`),
+              : typeof options.permission === 'string'
+                ? { key: options.permission, active: true }
+                : { key: `${target.module}.view`, active: false },
           from: relativeFrom(options.from, 3),
         }),
       },

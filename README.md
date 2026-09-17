@@ -40,6 +40,7 @@ const app = await Liteb.create({
   modules: [billing],   // the only way to mount anything
   version: '1.0.0',     // checked against each module's `engine`
   basePath: '/api',
+  // OPTIONAL. Only endpoints that read `this.auth` need it.
   auth: async (request, { db, get }) => ({ actor: { userId: 1 }, permissions: ['billing.view'] }),
 });
 

@@ -170,6 +170,10 @@ describe('un módulo generado y puesto a andar', () => {
         from: 'liteb',
         method: 'post',
         path: 'count',
+        // `--permission`: la aserción se escribe VIVA. Es opt-in justamente
+        // porque exige un resolutor `auth`, que un proyecto recién creado no
+        // tiene.
+        permission: 'inventory.view',
       }),
     );
     scaffold(createEntity({ target: 'inventory/item', modulesDir, from: 'liteb' }));
@@ -233,20 +237,28 @@ describe('un módulo generado y puesto a andar', () => {
       read(`${modulesDir}/inventory/endpoints/inventory.endpoint.ts`),
     ).not.toContain('@Group');
 
-    const res = await request(server())
-      .get('/api/inventory')
-      .set('x-perms', 'inventory.view');
+    // Y SIN cabeceras: el endpoint que trae el módulo no gatea nada.
+    const res = await request(server()).get('/api/inventory');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
   });
 
-  it('y su permiso es el mismo que declara el manifiesto', async () => {
-    // Si la plantilla del endpoint y la del manifiesto se separan, esto es un
-    // 500 por clave no declarada, no un 403.
-    const res = await request(server()).get('/api/inventory');
+  it('trae la aserción COMENTADA, y la clave declarada en el manifiesto', () => {
+    // Las dos mitades del andamiaje tienen que coincidir: `init` escribe
+    // `auth` comentado, así que un endpoint que asserta de entrada contesta
+    // 500 al primer request de cualquier proyecto nuevo.
+    const endpoint = read(
+      `${modulesDir}/inventory/endpoints/inventory.endpoint.ts`,
+    );
 
-    expect(res.status).toBe(401);
+    expect(endpoint).toContain("// this.auth.assert('inventory.view');");
+    expect(endpoint).not.toMatch(/^\s*this\.auth\.assert/m);
+    // Declarada igual: al descomentarla tiene que existir, o es un 500 por
+    // clave desconocida en vez de un 403.
+    expect(read(`${modulesDir}/inventory/module.ts`)).toContain(
+      "key: 'inventory.view'",
+    );
   });
 
   it('el endpoint agregado después se monta con su método y su ruta', async () => {
@@ -255,6 +267,32 @@ describe('un módulo generado y puesto a andar', () => {
       .set('x-perms', 'inventory.view');
 
     expect(res.status).toBe(200);
+  });
+
+  it('con --permission la aserción sí va viva: anónimo es 401', async () => {
+    const res = await request(server()).post('/api/inventory/count');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('una app SIN resolutor `auth` igual contesta: auth es opcional', async () => {
+    // La regresión: `init` escribe `auth` comentado. Si el andamiaje assertara
+    // de entrada, esto sería 500 — "this application resolves no actor" — en
+    // el primer request de todo proyecto nuevo.
+    const sinAuth = await Liteb.create({
+      db,
+      modules: [require(path.join(workspace, modulesDir, 'inventory/module.ts')).default],
+      version: '1.0.0',
+      basePath: '/api',
+    });
+    await sinAuth.start(0);
+
+    try {
+      const res = await request(sinAuth.getApp()).get('/api/inventory');
+      expect(res.status).toBe(200);
+    } finally {
+      await sinAuth.close({ database: false });
+    }
   });
 
   it('la entidad quedó registrada en el manifiesto, no sólo escrita', () => {

@@ -530,8 +530,16 @@ resolves through symlinks and can hide a missing file or a bad `files` entry.
 
 ## Authentication
 
-Endpoints never learn how a caller was identified. One resolver turns a request
-into an **actor**, and every endpoint reads it as `this.auth`.
+`auth` is **optional**. An endpoint that never reads `this.auth` needs no
+resolver, and an API of plain endpoints stands up without deciding who your
+users are first. The scaffold reflects that: `liteb create` writes the
+`this.auth.assert(...)` line COMMENTED, and you uncomment it together with the
+resolver in `Liteb.create()`. `liteb create endpoint --permission <key>` writes
+it live for an application that already has one.
+
+When you do want it: endpoints never learn how a caller was identified. One
+resolver turns a request into an **actor**, and every endpoint reads it as
+`this.auth`.
 
 ```typescript
 const app = await Liteb.create({
