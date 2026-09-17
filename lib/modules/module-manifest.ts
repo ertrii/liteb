@@ -1,4 +1,5 @@
 import type { DataSource } from 'typeorm';
+import type { Contract, Provider } from './container';
 
 /**
  * A database entity contributed by a module: a decorated class or a TypeORM
@@ -85,6 +86,16 @@ export interface ModuleManifest {
 
   permissions?: ModulePermission[];
 
+  /** Contracts this module implements for the rest of the application. */
+  provides?: Provider<any>[];
+
+  /**
+   * Contracts this module calls. Optional, but declaring them turns a missing
+   * provider into a refusal to start instead of a failure on the first request
+   * that happens to need it.
+   */
+  consumes?: Contract<any>[];
+
   onInstall?: ModuleHook;
   onEnable?: ModuleHook;
   onDisable?: ModuleHook;
@@ -109,6 +120,8 @@ export interface ResolvedModule {
   routes: string[];
   tasks: string[];
   permissions: ModulePermission[];
+  provides: Provider<any>[];
+  consumes: Contract<any>[];
   onInstall: ModuleHook | null;
   onEnable: ModuleHook | null;
   onDisable: ModuleHook | null;

@@ -5,11 +5,13 @@ import { HttpStatus } from '../interfaces/http-status';
 import { ErrorIdentifier } from '../interfaces/type-error';
 import { DataSource } from 'typeorm';
 import ErrorControl from '../utilities/error-control';
+import type { Container } from '../modules/container';
 
 export default class EndpointHandler {
   constructor(
     private endpointReader: EndpointReader,
     private dbSource: DataSource,
+    private container?: Container,
   ) {}
 
   public middleware = (req: Request, res: Response, next: () => void) => {
@@ -54,6 +56,9 @@ export default class EndpointHandler {
     // available during field initializers (e.g.
     // `private rep = this.db.getRepository(...)`), which run inside `new`.
     EndpointClass.prototype.db = this.dbSource;
+    // Like `db`: on the prototype, so it is there before the instance exists
+    // and a field initializer can already reach it.
+    EndpointClass.prototype.container = this.container;
 
     const requiereRender = this.endpointReader.requiereRender();
     const endpointClass = new EndpointClass();

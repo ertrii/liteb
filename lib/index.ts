@@ -46,6 +46,13 @@ export {
 } from './modules/module-loader';
 export type { LoadedModule } from './modules/module-loader';
 export { collectModuleEntities } from './modules/collect-entities';
+export { contract, Container, ContractError } from './modules/container';
+export type {
+  Contract,
+  Provider,
+  ContainerContext,
+} from './modules/container';
+export { buildContainer } from './modules/build-container';
 export type {
   ModuleState,
   ModuleInstall,

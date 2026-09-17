@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { SCHEDULE, ScheduleMetadata } from '../decorators/schedule.decorator';
 import cron from 'node-cron';
 import { Task } from '../templates/task';
+import type { Container } from '../modules/container';
 
 export default class InterpreterTask {
   private options: cron.ScheduleOptions;
@@ -25,6 +26,7 @@ export default class InterpreterTask {
   constructor(
     private TaskClass: new () => Task,
     private dbSource: DataSource,
+    private container?: Container,
   ) {
     this.readSchedule();
   }
@@ -33,6 +35,7 @@ export default class InterpreterTask {
     if (this.started) return;
     this.started = true;
     this.TaskClass.prototype.db = this.dbSource;
+    this.TaskClass.prototype.container = this.container;
     const task = new this.TaskClass();
     return cron.schedule(
       this.expression,

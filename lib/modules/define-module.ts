@@ -161,6 +161,33 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
   }
   validatePermissions(permissions, id);
 
+  const provides = manifest.provides ?? [];
+  if (!Array.isArray(provides)) {
+    fail(`Module "${id}": "provides" must be an array.`, id);
+  }
+  for (const provider of provides) {
+    if (!provider?.token?.id) {
+      fail(`Module "${id}": every provider needs a contract token.`, id);
+    }
+  }
+  const repeatedProvides = duplicates(provides.map((p) => p.token.id));
+  if (repeatedProvides.length > 0) {
+    fail(
+      `Module "${id}": provides the same contract twice: ${repeatedProvides.join(', ')}.`,
+      id,
+    );
+  }
+
+  const consumes = manifest.consumes ?? [];
+  if (!Array.isArray(consumes)) {
+    fail(`Module "${id}": "consumes" must be an array.`, id);
+  }
+  for (const token of consumes) {
+    if (!token?.id) {
+      fail(`Module "${id}": every consumed entry must be a contract token.`, id);
+    }
+  }
+
   const entities = manifest.entities ?? [];
   if (!Array.isArray(entities)) {
     fail(`Module "${id}": "entities" must be an array.`, id);
@@ -182,6 +209,8 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     routes: toArray(manifest.routes),
     tasks: toArray(manifest.tasks),
     permissions,
+    provides,
+    consumes,
     onInstall: manifest.onInstall ?? null,
     onEnable: manifest.onEnable ?? null,
     onDisable: manifest.onDisable ?? null,

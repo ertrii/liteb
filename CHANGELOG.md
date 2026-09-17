@@ -136,6 +136,29 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   A DataSource can still be passed instead of connection options, and
   `new Liteb(dataSource)` keeps working unchanged.
 
+- **Contracts between modules** — `contract<T>(id)` declares a capability, a
+  module publishes it through `provides`, and a consumer reaches it with
+  `this.get(Token)` from an endpoint or a task. The consumer imports the
+  contract, never the implementation, which is what lets the providing module
+  change or be swapped without touching anyone who calls it.
+
+  Access is `this.get()` rather than a free `inject()`: resolving without an
+  explicit receiver would need a process-wide container, and two applications
+  in one process — a test suite, a worker beside a server — must not see each
+  other's implementations. The container is per application, injected on the
+  prototype like `db`.
+
+  Implementations are built on first use, so a module nobody calls never pays
+  for its dependencies and startup does not hang on something one endpoint
+  needs. A contract provided by two modules is refused: consumers would get one
+  by load order, a bug that moves between deploys. A cycle *while building* is
+  reported instead of exhausting the stack; a mutual reference resolved on use
+  stays valid, since that is how two modules legitimately call each other.
+
+  Declaring `consumes` turns a missing provider into a refusal to start rather
+  than a failure on whichever request needed it first, in production. The
+  framework cannot infer it by reading code, which is why it is declared.
+
 - `semver` as a direct dependency, to validate versions and `engine` ranges.
 
 ### Changed

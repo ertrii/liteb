@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorType } from '../interfaces/type-error';
 import { ErrorResponse, SessionDataExtends } from '../interfaces/utils';
+import type { Container, Contract } from '../modules/container';
 
 export type DataJson =
   | Record<string, any>
@@ -33,6 +34,32 @@ export abstract class Endpoint<
   public response: Response;
   public db: DataSource;
   public httpStatus: HttpStatus = HttpStatus.OK;
+
+  /**
+   * Container of the application this endpoint belongs to. Injected on the
+   * prototype like `db`, so it is available before the instance is built.
+   */
+  public container?: Container;
+
+  /**
+   * Resolves a contract another module provides.
+   *
+   * The endpoint imports the contract, never the implementation — which is
+   * what lets the providing module change, or be swapped, without touching
+   * anyone who calls it.
+   *
+   * @example
+   * const billing = this.get(BillingService);
+   * await billing.emitirCargo({ ... });
+   */
+  protected get<T>(token: Contract<T>): T {
+    if (!this.container) {
+      throw new Error(
+        `Cannot resolve the contract "${token.id}": this application has no modules. Start it with Liteb.create({ modules }).`,
+      );
+    }
+    return this.container.get(token);
+  }
 
   /**
    * Runs before the main method (main).

@@ -23,6 +23,8 @@ import { ModuleMigrator } from '../modules/module-migrator';
 import { resolveModules } from '../modules/resolve-modules';
 import { LoadedModule, loadModules } from '../modules/module-loader';
 import { collectModuleEntities } from '../modules/collect-entities';
+import { buildContainer } from '../modules/build-container';
+import { Container } from '../modules/container';
 
 /** What {@link Liteb.create} takes. */
 export interface LitebOptions {
@@ -57,6 +59,7 @@ export default class Liteb extends Server {
   private moduleBasePath = '/api';
   private hostVersion?: string;
   private loadedModules: LoadedModule[] = [];
+  private container?: Container;
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
@@ -315,6 +318,14 @@ export default class Liteb extends Server {
       Logger.info(`Migration applied: ${entry.module}:${entry.name}`);
     }
 
+    // Built before anything is mounted: a module consuming a contract nobody
+    // provides must stop the boot, not the first request that needs it.
+    this.container = buildContainer(active, this.dbSource);
+    const contracts = this.container.ids();
+    if (contracts.length > 0) {
+      Logger.info(`Contracts registered: ${contracts.join(', ')}`);
+    }
+
     this.loadedModules = await loadModules(active);
     Logger.info(
       `Modules enabled: ${active.map((mod) => mod.id).join(', ') || 'none'}`,
@@ -438,7 +449,11 @@ export default class Liteb extends Server {
       Object.entries(endpointReadersByModule).forEach(
         ([moduleName, moduleReaders]) => {
           const options = moduleReaders.map((endpointReader) => {
-            const endpointHandler = new EndpointHandler(endpointReader, this.dbSource);
+            const endpointHandler = new EndpointHandler(
+              endpointReader,
+              this.dbSource,
+              this.container,
+            );
             const option = new RouterOption(
               endpointReader.pathname,
               endpointReader.method,
@@ -477,7 +492,11 @@ export default class Liteb extends Server {
         .flat()
         .filter((taskMod): taskMod is new () => Task => taskMod != null)
         .forEach((taskMod) => {
-          const interpreterTask = new InterpreterTask(taskMod, this.dbSource);
+          const interpreterTask = new InterpreterTask(
+            taskMod,
+            this.dbSource,
+            this.container,
+          );
           if (interpreterTask.isInvalid()) return;
           const scheduled = interpreterTask.start();
           if (scheduled) this.scheduledTasks.push(scheduled);
