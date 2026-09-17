@@ -114,6 +114,12 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Fixed
 
+- `npm run build` now clears `dist/` and `types/` first. Without it the tarball
+  shipped files from deleted modules — `templates/api`, `utilities/queue`,
+  `utilities/transaction`, `templates/service`, `templates/middleware` — so a
+  consumer could deep-import 1.x code that no longer exists in the source.
+
+
 - `start()` no longer throws when handed an already-initialized DataSource. An
   application embedding liteb, or a test suite reusing a connection, hit
   `CannotConnectAlreadyConnectedError`; the live connection is adopted instead.

@@ -24,3 +24,5 @@ liteb.json
 /config
 /types
 
+# packed tarballs from `npm pack`
+*.tgz

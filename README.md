@@ -35,13 +35,17 @@ npm install liteb
 | Testing                     | ✔      |
 | Configurable logging        | ✔      |
 | Graceful shutdown           | ✔      |
+| Installable modules         | ✔      |
+| Contracts between modules   | ✔      |
+| Per-module migrations       | ✔      |
+| Events between modules      | —      |
 
 ## Defining endpoints
 
-Every endpoint is **its own class** that extends `Api` and implements `main()`. Routing metadata comes from decorators; the class is discovered by glob (see below).
+Every endpoint is **its own class** that extends `Endpoint` and implements `main()`. Routing metadata comes from decorators; the class is discovered by glob (see below).
 
 ```typescript
-import { Api, Module, HttpGet, Params, NotFoundError } from 'liteb';
+import { Endpoint, Module, HttpGet, Params, NotFoundError } from 'liteb';
 import { IsUUID } from 'class-validator';
 
 class UserParams {
@@ -52,7 +56,7 @@ class UserParams {
 @Module('users')
 @HttpGet(':id')
 @Params(UserParams)
-export class GetUserApi extends Api<UserParams> {
+export class GetUserApi extends Endpoint<UserParams> {
   // `this.db` is available in field initializers.
   private readonly repo = this.db.getRepository(User);
 
@@ -91,7 +95,7 @@ export class GetUserApi extends Api<UserParams> {
 @Body(CreateUserDto)          // validated with class-validator before main()
 @Use(requireAuth)             // a (req, res, next) function
 @Priority(1)                  // registers before `:param` routes in the same module
-export class CreateUserApi extends Api<null, CreateUserDto> {
+export class CreateUserApi extends Endpoint<null, CreateUserDto> {
   main() {
     return { created: this.body.name };
   }
@@ -99,6 +103,111 @@ export class CreateUserApi extends Api<null, CreateUserDto> {
 ```
 
 `@Use` takes a middleware **function** `(req, res, next)`. (A `Middleware` base class exists but is deprecated — a function can set headers and choose the status, the class cannot.)
+
+## Modules
+
+A module is a unit that can be installed, enabled and disabled: it declares its
+own entities, migrations, routes, tasks, permissions and the contracts it
+publishes. `_modules` records what is installed and what is on, so turning a
+module off removes its routes and stops its tasks **without touching its data**.
+
+```typescript
+// modules/billing/module.ts
+import { contract, defineModule } from 'liteb';
+import { Charge } from './entities/charge.entity';
+import * as migrations from './migrations';
+
+export interface BillingService {
+  issueCharge(input: IssueChargeInput): Promise<Charge>;
+}
+export const BillingService = contract<BillingService>('billing.service');
+
+export default defineModule({
+  id: 'billing',
+  version: '1.0.0',
+  core: true,                 // a core module cannot be disabled
+  engine: '^2.0.0',           // host range it supports
+  requires: ['identity'],     // checked at startup
+  dir: __dirname,             // globs resolve against this folder
+
+  entities: [Charge],
+  migrations,
+  routes: './controllers/**/*.controller.ts',
+  tasks: './tasks/*.task.ts',
+  permissions: [{ key: 'billing.view', label: 'View billing' }],
+
+  provides: [{ token: BillingService, use: BillingServiceImpl }],
+});
+```
+
+Start the application from its modules. `Liteb.create` owns the DataSource,
+because TypeORM needs every module's entities when the connection is built:
+
+```typescript
+const app = await Liteb.create({
+  db: { type: 'postgres', host, database },
+  modules: [identity, billing, inventory],
+  version: '2.0.0',      // checked against each module's `engine`
+  basePath: '/api',      // prefix for module routes
+});
+
+await app.start(4000);
+```
+
+On boot it reads `_modules`, resolves the dependency graph, runs each module's
+pending migrations **in dependency order**, registers the contracts, and mounts
+only what is enabled. Any failure there stops the boot: serving half-mounted is
+worse than not starting.
+
+### Calling another module
+
+A module reaches another through its contract, never by importing it — which is
+what lets the provider change or be swapped without touching its callers.
+
+```typescript
+@Module('sales')
+@HttpPost('/')
+export default class CreateSale extends Endpoint<never, CreateSaleDto> {
+  async main() {
+    const billing = this.get(BillingService);
+    const charge = await billing.issueCharge({ ... });
+    return { chargeId: charge.id };
+  }
+}
+```
+
+Declare it in the manifest so a missing provider stops the boot instead of
+failing on whichever request needed it first:
+
+```typescript
+consumes: [BillingService],
+```
+
+Scheduled tasks get the same `this.get()`.
+
+### Enabling and disabling
+
+A new module installs **disabled** unless it is core, so an upgrade never turns
+on something nobody asked for.
+
+```typescript
+const store = new ModuleStore(dataSource);
+await store.enable('inventory');   // takes effect on the next boot
+await store.disable('inventory');
+await store.list();
+```
+
+## Trying a local build
+
+To test an unpublished version against your own project:
+
+```bash
+cd liteb && npm run build && npm pack       # -> liteb-<version>.tgz
+cd ../your-project && npm install ../liteb/liteb-<version>.tgz
+```
+
+A tarball is closer to what npm actually installs than `npm link`, which
+resolves through symlinks and can hide a missing file or a bad `files` entry.
 
 ## Bootstrapping
 
@@ -114,7 +223,7 @@ liteb.setTasks(['./src/modules/**/tasks/*.task.ts']);
 liteb.start(5000);
 ```
 
-Files are discovered by **glob** and every exported class that extends `Api` is registered. `start()`:
+Files are discovered by **glob** and every exported class that extends `Endpoint` is registered. `start()`:
 
 - fails fast if the database can't be reached (throws, so the process exits non-zero and your orchestrator restarts it);
 - registers `SIGTERM`/`SIGINT` handlers for a **graceful shutdown** (stops scheduled tasks, drains in-flight requests, closes the database). You can also trigger it with `liteb.shutdown()`.
@@ -189,7 +298,7 @@ Four extra decorators let you polish the output. They are fully optional — lea
 
 ```typescript
 import {
-  Api,
+  Endpoint,
   Body,
   Module,
   HttpPost,
@@ -230,7 +339,7 @@ class ErrorDto {
 @ApiDescription('Creates a new user. Email must be unique.')
 @ApiResponse(201, { description: 'Created', Schema: UserDto })
 @ApiResponse(409, { description: 'Email already in use', Schema: ErrorDto })
-export class CreateUserApi extends Api<null, CreateUserDto> {
+export class CreateUserApi extends Endpoint<null, CreateUserDto> {
   async main() {
     // ...your logic
   }

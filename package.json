@@ -8,7 +8,7 @@
   "bugs": "https://github.com/ertrii/liteb/issues",
   "scripts": {
     "dev": "nodemon --legacy-watch ./src/index.ts",
-    "build": "npx tsc -p ./tsconfig.build.json --declarationDir ./types",
+    "build": "npm run clear && npx tsc -p ./tsconfig.build.json --declarationDir ./types",
     "clear": "rimraf ./dist ./types",
     "seeds": "ts-node ./src/index.ts",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest"
