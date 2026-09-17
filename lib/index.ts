@@ -37,7 +37,14 @@ export {
   orderMigrations,
 } from './modules/module-migrator';
 export type { AppliedMigration } from './modules/module-migrator';
-export { ModuleRecord } from './modules/module-record.entity';
+export {
+  loadModules,
+  loadModuleEndpoints,
+  loadModuleTasks,
+  toEndpointReaders,
+  resolveModulePattern,
+} from './modules/module-loader';
+export type { LoadedModule } from './modules/module-loader';
 export type {
   ModuleState,
   ModuleInstall,

@@ -92,6 +92,32 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   and the schema reset between cases, which took the migrator suite from 28s to
   3s. `npm test` now runs with `--experimental-vm-modules`, which PGlite needs.
 
+- **`useModules()`** — the boot cycle, wired end to end. State is read from
+  `_modules`, the graph is resolved into dependency order, pending migrations
+  run, and only then are routes mounted: a route must never answer against a
+  table its migration has not created yet. A broken graph or a failed migration
+  refuses to start, because serving half-mounted is worse than not starting.
+
+  Module routes go through the same pipeline as configured groups, so they get
+  the same OpenAPI spec, the same logging and the same 404 behind them.
+
+- **`ModuleLoader`** — reads a module's endpoints from its own globs, resolved
+  against its `dir` (pass `__dirname`) rather than the process's working
+  directory, so a module keeps working wherever it is mounted from. A module
+  that declares routes and resolves to none is reported: that is a wrong glob,
+  and silence turns it into endpoints that simply never answer.
+
+- **`Liteb.close()`** — an ordered stop that does not end the process.
+  `shutdown()` is the signal handler and calls `process.exit`, which makes it
+  unusable from a test or from anything embedding liteb. `close({ database:
+  false })` leaves a connection the caller owns untouched.
+
+### Fixed
+
+- `start()` no longer throws when handed an already-initialized DataSource. An
+  application embedding liteb, or a test suite reusing a connection, hit
+  `CannotConnectAlreadyConnectedError`; the live connection is adopted instead.
+
 - `semver` as a direct dependency, to validate versions and `engine` ranges.
 
 ### Changed

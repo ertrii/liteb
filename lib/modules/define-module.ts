@@ -176,6 +176,7 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     core: manifest.core ?? false,
     engine: manifest.engine ?? null,
     requires,
+    dir: manifest.dir ?? null,
     entities,
     migrations: toMigrations(manifest.migrations),
     routes: toArray(manifest.routes),

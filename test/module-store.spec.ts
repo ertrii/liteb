@@ -2,7 +2,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from '@jest/glo
 import { DataSource } from 'typeorm';
 import { defineModule } from '../lib/modules/define-module';
 import { ModuleStore } from '../lib/modules/module-store';
-import { ModuleRecord } from '../lib/modules/module-record.entity';
 import type { ModuleManifest } from '../lib/modules/module-manifest';
 import {
   closeTestDb,
@@ -19,7 +18,7 @@ describe('ModuleStore', () => {
   let store: ModuleStore;
 
   beforeAll(async () => {
-    db = await createTestDb([ModuleRecord]);
+    db = await createTestDb();
     store = new ModuleStore(db);
   });
 

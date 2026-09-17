@@ -67,6 +67,15 @@ export interface ModuleManifest {
   /** Ids of the modules this one needs. Resolved in topological order. */
   requires?: string[];
 
+  /**
+   * Folder the module's globs resolve against — pass `__dirname`.
+   *
+   * Without it they resolve against the process's working directory, which
+   * breaks the moment a module is moved or published as a package. Explicit
+   * because inferring it from the call stack is fragile and silent when wrong.
+   */
+  dir?: string;
+
   entities?: ModuleEntity[];
   migrations?: ModuleMigrations;
 
@@ -94,6 +103,7 @@ export interface ResolvedModule {
   core: boolean;
   engine: string | null;
   requires: string[];
+  dir: string | null;
   entities: ModuleEntity[];
   migrations: Function[];
   routes: string[];

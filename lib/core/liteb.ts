@@ -17,6 +17,11 @@ import {
   OpenAPIGenerator,
   OpenAPIInfo,
 } from '../services/openapi-generator';
+import { ResolvedModule } from '../modules/module-manifest';
+import { ModuleStore } from '../modules/module-store';
+import { ModuleMigrator } from '../modules/module-migrator';
+import { resolveModules } from '../modules/resolve-modules';
+import { LoadedModule, loadModules } from '../modules/module-loader';
 
 interface EndpointGroup {
   basePath: string;
@@ -29,6 +34,10 @@ interface EndpointGroup {
  */
 export default class Liteb extends Server {
   private endpointGroups: EndpointGroup[] = [];
+  private modules: ResolvedModule[] = [];
+  private moduleBasePath = '/api';
+  private hostVersion?: string;
+  private loadedModules: LoadedModule[] = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
@@ -175,6 +184,71 @@ export default class Liteb extends Server {
   };
 
   /**
+   * Registers the modules this application is made of.
+   *
+   * On start they go through the full cycle: their state is read from
+   * `_modules`, the graph is resolved into dependency order, their pending
+   * migrations run, and only the enabled ones get their routes mounted.
+   *
+   * @param modules Manifests built with `defineModule()`.
+   * @param options `basePath` prefixes every module route (default `/api`);
+   * `version` is the host version checked against each module's `engine`.
+   */
+  public useModules = (
+    modules: ResolvedModule[],
+    options: { basePath?: string; version?: string } = {},
+  ) => {
+    this.modules = modules;
+    if (options.basePath) this.moduleBasePath = options.basePath;
+    if (options.version) this.hostVersion = options.version;
+  };
+
+  /**
+   * Brings the installation in line with the modules in the code and prepares
+   * what has to be mounted.
+   *
+   * Order is not incidental: state is read before resolving, resolving before
+   * migrating, and migrating before anything is mounted — a route must never
+   * answer against a table its migration has not created yet.
+   */
+  private bootModules = async () => {
+    const store = new ModuleStore(this.dbSource);
+    await store.ensureTable();
+
+    const reconciliation = await store.sync(this.modules);
+    for (const entry of reconciliation.install) {
+      Logger.info(
+        `Module "${entry.id}" installed${entry.enabled ? '' : ' (disabled)'}`,
+      );
+    }
+    for (const entry of reconciliation.upgrade) {
+      const direction = entry.downgrade ? 'DOWNGRADED' : 'upgraded';
+      Logger.warn(`Module "${entry.id}" ${direction}: ${entry.from} -> ${entry.to}`);
+    }
+    for (const entry of reconciliation.orphaned) {
+      Logger.warn(
+        `Module "${entry.id}" is recorded but no longer in the code. Its data was left untouched.`,
+      );
+    }
+
+    const active = resolveModules(this.modules, {
+      enabled: reconciliation.enabledIds,
+      hostVersion: this.hostVersion,
+    });
+
+    const migrator = new ModuleMigrator(this.dbSource);
+    const ran = await migrator.run(active);
+    for (const entry of ran) {
+      Logger.info(`Migration applied: ${entry.module}:${entry.name}`);
+    }
+
+    this.loadedModules = await loadModules(active);
+    Logger.info(
+      `Modules enabled: ${active.map((mod) => mod.id).join(', ') || 'none'}`,
+    );
+  };
+
+  /**
    * Starts the main framework flow: connects to the database,
    * resolves APIs and tasks, creates routes, and starts the HTTP server.
    *
@@ -189,11 +263,29 @@ export default class Liteb extends Server {
     // restarts it, instead of staying alive with no server.
     Logger.info('Loading database...');
     try {
-      await this.dbSource.initialize();
+      // A caller may hand over a DataSource it already connected (an app
+      // embedding liteb, a test suite reusing one). Initializing twice throws,
+      // so adopt the live connection instead of fighting it.
+      if (!this.dbSource.isInitialized) {
+        await this.dbSource.initialize();
+      }
     } catch (error) {
       Logger.error('Fatal: could not connect to the database', error);
       this.started = false;
       throw error;
+    }
+
+    if (this.modules.length > 0) {
+      Logger.info('Loading modules...');
+      try {
+        await this.bootModules();
+      } catch (error) {
+        // A broken module graph or a failed migration is fatal: serving
+        // half-mounted is worse than not starting.
+        Logger.error('Fatal: could not load modules', error);
+        this.started = false;
+        throw error;
+      }
     }
 
     if (this.templatesAsync.length > 0) {
@@ -236,6 +328,16 @@ export default class Liteb extends Server {
           return a.priority - b.priority;
         });
       resolvedGroups.push({ basePath: group.basePath, endpointReaders });
+    }
+
+    // Module routes share the pipeline with the configured groups, so they get
+    // the same OpenAPI spec, the same logging and the same 404 behind them.
+    for (const loaded of this.loadedModules) {
+      if (loaded.readers.length === 0) continue;
+      resolvedGroups.push({
+        basePath: this.moduleBasePath,
+        endpointReaders: loaded.readers,
+      });
     }
 
     // Mount Swagger UI first so /<docsPath> doesn't get shadowed by a
@@ -348,6 +450,41 @@ export default class Liteb extends Server {
    *
    * @param signal Signal or reason that triggered the shutdown (informational).
    */
+  /**
+   * Stops the application without ending the process: cron tasks first, then
+   * the HTTP server, then the database connection.
+   *
+   * `shutdown()` is the signal handler and exits the process, which makes it
+   * unusable for a test or for anything embedding liteb inside a larger
+   * process. This is the same ordered stop, minus the exit.
+   *
+   * @param options `database: false` leaves the connection open, for when the
+   * DataSource is owned by the caller and outlives the server.
+   */
+  public close = async (options: { database?: boolean } = {}) => {
+    const { database = true } = options;
+
+    // Stop scheduled tasks so nothing new starts.
+    this.scheduledTasks.forEach((task) => task.stop());
+    this.scheduledTasks = [];
+
+    try {
+      await this.closeServer();
+    } catch (error) {
+      Logger.error('Error closing HTTP server', error);
+    }
+
+    if (database) {
+      try {
+        if (this.dbSource.isInitialized) await this.dbSource.destroy();
+      } catch (error) {
+        Logger.error('Error closing database connection', error);
+      }
+    }
+
+    this.started = false;
+  };
+
   public shutdown = async (signal: string = 'manual') => {
     if (this.shuttingDown) return;
     this.shuttingDown = true;
@@ -361,24 +498,7 @@ export default class Liteb extends Server {
     }, 10_000);
     forceExit.unref();
 
-    // 1. Stop scheduled tasks so nothing new starts.
-    this.scheduledTasks.forEach((task) => task.stop());
-
-    // 2. Close the HTTP server: no new connections, wait for in-flight ones.
-    try {
-      await this.closeServer();
-    } catch (error) {
-      Logger.error('Error closing HTTP server', error);
-    }
-
-    // 3. Close the database connection.
-    try {
-      if (this.dbSource.isInitialized) {
-        await this.dbSource.destroy();
-      }
-    } catch (error) {
-      Logger.error('Error closing database connection', error);
-    }
+    await this.close();
 
     Logger.info('Shutdown complete.');
     process.exit(0);
