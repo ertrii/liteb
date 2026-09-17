@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import { Request, Response } from 'express';
 import cron from 'node-cron';
 import swaggerUi from 'swagger-ui-express';
@@ -22,6 +22,25 @@ import { ModuleStore } from '../modules/module-store';
 import { ModuleMigrator } from '../modules/module-migrator';
 import { resolveModules } from '../modules/resolve-modules';
 import { LoadedModule, loadModules } from '../modules/module-loader';
+import { collectModuleEntities } from '../modules/collect-entities';
+
+/** What {@link Liteb.create} takes. */
+export interface LitebOptions {
+  /**
+   * Connection options, or a DataSource the application already owns. With
+   * options, liteb adds the modules' entities before building it.
+   */
+  db: DataSourceOptions | DataSource;
+
+  /** Manifests built with `defineModule()`. */
+  modules?: ResolvedModule[];
+
+  /** Prefix for every module route. Defaults to `/api`. */
+  basePath?: string;
+
+  /** Host version, checked against each module's `engine` range. */
+  version?: string;
+}
 
 interface EndpointGroup {
   basePath: string;
@@ -70,11 +89,65 @@ export default class Liteb extends Server {
 
   /**
    * Creates a Liteb instance.
+   *
+   * Prefer {@link Liteb.create} when the application has modules: the
+   * DataSource has to know their entities, and only `create` can add them
+   * before the connection is built.
+   *
    * @param dbSource TypeORM DataSource instance for database access.
    */
   constructor(private dbSource: DataSource) {
     super();
   }
+
+  /**
+   * Builds an application from its modules, owning the DataSource.
+   *
+   * This is the inversion modules require. TypeORM needs the full entity list
+   * when the DataSource is *constructed*, and that list is the union of what
+   * every module contributes — which the application cannot assemble by hand
+   * without knowing each module's internals. So liteb builds it.
+   *
+   * Entities come from every module present in the code, enabled or not:
+   * disabling a module decides what runs, never whether its data is reachable.
+   *
+   * A DataSource can still be passed instead of connection options, for an
+   * application that already owns one. Its entities are then its own business —
+   * liteb has nothing to add to a connection it did not build.
+   *
+   * @example
+   * const app = await Liteb.create({
+   *   db: { type: 'postgres', host, database },
+   *   modules: [identity, billing],
+   *   version: '3.0.0',
+   * });
+   * await app.start(4000);
+   */
+  public static create = async (options: LitebOptions): Promise<Liteb> => {
+    const modules = options.modules ?? [];
+
+    const dataSource =
+      options.db instanceof DataSource
+        ? options.db
+        : new DataSource({
+            ...options.db,
+            entities: [
+              ...((options.db.entities ?? []) as unknown[]),
+              ...collectModuleEntities(modules),
+            ],
+          } as DataSourceOptions);
+
+    const app = new Liteb(dataSource);
+
+    if (modules.length > 0) {
+      app.useModules(modules, {
+        basePath: options.basePath,
+        version: options.version,
+      });
+    }
+
+    return app;
+  };
 
   private resolveApiPatterns = (
     pattern: string[],

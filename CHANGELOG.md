@@ -118,6 +118,24 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   application embedding liteb, or a test suite reusing a connection, hit
   `CannotConnectAlreadyConnectedError`; the live connection is adopted instead.
 
+- **`Liteb.create()`** — builds the application from its modules and owns the
+  DataSource. This is the inversion modules require: TypeORM needs the full
+  entity list when the DataSource is *constructed*, and that list is the union
+  of what every module contributes, which an application cannot assemble by
+  hand without knowing each module's internals.
+
+  Entities are collected from every module present in the code, enabled or not.
+  Leaving a disabled module's entities out would drop its tables from TypeORM's
+  view and make turning it back on a gamble; disabling decides what runs, never
+  whether data is reachable.
+
+  The same entity declared by two modules is refused: one of them is reaching
+  into the other's domain, and unchecked it surfaces later as a confusing
+  TypeORM error about a duplicate table.
+
+  A DataSource can still be passed instead of connection options, and
+  `new Liteb(dataSource)` keeps working unchanged.
+
 - `semver` as a direct dependency, to validate versions and `engine` ranges.
 
 ### Changed
