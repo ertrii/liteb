@@ -15,8 +15,12 @@ import reports from './modules/reports/module';
  * - `identity` and `catalog` are CORE: they cannot be turned off.
  * - `reports` is optional, so it installs DISABLED and stays out until someone
  *   turns it on.
+ *
+ * It is BUILT here and not started, so anything that needs the application
+ * without a server — `liteb migrate`, a test, a one-off script — can ask for
+ * it. That is the contract the CLI looks for.
  */
-async function main() {
+export async function createApp() {
   const app = await Liteb.create({
     db: {
       type: 'postgres',
@@ -50,7 +54,13 @@ async function main() {
     description: 'Modules, contracts, migrations, auth and permissions.',
   });
 
+  return app;
+}
+
+async function main() {
+  const app = await createApp();
   await app.start(+ConfigService.get('SERVER_PORT'));
 }
 
-main();
+// Importing this file must not start a server.
+if (require.main === module) void main();

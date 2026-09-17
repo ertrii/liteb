@@ -18,7 +18,8 @@ import {
 } from '../services/openapi-generator';
 import { ResolvedModule } from '../modules/module-manifest';
 import { ModuleStore } from '../modules/module-store';
-import { ModuleMigrator } from '../modules/module-migrator';
+import { AppliedMigration, ModuleMigrator } from '../modules/module-migrator';
+import { reconcileModules } from '../modules/reconcile-modules';
 import { resolveModules } from '../modules/resolve-modules';
 import {
   LoadedModule,
@@ -35,6 +36,14 @@ import {
   RegisteredPermission,
 } from '../modules/permissions';
 import { AuthResolver } from './auth';
+
+/** One module's migrations, and which of them already ran. */
+export interface ModuleMigrationStatus {
+  module: string;
+  /** Disabled modules do not migrate: that is why they are reported. */
+  enabled: boolean;
+  migrations: Array<{ name: string; applied: boolean }>;
+}
 
 /** What {@link Liteb.create} takes. */
 export interface LitebOptions {
@@ -252,30 +261,123 @@ export default class Liteb extends Server {
    * migrating, and migrating before anything is mounted — a route must never
    * answer against a table its migration has not created yet.
    */
-  private bootModules = async () => {
+  /**
+   * Reconciles the installation with the modules in the code and returns the
+   * ones that are active, in dependency order.
+   *
+   * Shared by `start()` and by the migration commands so there is ONE
+   * definition of "which modules count": a CLI that resolved them differently
+   * from the server would migrate a set nobody runs.
+   *
+   * @param write `false` computes the same answer without recording anything,
+   * for a dry run.
+   */
+  private prepareModules = async (
+    write = true,
+  ): Promise<ResolvedModule[]> => {
     const store = new ModuleStore(this.dbSource);
     await store.ensureTable();
 
-    const reconciliation = await store.sync(this.modules);
-    for (const entry of reconciliation.install) {
-      Logger.info(
-        `Module "${entry.id}" installed${entry.enabled ? '' : ' (disabled)'}`,
-      );
-    }
-    for (const entry of reconciliation.upgrade) {
-      const direction = entry.downgrade ? 'DOWNGRADED' : 'upgraded';
-      Logger.warn(`Module "${entry.id}" ${direction}: ${entry.from} -> ${entry.to}`);
-    }
-    for (const entry of reconciliation.orphaned) {
-      Logger.warn(
-        `Module "${entry.id}" is recorded but no longer in the code. Its data was left untouched.`,
-      );
+    const reconciliation = write
+      ? await store.sync(this.modules)
+      : reconcileModules(this.modules, await store.list());
+
+    if (write) {
+      for (const entry of reconciliation.install) {
+        Logger.info(
+          `Module "${entry.id}" installed${entry.enabled ? '' : ' (disabled)'}`,
+        );
+      }
+      for (const entry of reconciliation.upgrade) {
+        const direction = entry.downgrade ? 'DOWNGRADED' : 'upgraded';
+        Logger.warn(
+          `Module "${entry.id}" ${direction}: ${entry.from} -> ${entry.to}`,
+        );
+      }
+      for (const entry of reconciliation.orphaned) {
+        Logger.warn(
+          `Module "${entry.id}" is recorded but no longer in the code. Its data was left untouched.`,
+        );
+      }
     }
 
-    const active = resolveModules(this.modules, {
+    return resolveModules(this.modules, {
       enabled: reconciliation.enabledIds,
       hostVersion: this.hostVersion,
     });
+  };
+
+  /**
+   * Opens the connection if the caller has not. A command that only migrates
+   * has no reason to call `start()`, and `start()` would mount an HTTP server
+   * it never wanted.
+   */
+  private connect = async (): Promise<void> => {
+    if (!this.dbSource.isInitialized) await this.dbSource.initialize();
+  };
+
+  /**
+   * Runs every pending migration and mounts nothing.
+   *
+   * This is what `start()` already does before mounting a single route — same
+   * reconciliation, same order — exposed on its own because the moment you
+   * deploy to a machine you do not watch, "migrate, then start" has to be two
+   * steps: the first one can fail loudly and stop the release, instead of a
+   * server that came up and answered wrong.
+   *
+   * @param options `dryRun` answers what WOULD run, recording nothing.
+   * @returns What ran, in the order it ran.
+   *
+   * @example
+   * const app = await createApp();
+   * const ran = await app.migrate();
+   * await app.close();
+   */
+  public migrate = async (
+    options: { dryRun?: boolean } = {},
+  ): Promise<AppliedMigration[]> => {
+    await this.connect();
+
+    const active = await this.prepareModules(!options.dryRun);
+    const migrator = new ModuleMigrator(this.dbSource);
+
+    if (options.dryRun) return migrator.pending(active);
+
+    const ran = await migrator.run(active);
+    for (const entry of ran) {
+      Logger.info(`Migration applied: ${entry.module}:${entry.name}`);
+    }
+    return ran;
+  };
+
+  /**
+   * What each module declares and what of it already ran.
+   *
+   * Written for the question people actually ask — "why didn't my migration
+   * run?" — so it reports DECLARED count too: zero declared means the module's
+   * `migrations` index exports nothing, which looks identical from the
+   * database and is the most common cause.
+   */
+  public migrationStatus = async (): Promise<ModuleMigrationStatus[]> => {
+    await this.connect();
+
+    const active = await this.prepareModules(false);
+    const activeIds = new Set(active.map((mod) => mod.id));
+    // No `ensureTable()`: reading the state must not create anything.
+    const applied = await new ModuleMigrator(this.dbSource).applied();
+
+    return this.modules.map((mod) => ({
+      module: mod.id,
+      enabled: activeIds.has(mod.id),
+      migrations: mod.migrations.map((migration) => ({
+        name: migration.name,
+        applied: applied.has(`${mod.id}:${migration.name}`),
+      })),
+    }));
+  };
+
+  private bootModules = async () => {
+    const active = await this.prepareModules();
 
     const migrator = new ModuleMigrator(this.dbSource);
     const ran = await migrator.run(active);

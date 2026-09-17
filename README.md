@@ -118,8 +118,19 @@ npx liteb create entity billing/charge       # registered in the manifest
 npx liteb create migration billing/create-charges
 npx liteb create task billing/nightly --cron "0 7 * * *"
 npx liteb create listener billing/audit
+
+npx liteb migrate                            # run pending migrations, no server
+npx liteb migrate --dry-run                  # what would run
+npx liteb migrate:status                     # what each module declares, and what ran
+
 npx liteb build [--bytecode]                 # .jsc delivery, for a machine you do not control
 ```
+
+`migrate` asks YOUR entry point for the application — it looks for an exported
+`createApp()` — so the CLI never needs to know where your database is. That is
+why `liteb init` writes the entry point with `createApp()` separate from
+`main()`, guarded by `if (require.main === module)`: importing the file must not
+start a server.
 
 ## Also in the box
 

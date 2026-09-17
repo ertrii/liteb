@@ -75,6 +75,8 @@ writes the shape; you write the code.
 | `create listener <module>/<name>` | A listener, and turns on the `listeners` glob |
 | `create entity <module>/<name>` | An entity, **registered in the manifest** (`--table`) |
 | `create migration <module>/<name>` | A timestamped migration, added to the module's ledger |
+| `migrate` | Runs pending migrations without starting the server (`--dry-run`, `--entry`) |
+| `migrate:status` | What each module declares, and what of it already ran |
 | `build` | `tsc` + the files that were never TypeScript (`--bytecode`, `--out`, `--project`) |
 
 Shared flags: `--dir <path>` (where modules live, `src/modules` by default),

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Command } from 'commander';
+import { loadApp } from './app-loader';
 import { runBuild } from './build';
 import { createProject, install } from './init';
 import {
@@ -221,6 +222,76 @@ export function buildProgram(): Command {
       flags,
     );
   });
+
+  program
+    .command('migrate')
+    .description('Runs the pending migrations of every enabled module')
+    .option('--entry <file>', 'file exporting createApp()')
+    .option('--dry-run', 'say what would run, change nothing')
+    .action(async (flags) => {
+      const app = await loadApp({ root: process.cwd(), entry: flags.entry });
+      try {
+        const ran = await app.migrate({ dryRun: flags.dryRun });
+
+        if (ran.length === 0) {
+          console.log(
+            flags.dryRun ? 'Nothing pending.' : 'Nothing to migrate: everything already ran.',
+          );
+          return;
+        }
+
+        const verb = flags.dryRun ? 'pending' : 'applied';
+        ran.forEach((entry) =>
+          console.log(`  ${verb}  ${entry.module}:${entry.name}`),
+        );
+        console.log(`
+${ran.length} migration(s) ${verb}.`);
+      } finally {
+        await app.close();
+      }
+    });
+
+  program
+    .command('migrate:status')
+    .description('What each module declares, and what of it already ran')
+    .option('--entry <file>', 'file exporting createApp()')
+    .action(async (flags) => {
+      const app = await loadApp({ root: process.cwd(), entry: flags.entry });
+      try {
+        const status = await app.migrationStatus();
+
+        if (status.length === 0) {
+          console.log('This application declares no modules.');
+          return;
+        }
+
+        for (const mod of status) {
+          const state = mod.enabled
+            ? 'enabled'
+            : 'DISABLED — its migrations do not run';
+          console.log(`
+${mod.module}  (${state})`);
+
+          if (mod.migrations.length === 0) {
+            // The one failure that looks identical from the database: the
+            // file is written, but nothing exports it.
+            console.log(
+              '  none declared  (wrote one? check that migrations/index.ts exports it)',
+            );
+            continue;
+          }
+
+          for (const migration of mod.migrations) {
+            console.log(
+              `  ${migration.applied ? '[x]' : '[ ]'}  ${migration.name}`,
+            );
+          }
+        }
+        console.log('');
+      } finally {
+        await app.close();
+      }
+    });
 
   program
     .command('build')

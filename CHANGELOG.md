@@ -69,6 +69,26 @@ dist-tag so `npm i liteb` keeps installing `1.x`. That line is frozen on the
   is global rather than per module, because what decides the answer is the order
   Express saw them in, across every router.
 
+- **`liteb migrate`, `liteb migrate --dry-run` and `liteb migrate:status`** —
+  migrations already ran inside `start()`, which meant "boot the server to
+  migrate": if a migration failed, the server was already up. Now they are two
+  steps, so the first one can fail and stop a release.
+
+  The commands ask YOUR entry point for the application (an exported
+  `createApp()`), so the CLI still knows nothing about your database — the
+  application already does. `Liteb` gained `migrate({ dryRun })` and
+  `migrationStatus()`; `start()` now shares the same reconciliation, so the CLI
+  can never resolve a different set of modules than the server.
+
+  `migrate:status` reports how many migrations each module DECLARES, because
+  the most common cause of "my migration did not run" is a
+  `migrations/index.ts` that does not export it — which from the database looks
+  exactly like "it has not run yet".
+
+  Reading the ledger no longer creates it: `ModuleMigrator.applied()` answers
+  an empty set when `_module_migrations` does not exist, so a status or a dry
+  run on a virgin database leaves no trace. A test caught that one.
+
 - **The scaffolding convention is `endpoints/<name>.endpoint.ts`**, with classes
   named `<Name>Endpoint`. `Api` was the 1.x base class: a generator that keeps
   writing it teaches the framework that no longer exists, and the demo under

@@ -117,8 +117,21 @@ export class ModuleMigrator {
     }
   }
 
-  /** What already ran, keyed as `module:name`. */
+  /**
+   * What already ran, keyed as `module:name`.
+   *
+   * A database where the ledger does not exist yet has simply run nothing —
+   * asking is not a reason to create it. That is what makes reading the state
+   * (a status command, a dry run) leave no trace.
+   */
   async applied(): Promise<Set<string>> {
+    const runner = this.db.createQueryRunner();
+    try {
+      if (!(await runner.hasTable('_module_migrations'))) return new Set();
+    } finally {
+      await runner.release();
+    }
+
     const rows: AppliedMigration[] = await this.db.query(
       'select module, name from _module_migrations',
     );

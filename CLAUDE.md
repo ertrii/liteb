@@ -37,7 +37,7 @@ is **not** an application. Dual layout:
 - **`test/`** — jest suite. Not published.
 
 - **`bin/` + `lib/cli/`** — the CLI (`npx liteb init`, `liteb create ...`,
-  `liteb build`). It came back in 2.0 **with the redesign the old one needed**:
+  `liteb migrate`, `liteb build`). It came back in 2.0 **with the redesign the old one needed**:
   templates are TypeScript strings inside the build (the 1.x ones were loose
   `.txt` assets nobody compiled, and they drifted until they generated
   decorators the framework no longer had), and `test/cli.spec.ts` scaffolds a
@@ -55,6 +55,14 @@ The CLI's generators are **pure**: they return a plan (`files`, `edits`,
 the templates testable. `applyEdit()` returns `null` rather than guessing when
 a file does not look the way the edit expects — a manifest somebody rewrote by
 hand gets an instruction, not a mangled file.
+
+`liteb migrate` / `migrate:status` load the application through
+`lib/cli/app-loader.ts`, which requires the project's entry point and calls its
+exported `createApp()`. That is the ONLY way the CLI reaches a database, and it
+is why every entry template separates `createApp()` from `main()` behind
+`if (require.main === module)`. `Liteb.migrate()` and `start()` share
+`prepareModules()`: two definitions of "which modules count" would migrate a
+set nobody runs.
 
 `tsconfig.json` maps `liteb` -> `lib` (`paths`) and `jest.config.ts` maps it at
 runtime (`moduleNameMapper`), so generated code can import `'liteb'` like a
