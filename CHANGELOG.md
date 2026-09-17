@@ -66,6 +66,32 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   contributes its entities to the DataSource regardless, so the tables and their
   contents stay. What this table governs is what runs.
 
+- **`ModuleMigrator`** — runs each module's migrations in the order the modules
+  were resolved, recording them in `_module_migrations`.
+
+  TypeORM's own runner cannot do this: it sorts every migration in the
+  DataSource by timestamp, globally, so a module written last year would migrate
+  before the dependency it needs. Ordering by module first, and by timestamp only
+  *within* a module, is what makes a dependency's tables exist before the
+  dependent touches them. There is a test for exactly that case.
+
+  Inside a module the order comes from the timestamp ending the class name, the
+  convention TypeORM already uses. A migration without one is an error rather
+  than a guess: `import * as migrations` yields an object whose key order nobody
+  controls, and a wrong migration order is discovered in production, on data that
+  already exists. Stamps compare as numbers — as text, `9000` sorts after
+  `10000`.
+
+  One transaction per migration, and the ledger row is written inside it: a
+  migration that ran without leaving its row would run again on the next boot,
+  over data it already changed.
+
+- **Test harness on PGlite** (`test/helpers/test-db.ts`) — a real Postgres
+  inside the process, no Docker. Dialect differences that SQLite would hide
+  behave as they will in production. The database is created once per test file
+  and the schema reset between cases, which took the migrator suite from 28s to
+  3s. `npm test` now runs with `--experimental-vm-modules`, which PGlite needs.
+
 - `semver` as a direct dependency, to validate versions and `engine` ranges.
 
 ### Changed

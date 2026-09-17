@@ -31,6 +31,12 @@ export { ModuleDefinitionError } from './modules/module-manifest';
 export { resolveModules, ModuleResolutionError } from './modules/resolve-modules';
 export { reconcileModules } from './modules/reconcile-modules';
 export { ModuleStore } from './modules/module-store';
+export {
+  ModuleMigrator,
+  ModuleMigrationError,
+  orderMigrations,
+} from './modules/module-migrator';
+export type { AppliedMigration } from './modules/module-migrator';
 export { ModuleRecord } from './modules/module-record.entity';
 export type {
   ModuleState,
