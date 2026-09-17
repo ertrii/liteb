@@ -1,5 +1,5 @@
 import { IsOptional, IsString } from 'class-validator';
-import { Endpoint, Body, HttpQuery, Module } from '../../lib';
+import { Endpoint, Body, HttpQuery, Group } from '../../lib';
 
 export class SearchBodyDto {
   @IsString()
@@ -14,7 +14,7 @@ export class SearchBodyDto {
  * HTTP QUERY method: safe and idempotent like GET, but with criteria in the
  * body (`@Body`) instead of the query string.
  */
-@Module('busqueda')
+@Group('busqueda')
 @HttpQuery('clientes')
 @Body(SearchBodyDto)
 export class SearchCustomersApi extends Endpoint<null, SearchBodyDto> {

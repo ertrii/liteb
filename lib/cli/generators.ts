@@ -74,7 +74,6 @@ export function createModule(options: ModuleOptions): Plan {
   const dir = moduleDir(options, id);
   const label = options.label ?? toPascal(id).replace(/([a-z])([A-Z])/g, '$1 $2');
   const from = relativeFrom(options.from, 2);
-  const routeGroup = id;
 
   const manifest = `import { defineModule } from '${from}';
 import * as migrations from './migrations';
@@ -125,7 +124,8 @@ export {};
 
   const endpoint = endpointSource({
     className: `${toPascal(id)}Endpoint`,
-    group: routeGroup,
+    // No `@Group`: the id is the prefix, so the scaffold does not repeat it.
+    group: null,
     decorator: 'HttpGet',
     routePath: '',
     permission: `${id}.view`,
@@ -165,7 +165,8 @@ export {};
 
 function endpointSource(args: {
   className: string;
-  group: string;
+  /** `null` leaves the decorator out: the module id is already the prefix. */
+  group: string | null;
   decorator: string;
   routePath: string;
   permission: string | null;
@@ -175,11 +176,13 @@ function endpointSource(args: {
   const assertion = args.permission
     ? `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert('${args.permission}');\n\n`
     : '';
+  const imports = ['DataJson', 'Endpoint', args.decorator];
+  if (args.group) imports.splice(2, 0, 'Group');
+  const group = args.group ? `@Group('${args.group}')\n` : '';
 
-  return `import { DataJson, Endpoint, Module, ${args.decorator} } from '${args.from}';
+  return `import { ${imports.join(', ')} } from '${args.from}';
 
-@Module('${args.group}')
-@${args.decorator}(${route})
+${group}@${args.decorator}(${route})
 export default class ${args.className} extends Endpoint {
   public async main(): Promise<DataJson> {
 ${assertion}    return { ok: true };
@@ -193,7 +196,7 @@ export interface EndpointOptions extends CommonOptions {
   method?: string;
   /** Path under the group, e.g. \`:id\`. Empty means the group itself. */
   path?: string;
-  /** Route prefix (`@Module`). Defaults to the module id. */
+  /** Route prefix (`@Group`). Defaults to the module id, with no decorator. */
   group?: string;
   /** Permission to assert, or `false` for a public endpoint. */
   permission?: string | false;
@@ -220,7 +223,7 @@ export function createEndpoint(options: EndpointOptions): Plan {
         path: `${dir}/endpoints/${target.name}.endpoint.ts`,
         content: endpointSource({
           className,
-          group: options.group ?? target.module,
+          group: options.group ?? null,
           decorator,
           routePath: options.path ?? '',
           permission:

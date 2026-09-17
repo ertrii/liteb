@@ -1,7 +1,7 @@
-import { DataJson, Endpoint, HttpGet, Module } from '../../../../../lib';
+import { DataJson, Endpoint, HttpGet, Group } from '../../../../../lib';
 
 /** El mismo módulo, pero esto sí es API: conserva el prefijo. */
-@Module('tienda')
+@Group('tienda')
 @HttpGet('items')
 export default class ItemsEndpoint extends Endpoint {
   main(): DataJson {

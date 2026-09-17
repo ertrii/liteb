@@ -3,7 +3,7 @@ import {
   DataJson,
   Endpoint,
   HttpGet,
-  Module,
+  Group,
   Priority,
 } from '../../../../lib';
 import { Product } from '../entities/product.entity';
@@ -16,7 +16,7 @@ import { Product } from '../entities/product.entity';
  * file has to be told which ones to ignore. Naming them also keeps the headers
  * in the language the reader speaks.
  */
-@Module('products')
+@Group('products')
 @HttpGet('export')
 @Priority(1)
 export default class ExportProductsEndpoint extends Endpoint {

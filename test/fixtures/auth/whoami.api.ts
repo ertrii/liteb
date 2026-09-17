@@ -1,6 +1,6 @@
-import { Endpoint, HttpGet, Module } from '../../../lib';
+import { Endpoint, HttpGet, Group } from '../../../lib';
 
-@Module('yo')
+@Group('yo')
 @HttpGet('actual')
 export class WhoAmIApi extends Endpoint {
   main() {
@@ -9,7 +9,7 @@ export class WhoAmIApi extends Endpoint {
 }
 
 /** Awaits mid-request, so two callers overlap inside `main()`. */
-@Module('yo')
+@Group('yo')
 @HttpGet('lento')
 export class SlowWhoAmIApi extends Endpoint {
   async main() {
@@ -18,7 +18,7 @@ export class SlowWhoAmIApi extends Endpoint {
   }
 }
 
-@Module('yo')
+@Group('yo')
 @HttpGet('publico')
 export class PublicApi extends Endpoint {
   main() {
@@ -29,7 +29,7 @@ export class PublicApi extends Endpoint {
   }
 }
 
-@Module('yo')
+@Group('yo')
 @HttpGet('secreto')
 export class SecretApi extends Endpoint {
   main() {
@@ -39,7 +39,7 @@ export class SecretApi extends Endpoint {
 }
 
 /** Exige una clave que ningún módulo declara: un typo, básicamente. */
-@Module('yo')
+@Group('yo')
 @HttpGet('roto')
 export class TypoApi extends Endpoint {
   main() {

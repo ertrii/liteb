@@ -4,13 +4,13 @@ import {
   Endpoint,
   HttpPost,
   HttpStatus,
-  Module,
+  Group,
 } from '../../../../lib';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { User } from '../entities/user.entity';
 import { hashPassword } from '../services/password';
 
-@Module('users')
+@Group('users')
 @HttpPost()
 @Body(CreateUserDto)
 export class CreateUserEndpoint extends Endpoint<null, CreateUserDto> {

@@ -1,7 +1,7 @@
 import {
   Endpoint,
   HttpGet,
-  Module,
+  Group,
   NotFoundError,
   Params,
   Priority,
@@ -10,7 +10,7 @@ import { ProductIdDto } from '../dto/product-id.dto';
 import { Product } from '../entities/product.entity';
 
 /** Priority 2: the `:id` route must come after the literal `/page`. */
-@Module('products')
+@Group('products')
 @HttpGet(':id')
 @Params(ProductIdDto)
 @Priority(2)

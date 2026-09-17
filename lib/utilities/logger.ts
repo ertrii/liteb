@@ -83,7 +83,7 @@ export class Logger {
         message.priority === null ? 'auto' : `p${message.priority}`;
       const method = message.method.toUpperCase().padEnd(6);
       const pathname = slash(
-        path.join('/', options.basePath ?? '', message.moduleName, message.pathname),
+        path.join('/', options.basePath ?? '', message.group, message.pathname),
       );
       const name = message.getEndpointClass().name;
       return logRouter.trace(

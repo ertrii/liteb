@@ -1,8 +1,8 @@
-import { Endpoint, HttpGet, Module } from '../../../../../lib';
+import { Endpoint, HttpGet, Group } from '../../../../../lib';
 import { Product } from '../product.entity';
 
 @HttpGet('productos')
-@Module('catalogo')
+@Group('catalogo')
 export default class ListProducts extends Endpoint {
   async main() {
     // Lo que importa: el repositorio de una entidad que aporta el módulo.

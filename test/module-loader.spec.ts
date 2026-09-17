@@ -12,7 +12,7 @@ import {
   toEndpointReaders,
   withModuleExtensions,
 } from '../lib/modules/module-loader';
-import { Endpoint, HttpGet, Module, Priority } from '../lib';
+import { Endpoint, HttpGet, Group, Priority } from '../lib';
 
 const billingDir = path.join(__dirname, 'fixtures/modules/billing');
 
@@ -36,7 +36,7 @@ describe('resolveModulePattern', () => {
 
 describe('toEndpointReaders', () => {
   @HttpGet('uno')
-  @Module('demo')
+  @Group('demo')
   class Uno extends Endpoint {
     main() {
       return null;
@@ -45,15 +45,23 @@ describe('toEndpointReaders', () => {
 
   @Priority(1)
   @HttpGet('dos')
-  @Module('demo')
+  @Group('demo')
   class Dos extends Endpoint {
     main() {
       return null;
     }
   }
 
-  /** Sin verbo ni módulo: el lector la da por inválida. */
+  /** Sin verbo HTTP: el lector la da por inválida. */
   class Incompleta extends Endpoint {
+    main() {
+      return null;
+    }
+  }
+
+  /** Sin @Group: cuelga del id del módulo que la cargó. */
+  @HttpGet('tres')
+  class Tres extends Endpoint {
     main() {
       return null;
     }
@@ -73,8 +81,20 @@ describe('toEndpointReaders', () => {
     expect(readers).toHaveLength(1);
   });
 
-  it('descarta un endpoint sin verbo o sin módulo', () => {
+  it('descarta un endpoint sin verbo HTTP', () => {
     expect(toEndpointReaders([Incompleta])).toHaveLength(0);
+  });
+
+  it('el id del módulo es el prefijo de lo que no declara grupo', () => {
+    const [sinGrupo] = toEndpointReaders([Tres], 'informes');
+
+    expect(sinGrupo.group).toBe('informes');
+  });
+
+  it('pero no pisa al que sí lo declara', () => {
+    const [conGrupo] = toEndpointReaders([Uno], 'informes');
+
+    expect(conGrupo.group).toBe('demo');
   });
 
   it('pone primero los que declaran prioridad', () => {

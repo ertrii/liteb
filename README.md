@@ -75,7 +75,6 @@ export default defineModule({
 ## An endpoint
 
 ```typescript
-@Module('charges')
 @HttpPost()
 @Body(CreateChargeDto)          // validated before main() runs
 export default class CreateChargeApi extends Endpoint<null, CreateChargeDto> {
@@ -98,14 +97,17 @@ export default class CreateChargeApi extends Endpoint<null, CreateChargeDto> {
 return an output: `view('invoice', data)`, `pdf(bytes)`, `csv(rows)`,
 `file(content)`.
 
-`basePath` prefixes every route, but a group can opt out — which is what a
-monolith serving pages *and* an API needs, because `/api/products/page` is not
-a URL anybody would link to:
+A route hangs from the module id. `@Group` overrides that when the URL should
+not carry it — one module serving `auth` and `users`, or several contributing
+to the same prefix. `mount` takes the group off the application's `basePath`,
+which is what a monolith serving pages *and* an API needs, because
+`/api/charges/page` is not a URL anybody would link to:
 
 ```typescript
-@Module('products')                        // /api/products
-@Module('products', { basePath: '/' })     // /products      ← a page
-@Module('checkout', { basePath: '/shop' }) // /shop/checkout
+@HttpGet(':id')                         // /api/billing/:id   ← the module id
+@Group('charges')                       // /api/charges/:id
+@Group('charges', { mount: '/' })       // /charges/:id       ← a page
+@Group('checkout', { mount: '/shop' })  // /shop/checkout/:id
 ```
 
 Both can live in the same module: the JSON endpoints keep the prefix, the page

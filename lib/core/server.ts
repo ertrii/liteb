@@ -49,10 +49,10 @@ export default class Server {
 
   /**
    * Registers multiple routes under a given prefix in the application.
-   * @param moduleName Base group under which the routes are registered.
+   * @param prefix Group prefix under which the routes are registered.
    * @param options Array of RouterOption describing the routes, methods and handlers.
    */
-  protected router = (moduleName: string, options: RouterOption[]) => {
+  protected router = (prefix: string, options: RouterOption[]) => {
     const router = Router();
     options.forEach((option) => {
       const fullPath = slash(path.join('/', option.path));
@@ -68,7 +68,7 @@ export default class Server {
       }
       register.call(router, fullPath, ...option.getHandlers());
     });
-    this.app.use(slash(path.join('/', moduleName)), router);
+    this.app.use(slash(path.join('/', prefix)), router);
   };
 
   /**

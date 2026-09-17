@@ -103,7 +103,7 @@ Two things it does **not** do, on purpose:
 Every endpoint is **its own class** that extends `Endpoint` and implements `main()`. Routing metadata comes from decorators; the class is discovered by the `routes` glob of the module it belongs to (see [Modules](#modules)).
 
 ```typescript
-import { Endpoint, Module, HttpGet, Params, NotFoundError } from 'liteb';
+import { Endpoint, Group, HttpGet, Params, NotFoundError } from 'liteb';
 import { IsUUID } from 'class-validator';
 
 class UserParams {
@@ -111,7 +111,7 @@ class UserParams {
   id: string;
 }
 
-@Module('users')
+@Group('users')
 @HttpGet(':id')
 @Params(UserParams)
 export class GetUserApi extends Endpoint<UserParams> {
@@ -162,18 +162,44 @@ Commit, rollback and release are the callback's contract, so they cannot be forg
 
 **About `@HttpQuery`**: QUERY is a safe, idempotent method that (unlike GET) allows a body — useful for searches whose criteria are too large for the query string. Declare the criteria with `@Body`. Note that QUERY is an IETF draft (`draft-ietf-httpbis-safe-method-w-body`): it needs a Node whose HTTP parser recognizes it, may not be supported by proxies/CDNs, and is excluded from the OpenAPI spec. If the runtime doesn't support the verb, the route is skipped with a clear log line instead of crashing startup.
 
+### The group: @Group
+
+A route hangs from the **id of the module** that loaded it. No decorator is
+needed for that, which is the common case:
+
+```typescript
+// module.ts declares id: 'catalog'
+@HttpGet(':id')                            // /api/catalog/:id
+```
+
+`@Group` overrides the prefix when the URL should not carry the module id —
+because one module serves more than one resource (`identity` serving `auth`
+**and** `users`), or because several modules contribute to the same prefix:
+
+```typescript
+@Group('products')                         // /api/products/:id
+```
+
+The two identities are deliberately separate: the module id names the
+INSTALLABLE UNIT (permissions, `requires`, the `_modules` row), the group names
+the URL. Renaming one must not rename the other.
+
+> `@Module` is the old name of this decorator and still works, deprecated: it
+> meant "route group" in 1.x, before "module" came to mean the installable
+> unit. Its `basePath` option is now `mount`. Both go away in 2.0 final.
+
 ### Where a group is mounted
 
 `Liteb.create({ basePath: '/api' })` prefixes every route. A group can say it
 hangs somewhere else:
 
 ```typescript
-@Module('products')                          // /api/products
-@Module('products', { basePath: '/' })       // /products
-@Module('checkout', { basePath: '/shop' })   // /shop/checkout
+@Group('products')                         // /api/products
+@Group('products', { mount: '/' })         // /products
+@Group('checkout', { mount: '/shop' })     // /shop/checkout
 ```
 
-The override is per GROUP — per `@Module` decorator — and not per application
+The override is per GROUP — per `@Group` decorator — and not per application
 or per module, because that is where the split actually falls: in a monolith
 that serves pages and an API, the same module has JSON endpoints that belong
 under `/api` and a page that does not. `/api/products/page` is not a URL
@@ -189,7 +215,7 @@ Two consequences:
 ### Schema, middleware and priority
 
 ```typescript
-@Module('users')
+@Group('users')
 @HttpPost()
 @Body(CreateUserDto)          // validated with class-validator before main()
 @Use(requireAuth)             // a (req, res, next) function
@@ -319,7 +345,7 @@ A module reaches another through its contract, never by importing it — which i
 what lets the provider change or be swapped without touching its callers.
 
 ```typescript
-@Module('sales')
+@Group('sales')
 @HttpPost('/')
 export default class CreateSale extends Endpoint<never, CreateSaleDto> {
   async main() {
@@ -610,7 +636,7 @@ liteb.use(cors({ origin: ['https://app.example.com'], credentials: true }));
 
 ### API versioning
 
-There is no version decorator. Version by **module**: a `billing-v2` module with its own `@Module('billing/v2')` endpoints runs beside `billing`, and can be enabled or disabled on its own.
+There is no version decorator. Version by **module**: a `billing-v2` module with its own `@Group('billing/v2')` endpoints runs beside `billing`, and can be enabled or disabled on its own.
 
 ## Swagger / OpenAPI
 
@@ -637,12 +663,12 @@ This mounts:
 
 | Source | Result in the spec |
 | --- | --- |
-| `@Module(basePath)` + `@HttpGet`/`@HttpPost`/... | path + HTTP method |
+| `@Group(name)` or the module id, + `@HttpGet`/`@HttpPost`/... | path + HTTP method |
 | `@Body(Dto)` | `requestBody` (JSON) referencing a reusable schema |
 | `@Params(Dto)` | typed path parameters (always required) |
 | `@Query(Dto)` | typed query parameters (required driven by `@IsOptional`) |
 | `:foo` in the path without `@Params` | inferred as a `string` path parameter |
-| `@Module` basePath | default tag for the endpoint |
+| the group | default tag for the endpoint |
 | `@ApiHidden()` | excluded (mounted, but kept out of the spec) |
 | `@HttpQuery` | excluded (QUERY is not an OpenAPI operation) |
 
@@ -656,7 +682,7 @@ Four extra decorators let you polish the output. They are fully optional — lea
 import {
   Endpoint,
   Body,
-  Module,
+  Group,
   HttpPost,
   ApiTag,
   ApiSummary,
@@ -687,7 +713,7 @@ class ErrorDto {
   message: string;
 }
 
-@Module('users')
+@Group('users')
 @HttpPost()
 @Body(CreateUserDto)
 @ApiTag('users')
@@ -765,7 +791,7 @@ page, a document or a file, return one of the **outputs** instead:
 ```typescript
 import { csv, file, pdf, view } from 'liteb';
 
-@Module('clients')
+@Group('clients')
 @HttpGet()
 @Query(ListClientsDto)
 export class ListClientsApi extends Endpoint<null, null, ListClientsDto> {

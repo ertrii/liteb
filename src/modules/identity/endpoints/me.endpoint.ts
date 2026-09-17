@@ -1,7 +1,7 @@
-import { Endpoint, HttpGet, Module } from '../../../../lib';
+import { Endpoint, HttpGet, Group } from '../../../../lib';
 
 /** Reads the actor without touching the session. */
-@Module('auth')
+@Group('auth')
 @HttpGet('me')
 export class MeEndpoint extends Endpoint {
   main() {

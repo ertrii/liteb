@@ -7,7 +7,7 @@ import {
   PUT,
   QUERY_METHOD,
 } from '../decorators/http.decorator';
-import { MODULE, ModuleMetadata } from '../decorators/module.decorator';
+import { GROUP, GroupMetadata } from '../decorators/group.decorator';
 import {
   BODY,
   PARAMS,
@@ -32,9 +32,14 @@ import {
 } from '../decorators/openapi.decorator';
 
 export default class EndpointReader {
-  public moduleName: string;
   /**
-   * `@Module(group, { basePath })`: where this group hangs from instead of the
+   * The URL prefix this endpoint hangs from: `@Group`, or the id of the module
+   * that loaded it. Empty only for an endpoint read outside any module and
+   * without the decorator, which mounts straight at the base path.
+   */
+  public group = '';
+  /**
+   * `@Group(name, { mount })`: where this group hangs from instead of the
    * application's prefix. `null` = the application's.
    */
   public mountAt: string | null = null;
@@ -52,15 +57,21 @@ export default class EndpointReader {
   /** `@ApiHidden`: mounted, but kept out of the OpenAPI spec. */
   public apiHidden = false;
 
-  private getModule = () => {
-    const moduleDefine = Reflect.getMetadata(
-      MODULE,
+  /**
+   * `@Group` wins; otherwise the module id, which is why the decorator is only
+   * needed when the URL should not carry it.
+   */
+  private readGroup = (fallback?: string) => {
+    const declared = Reflect.getMetadata(
+      GROUP,
       this.EndpointClass,
-    ) as ModuleMetadata;
-    if (moduleDefine) {
-      this.moduleName = moduleDefine.basePath;
-      this.mountAt = moduleDefine.mountAt ?? null;
+    ) as GroupMetadata;
+    if (declared) {
+      this.group = declared.name;
+      this.mountAt = declared.mountAt ?? null;
+      return;
     }
+    this.group = fallback ?? '';
   };
 
   private getHttp = () => {
@@ -167,8 +178,16 @@ export default class EndpointReader {
     }
   };
 
-  constructor(private EndpointClass: new () => Endpoint) {
-    this.getModule();
+  /**
+   * @param EndpointClass The decorated class.
+   * @param defaultGroup Id of the module that loaded it, used as the prefix
+   * when the class declares no `@Group`.
+   */
+  constructor(
+    private EndpointClass: new () => Endpoint,
+    defaultGroup?: string,
+  ) {
+    this.readGroup(defaultGroup);
     this.getHttp();
     this.getPriority();
     this.getUse();
@@ -178,12 +197,21 @@ export default class EndpointReader {
     this.getOpenApi();
   }
 
+  /**
+   * A class with no HTTP verb is a file being written, not a startup failure.
+   *
+   * The group is NOT checked: it used to be, and forgetting `@Module` dropped
+   * the endpoint in silence — a clean boot answering 404 forever. Now there is
+   * always a prefix to fall back to.
+   */
   public isInvalid = (): boolean => {
-    if (!this.moduleName || !this.method) {
-      return true;
-    }
-    return false;
+    return !this.method;
   };
+
+  /** @deprecated Renamed to `group`. */
+  public get moduleName(): string {
+    return this.group;
+  }
 
   public getEndpointClass = () => {
     return this.EndpointClass;

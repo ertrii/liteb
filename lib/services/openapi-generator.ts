@@ -71,8 +71,8 @@ function expressToOpenApiPath(p: string): string {
  * Compose the full path from basePath + module name + endpoint pathname,
  * normalising slashes.
  */
-function fullPath(basePath: string, moduleName: string, pathname: string): string {
-  const joined = slash(path.join('/', basePath, moduleName, pathname || ''));
+function fullPath(basePath: string, group: string, pathname: string): string {
+  const joined = slash(path.join('/', basePath, group, pathname || ''));
   return expressToOpenApiPath(joined);
 }
 
@@ -105,7 +105,7 @@ export interface OpenAPIGroup {
 /**
  * Generate an OpenAPI 3.0.3 spec from one or more groups of registered
  * EndpointReaders. Each group has its own basePath; routes are emitted at
- * `path.join(group.basePath, reader.moduleName, reader.pathname)`.
+ * `path.join(group.basePath, reader.group, reader.pathname)`.
  */
 export class OpenAPIGenerator {
   generate(args: {
@@ -144,13 +144,13 @@ export class OpenAPIGenerator {
 
         const url = fullPath(
           group.basePath,
-          reader.moduleName,
+          reader.group,
           reader.pathname,
         );
         paths[url] = paths[url] || {};
 
         const tags =
-          reader.apiTags.length > 0 ? reader.apiTags : [reader.moduleName];
+          reader.apiTags.length > 0 ? reader.apiTags : [reader.group];
         tags.forEach((t) => tagSet.add(t));
 
         const parameters: OpenAPIParameter[] = [];

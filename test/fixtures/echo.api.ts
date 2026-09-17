@@ -1,5 +1,5 @@
 import { IsString } from 'class-validator';
-import { Endpoint, HttpGet, Module, Query } from '../../lib';
+import { Endpoint, HttpGet, Group, Query } from '../../lib';
 
 export class EchoQueryDto {
   @IsString()
@@ -14,7 +14,7 @@ export class EchoQueryDto {
  * overlap two requests on purpose to verify that state is PER INSTANCE and not
  * per prototype (shared-state regression).
  */
-@Module('eco')
+@Group('eco')
 @HttpGet('')
 @Query(EchoQueryDto)
 export class EchoApi extends Endpoint<null, null, EchoQueryDto> {

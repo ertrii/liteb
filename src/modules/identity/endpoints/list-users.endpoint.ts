@@ -1,7 +1,7 @@
-import { Endpoint, HttpGet, Module } from '../../../../lib';
+import { Endpoint, HttpGet, Group } from '../../../../lib';
 import { User } from '../entities/user.entity';
 
-@Module('users')
+@Group('users')
 @HttpGet()
 export class ListUsersEndpoint extends Endpoint {
   private readonly users = this.db.getRepository(User);

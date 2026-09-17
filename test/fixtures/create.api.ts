@@ -1,12 +1,12 @@
 import { IsString } from 'class-validator';
-import { Endpoint, Body, Module, NotFoundError, HttpPost } from '../../lib';
+import { Endpoint, Body, Group, NotFoundError, HttpPost } from '../../lib';
 
 export class CreateBodyDto {
   @IsString()
   name: string;
 }
 
-@Module('clientes')
+@Group('clientes')
 @HttpPost('')
 @Body(CreateBodyDto)
 export class CreateCustomerApi extends Endpoint<null, CreateBodyDto> {
@@ -16,7 +16,7 @@ export class CreateCustomerApi extends Endpoint<null, CreateBodyDto> {
 }
 
 /** Throws a domain error: it must come out mapped to 404 by ErrorControl. */
-@Module('clientes')
+@Group('clientes')
 @HttpPost('falla')
 export class FailingApi extends Endpoint {
   main(): never {

@@ -193,7 +193,7 @@ describe('la app de ejemplo (src/)', () => {
   });
 
   it('la página vive FUERA de /api, donde va una vista', async () => {
-    // `@Module('products', { basePath: '/' })`. Bajo /api sería
+    // `@Group('products', { mount: '/' })`. Bajo /api sería
     // `/api/products/page`, una URL que nadie enlazaría.
     const res = await request(server())
       .get('/products/page')

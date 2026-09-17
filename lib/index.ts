@@ -9,6 +9,9 @@ export {
   HttpQuery,
 } from './decorators/http.decorator';
 export { Body, Params, Query } from './decorators/request.decorator';
+export { Group } from './decorators/group.decorator';
+export type { GroupOptions, GroupMetadata } from './decorators/group.decorator';
+/** @deprecated Renamed to `Group`. */
 export { Module } from './decorators/module.decorator';
 export { Priority } from './decorators/priority.decorator';
 export { Schedule } from './decorators/schedule.decorator';

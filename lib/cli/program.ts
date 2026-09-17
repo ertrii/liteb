@@ -150,7 +150,7 @@ export function buildProgram(): Command {
       .description('An HTTP endpoint inside a module')
       .option('--method <verb>', 'get, post, put, patch, delete, query', 'get')
       .option('--path <path>', 'path under the group, e.g. ":id"')
-      .option('--group <name>', 'route prefix (@Module); defaults to the module id')
+      .option('--group <name>', 'route prefix (@Group); defaults to the module id')
       .option('--public', 'no permission assertion'),
   ).action((target, flags) => {
     report(

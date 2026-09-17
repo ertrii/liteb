@@ -1,4 +1,4 @@
-import { Endpoint, HttpPost, Module } from '../../../../../lib';
+import { Endpoint, HttpPost, Group } from '../../../../../lib';
 import { BillingService } from '../../contracts';
 
 /**
@@ -6,7 +6,7 @@ import { BillingService } from '../../contracts';
  * contrato. Es el caso que define el sistema de paquetes.
  */
 @HttpPost('ventas')
-@Module('inventario')
+@Group('inventario')
 export default class CreateSale extends Endpoint {
   async main() {
     const billing = this.get(BillingService);

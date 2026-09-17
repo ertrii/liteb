@@ -1,8 +1,8 @@
-import { Endpoint, HttpPost, Module, Priority } from '../../../../../lib';
+import { Endpoint, HttpPost, Group, Priority } from '../../../../../lib';
 
 @Priority(2)
 @HttpPost('cargos')
-@Module('facturacion')
+@Group('facturacion')
 export default class CreateCharge extends Endpoint {
   main() {
     return { created: true };

@@ -3,12 +3,12 @@ import {
   Endpoint,
   HttpPost,
   HttpStatus,
-  Module,
+  Group,
 } from '../../../../lib';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { Product } from '../entities/product.entity';
 
-@Module('products')
+@Group('products')
 @HttpPost()
 @Body(CreateProductDto)
 export class CreateProductEndpoint extends Endpoint<null, CreateProductDto> {

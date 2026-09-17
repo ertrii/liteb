@@ -1,7 +1,7 @@
-import { AuthError, Endpoint, HttpGet, HttpStatus, Module } from '../../lib';
+import { AuthError, Endpoint, HttpGet, HttpStatus, Group } from '../../lib';
 
 /** `previous()` runs on the same instance, before `main()`. */
-@Module('guardia')
+@Group('guardia')
 @HttpGet('abierto')
 export class OpenGuardApi extends Endpoint {
   previous() {
@@ -14,7 +14,7 @@ export class OpenGuardApi extends Endpoint {
 }
 
 /** Throwing from `previous()` must skip `main()` entirely. */
-@Module('guardia')
+@Group('guardia')
 @HttpGet('cerrado')
 export class ClosedGuardApi extends Endpoint {
   previous() {

@@ -4,6 +4,45 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-alpha.2] - 2026-09-17
+
+### Changed
+
+- **`@Module` is now `@Group`, and it is optional.** The decorator never
+  declared a module: it declares a URL prefix. In 1.x "module" only ever meant
+  that, so the name was fine; 2.x gave the word a second, central meaning — the
+  INSTALLABLE UNIT, `defineModule({ id })`, `requires`, the `_modules` row, the
+  permission namespace — and left the decorator holding the old one.
+
+  ```typescript
+  // module.ts declares id: 'catalog'
+  @HttpGet(':id')                          // /api/catalog/:id
+  @Group('products')                       // /api/products/:id
+  @Group('products', { mount: '/' })       // /products/:id
+  ```
+
+  The prefix now defaults to the **module id**, so the decorator is only needed
+  when the URL should not carry it: a module serving more than one resource
+  (`identity` serving `auth` **and** `users`), or several modules contributing
+  to the same prefix.
+
+  The two identities stay separate on purpose. The id names the package, the
+  group names the URL: folding them together would put the installable unit's
+  name into every public URL, make renaming a module a breaking API change, and
+  forbid a module from serving two resources.
+
+  `@Module` and its `basePath` option still work, deprecated, and go away in
+  2.0 final. `EndpointReader.moduleName` is a deprecated getter over the new
+  `group` field.
+
+### Fixed
+
+- **An endpoint without the decorator is no longer dropped in silence.**
+  `isInvalid()` required a group, so forgetting `@Module` produced a clean
+  boot, a healthy log and 404 forever — the failure had no symptom to search
+  for. There is always a prefix to fall back to now, and only a missing HTTP
+  verb discards a class.
+
 ## [2.0.0-alpha.1] - 2026-09-17
 
 First published 2.0: liteb goes from a routing library to a module framework.

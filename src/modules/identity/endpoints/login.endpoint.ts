@@ -1,4 +1,4 @@
-import { Body, CustomerError, Endpoint, HttpPost, Module } from '../../../../lib';
+import { Body, CustomerError, Endpoint, HttpPost, Group } from '../../../../lib';
 import { LoginDto } from '../dto/login.dto';
 import { User } from '../entities/user.entity';
 import { verifyPassword } from '../services/password';
@@ -8,7 +8,7 @@ import { verifyPassword } from '../services/password';
  * through `this.auth`, which is what lets the transport change (a token, an
  * API key) without touching any other endpoint.
  */
-@Module('auth')
+@Group('auth')
 @HttpPost('login')
 @Body(LoginDto)
 export class LoginEndpoint extends Endpoint<null, LoginDto> {

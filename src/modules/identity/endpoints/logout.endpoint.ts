@@ -1,6 +1,6 @@
-import { Endpoint, HttpPost, Module } from '../../../../lib';
+import { Endpoint, HttpPost, Group } from '../../../../lib';
 
-@Module('auth')
+@Group('auth')
 @HttpPost('logout')
 export class LogoutEndpoint extends Endpoint {
   main() {

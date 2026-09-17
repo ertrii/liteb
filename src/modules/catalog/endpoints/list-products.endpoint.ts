@@ -1,9 +1,9 @@
-import { Endpoint, HttpGet, Module, Query } from '../../../../lib';
+import { Endpoint, HttpGet, Group, Query } from '../../../../lib';
 import { ListProductsQuery } from '../dto/list-products.query';
 import { Product } from '../entities/product.entity';
 import { ProductBadges } from '../module';
 
-@Module('products')
+@Group('products')
 @HttpGet()
 @Query(ListProductsQuery)
 export class ListProductsEndpoint extends Endpoint<null, null, ListProductsQuery> {

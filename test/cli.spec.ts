@@ -226,7 +226,13 @@ describe('un módulo generado y puesto a andar', () => {
     );
   });
 
-  it('el endpoint que vino con el módulo responde', async () => {
+  it('el endpoint que vino con el módulo responde, sin declarar grupo', async () => {
+    // La plantilla NO escribe `@Group`: `/api/inventory` existe porque el
+    // prefijo sale del id del módulo. Si ese default se rompe, esto es 404.
+    expect(
+      read(`${modulesDir}/inventory/endpoints/inventory.endpoint.ts`),
+    ).not.toContain('@Group');
+
     const res = await request(server())
       .get('/api/inventory')
       .set('x-perms', 'inventory.view');

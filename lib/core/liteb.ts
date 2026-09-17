@@ -100,7 +100,7 @@ export default class Liteb extends Server {
    *
    * An application that serves pages AND an API cannot share one prefix:
    * `/api/products/page` is not a URL anybody would link to. So a group can
-   * declare its own with `@Module(group, { basePath })`, and the same module
+   * declare its own with `@Group(name, { mount })`, and the same module
    * ends up mounted in more than one place — which is why this returns groups
    * rather than one base path per module.
    *
@@ -122,22 +122,25 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Groups EndpointReaders by module name.
+   * Groups EndpointReaders by their URL prefix: `@Group`, or the module id.
+   *
+   * One Express Router per group is what keeps `@Priority` deciding among
+   * routes that could shadow each other and nothing else.
    *
    * @param endpointReaders Array of EndpointReader instances.
-   * @returns An object holding the EndpointReaders grouped by module name.
+   * @returns An object holding the EndpointReaders grouped by prefix.
    */
   private groupEndpointReaders = (endpointReaders: EndpointReader[]) => {
     return endpointReaders.reduce(
       (acc, endpointReader) => {
-        const moduleName = endpointReader.moduleName || 'default';
-        if (!acc[moduleName]) {
-          acc[moduleName] = [];
+        const group = endpointReader.group;
+        if (!acc[group]) {
+          acc[group] = [];
         }
-        acc[moduleName].push(endpointReader);
+        acc[group].push(endpointReader);
         return acc;
       },
-      {} as { [moduleName: string]: typeof endpointReaders },
+      {} as { [group: string]: typeof endpointReaders },
     );
   };
 
@@ -556,10 +559,10 @@ export default class Liteb extends Server {
     Logger.router('[MAP] registration order; the first match answers');
     let order = 0;
     for (const { basePath, endpointReaders } of resolvedGroups) {
-      const endpointReadersByModule = this.groupEndpointReaders(endpointReaders);
-      Object.entries(endpointReadersByModule).forEach(
-        ([moduleName, moduleReaders]) => {
-          const options = moduleReaders.map((endpointReader) => {
+      const endpointReadersByGroup = this.groupEndpointReaders(endpointReaders);
+      Object.entries(endpointReadersByGroup).forEach(
+        ([group, groupReaders]) => {
+          const options = groupReaders.map((endpointReader) => {
             const endpointHandler = new EndpointHandler(
               endpointReader,
               this.dbSource,
@@ -583,7 +586,7 @@ export default class Liteb extends Server {
             Logger.router(endpointReader, { order, basePath });
             return option;
           });
-          this.router(path.join(basePath, moduleName), options);
+          this.router(path.join(basePath, group), options);
         },
       );
     }

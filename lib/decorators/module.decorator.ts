@@ -1,48 +1,31 @@
-import { Endpoint } from '../templates/endpoint';
+import { Group, GROUP, GroupMetadata } from './group.decorator';
 
-export const MODULE = Symbol('__module__');
+/**
+ * The word "module" means the INSTALLABLE UNIT in 2.x — `defineModule({ id })`,
+ * `requires`, the `_modules` row, the permission namespace. This decorator
+ * never meant that: it declares a URL prefix. Everything below is the old name
+ * kept working while applications move to {@link Group}, and goes away in 2.0
+ * final.
+ */
 
-export interface ModuleMetadata {
-  /** The group every endpoint of this class hangs from. */
-  basePath: string;
-  /**
-   * Replaces the application's `basePath` for this group. `null` means "use
-   * the application's".
-   */
-  mountAt: string | null;
-}
+/** @deprecated Renamed to `GROUP`. */
+export const MODULE = GROUP;
 
+/** @deprecated Renamed to {@link GroupMetadata}. */
+export type ModuleMetadata = GroupMetadata;
+
+/** @deprecated Renamed to `GroupOptions`, and its `basePath` to `mount`. */
 export interface ModuleOptions {
-  /**
-   * Where this group hangs from, instead of the application's `basePath`.
-   *
-   * An application that serves pages AND an API cannot use one prefix for
-   * both: `/api/products/page` is a URL nobody would link to. The API keeps
-   * the application's prefix; the pages declare their own.
-   *
-   * `'/'` (or `''`) mounts at the site root.
-   */
+  /** @deprecated Renamed to `mount`. */
   basePath?: string;
 }
 
 /**
- * Declares the route group of an endpoint.
- *
- * @param basePath The group: `@Module('products')` + `@HttpGet(':id')` answers
- * at `<app basePath>/products/:id`.
- * @param options `basePath` overrides the application's prefix for this group.
- *
- * @example
- * @Module('products')                          // /api/products
- * @Module('products', { basePath: '/' })       // /products
- * @Module('checkout', { basePath: '/shop' })   // /shop/checkout
+ * @deprecated Renamed to {@link Group}, and the option `basePath` to `mount`.
+ * `@Module('products', { basePath: '/' })` is now
+ * `@Group('products', { mount: '/' })`. A group is also optional now: drop it
+ * and the endpoint hangs from the module id.
  */
-export function Module(basePath: string, options: ModuleOptions = {}) {
-  return function (target: new () => Endpoint<any, any, any>) {
-    Reflect.defineMetadata(
-      MODULE,
-      { basePath, mountAt: options.basePath ?? null } as ModuleMetadata,
-      target,
-    );
-  };
+export function Module(name: string, options: ModuleOptions = {}) {
+  return Group(name, { mount: options.basePath });
 }

@@ -1,6 +1,6 @@
-import { Endpoint, HttpGet, Module } from '../../lib';
+import { Endpoint, HttpGet, Group } from '../../lib';
 
-@Module('saludo')
+@Group('saludo')
 @HttpGet('hola')
 export class HelloApi extends Endpoint {
   main() {

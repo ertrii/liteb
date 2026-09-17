@@ -9,11 +9,11 @@ import {
   HttpPost,
   HttpPut,
   HttpQuery,
-  Module,
+  Group,
 } from '../lib';
 
 const build = (decorate: (target: any) => void) => {
-  @Module('demo')
+  @Group('demo')
   class Demo extends Endpoint {
     main() {
       return null;

@@ -98,18 +98,24 @@ export function pickOneFilePerModule(paths: string[]): string[] {
  *
  * A file may export more than its class — constants, helpers, types — and
  * `Reflect.getMetadata` throws on a primitive, so anything that is not an
- * `Endpoint` subclass is ignored. A class without a verb or a module is
- * discarded the same way: it is a file being written, not a startup failure.
+ * `Endpoint` subclass is ignored. A class without an HTTP verb is discarded
+ * the same way: it is a file being written, not a startup failure.
  *
  * Pure, so the filter and the ordering can be tested without touching disk.
+ *
+ * @param defaultGroup Prefix for the classes that declare no `@Group` — the
+ * module id, so the decorator is only needed to say something else.
  */
-export function toEndpointReaders(exported: unknown[]): EndpointReader[] {
+export function toEndpointReaders(
+  exported: unknown[],
+  defaultGroup?: string,
+): EndpointReader[] {
   return exported
     .filter(
       (value): value is new () => Endpoint =>
         typeof value === 'function' && value.prototype instanceof Endpoint,
     )
-    .map((value) => new EndpointReader(value))
+    .map((value) => new EndpointReader(value, defaultGroup))
     .filter((reader) => !reader.isInvalid())
     .sort(byPriority);
 }
@@ -167,7 +173,7 @@ export async function loadModuleEndpoints(
   mod: ResolvedModule,
 ): Promise<EndpointReader[]> {
   if (mod.routes.length === 0) return [];
-  return toEndpointReaders(await readExports(mod.routes, mod.dir));
+  return toEndpointReaders(await readExports(mod.routes, mod.dir), mod.id);
 }
 
 /** A listener class together with the event it declared. */

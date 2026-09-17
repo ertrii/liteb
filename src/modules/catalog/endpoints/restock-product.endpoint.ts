@@ -2,7 +2,7 @@ import {
   Body,
   Endpoint,
   HttpPost,
-  Module,
+  Group,
   NotFoundError,
   Params,
 } from '../../../../lib';
@@ -20,7 +20,7 @@ import { ProductRestocked } from '../module';
  * forgotten, and the transaction's boundaries stay visible in the code that
  * depends on them.
  */
-@Module('products')
+@Group('products')
 @HttpPost(':id/restock')
 @Params(ProductIdDto)
 @Body(RestockDto)

@@ -3,7 +3,7 @@ import {
   DataJson,
   Endpoint,
   HttpGet,
-  Module,
+  Group,
   view,
 } from '../../../../lib';
 import { Product } from '../entities/product.entity';
@@ -16,13 +16,13 @@ import { Product } from '../entities/product.entity';
  * - `view()` is returned from `main()`, not declared on the class. The endpoint
  *   could just as well answer JSON on another branch — the choice is made with
  *   the data in hand.
- * - `basePath: '/'` takes it OFF the application's `/api` prefix: this answers
+ * - `mount: '/'` takes it OFF the application's `/api` prefix: this answers
  *   at `/products/page`, because `/api/products/page` is not a URL anybody
  *   would link to. The JSON endpoints of this same module keep the prefix.
  *   Being under another prefix also means `:id` cannot shadow it, so no
  *   `@Priority` is needed here.
  */
-@Module('products', { basePath: '/' })
+@Group('products', { mount: '/' })
 @HttpGet('page')
 @ApiHidden()
 export default class ProductsPageEndpoint extends Endpoint {

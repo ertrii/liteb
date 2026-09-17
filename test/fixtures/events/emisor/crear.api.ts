@@ -1,7 +1,7 @@
-import { Endpoint, HttpPost, Module } from '../../../../lib';
+import { Endpoint, HttpPost, Group } from '../../../../lib';
 import { Registrado } from '../shared';
 
-@Module('demo')
+@Group('demo')
 @HttpPost('crear')
 export class CrearApi extends Endpoint {
   async main() {

@@ -2,7 +2,17 @@ import 'reflect-metadata';
 import { describe, expect, it } from '@jest/globals';
 import { IsInt, IsString } from 'class-validator';
 import EndpointReader from '../lib/core/endpoint-reader';
-import { Endpoint, Body, HttpGet, Module, Params, HttpPost, Priority, Use } from '../lib';
+import {
+  Endpoint,
+  Body,
+  Group,
+  HttpGet,
+  HttpPost,
+  Module,
+  Params,
+  Priority,
+  Use,
+} from '../lib';
 
 class BodyDto {
   @IsString()
@@ -14,7 +24,7 @@ class ParamsDto {
   id: number;
 }
 
-@Module('users')
+@Group('users')
 @HttpGet('list')
 class ListUsersApi extends Endpoint {
   main() {
@@ -22,7 +32,7 @@ class ListUsersApi extends Endpoint {
   }
 }
 
-@Module('users')
+@Group('users')
 @HttpPost(':id')
 @Params(ParamsDto)
 @Body(BodyDto)
@@ -42,16 +52,16 @@ class NakedApi extends Endpoint {
 }
 
 describe('EndpointReader', () => {
-  it('lee módulo, verbo y ruta de los decoradores', () => {
+  it('lee grupo, verbo y ruta de los decoradores', () => {
     const reader = new EndpointReader(ListUsersApi);
 
     expect(reader.isInvalid()).toBe(false);
-    expect(reader.moduleName).toBe('users');
+    expect(reader.group).toBe('users');
     expect(reader.method).toBe('get');
     expect(reader.pathname).toBe('list');
   });
 
-  it('descarta una clase sin @Module ni verbo HTTP', () => {
+  it('descarta una clase sin verbo HTTP', () => {
     expect(new EndpointReader(NakedApi).isInvalid()).toBe(true);
   });
 
@@ -75,8 +85,55 @@ describe('EndpointReader', () => {
   });
 });
 
-describe('@Module(group, { basePath })', () => {
-  @Module('pages', { basePath: '/' })
+describe('@Group es opcional: manda el id del módulo', () => {
+  @HttpGet('resumen')
+  class SinGrupo extends Endpoint {
+    main() {
+      return { ok: true };
+    }
+  }
+
+  it('sin decorador, el prefijo es el id que le pasa el cargador', () => {
+    // Antes esto se descartaba EN SILENCIO: arranque limpio, 404 para
+    // siempre. Ahora siempre hay un prefijo del que colgar.
+    const reader = new EndpointReader(SinGrupo, 'reports');
+
+    expect(reader.isInvalid()).toBe(false);
+    expect(reader.group).toBe('reports');
+  });
+
+  it('el decorador le gana al id: la URL no tiene por qué llevarlo', () => {
+    // El caso de `identity`, que sirve `auth` y `users` desde un solo módulo.
+    expect(new EndpointReader(ListUsersApi, 'identity').group).toBe('users');
+  });
+
+  it('fuera de un módulo y sin decorador, cuelga del basePath a secas', () => {
+    expect(new EndpointReader(SinGrupo).group).toBe('');
+  });
+});
+
+describe('@Module sigue funcionando, deprecado', () => {
+  // Renombrado a @Group en alpha.2; el alias sale en la 2.0 final.
+  @Module('viejo', { basePath: '/' })
+  @HttpGet('ruta')
+  class Antiguo extends Endpoint {
+    main() {
+      return { ok: true };
+    }
+  }
+
+  it('escribe la misma metadata, y basePath significa mount', () => {
+    const reader = new EndpointReader(Antiguo);
+
+    expect(reader.group).toBe('viejo');
+    expect(reader.mountAt).toBe('/');
+    // El campo viejo también sigue leyéndose.
+    expect(reader.moduleName).toBe('viejo');
+  });
+});
+
+describe('@Group(name, { mount })', () => {
+  @Group('pages', { mount: '/' })
   @HttpGet('home')
   class HomeEndpoint extends Endpoint {
     main() {
@@ -84,7 +141,7 @@ describe('@Module(group, { basePath })', () => {
     }
   }
 
-  @Module('pages')
+  @Group('pages')
   @HttpGet('other')
   class OtherEndpoint extends Endpoint {
     main() {
@@ -96,7 +153,7 @@ describe('@Module(group, { basePath })', () => {
     expect(new EndpointReader(HomeEndpoint).mountAt).toBe('/');
   });
 
-  it('sin opción, manda el basePath de la aplicación', () => {
+  it('sin mount, manda el basePath de la aplicación', () => {
     // `null` y no `''`: son cosas distintas — `''` sería "montá en la raíz".
     expect(new EndpointReader(OtherEndpoint).mountAt).toBeNull();
   });
