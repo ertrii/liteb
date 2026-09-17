@@ -152,6 +152,9 @@ logs
     [],
     [
       `Fill in .env (the database has to exist; liteb creates tables, not databases).`,
+      // `npx liteb` without a version resolves the `latest` tag, which is a
+      // different major with a different CLI. Inside the project it is the
+      // local install that answers, so no version is needed here.
       `Create your first module: npx liteb create module <name>${
         modulesDir === 'src/modules' ? '' : ` --dir ${modulesDir}`
       }`,

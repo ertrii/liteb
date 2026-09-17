@@ -69,7 +69,7 @@ dist-tag so `npm i liteb` keeps installing `1.x`. That line is frozen on the
   is global rather than per module, because what decides the answer is the order
   Express saw them in, across every router.
 
-- **A CLI** — `npx liteb init my-app` writes a project that runs (package.json,
+- **A CLI** — `npx liteb@alpha init my-app` writes a project that runs (package.json,
   tsconfig with the two decorator flags and `strictPropertyInitialization: false`,
   `.env`, an entry point) and installs its dependencies. Then
   `npx liteb create module billing`, plus `endpoint`, `task`, `listener`,
@@ -79,6 +79,11 @@ dist-tag so `npm i liteb` keeps installing `1.x`. That line is frozen on the
   `create module` registers the module in `Liteb.create({ modules: [...] })`
   itself, so `init` + `create module` + `npm run dev` needs no hand editing —
   forgetting that line is the classic "my routes are 404".
+
+  The `@alpha` on that first command is not optional: `npx liteb` resolves the
+  `latest` tag, which is `1.0.0-beta.7.5` and ships the OLD CLI, so it does not
+  fail — it runs a different program. Inside the project npx finds the local
+  binary and no version is needed.
 
   A module is a shape — a manifest, globs that have to match, a migrations
   index, permission keys namespaced by the module id — and every one of those is

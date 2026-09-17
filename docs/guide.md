@@ -50,6 +50,9 @@ npm install liteb
 ## Command line
 
 ```bash
+npx liteb@alpha init my-app     # only the first command needs the version:
+                                # plain `npx liteb` resolves the `latest` tag,
+                                # which is still 1.x and ships another CLI.
 npx liteb create module billing
 npx liteb create endpoint billing/issue-charge --method post
 npx liteb create entity billing/charge
@@ -65,6 +68,7 @@ writes the shape; you write the code.
 
 | Command | What it writes |
 | --- | --- |
+| `init [name]` | A project that runs: `package.json`, `tsconfig.json`, `.env`, entry point — and `npm install` (`--skip-install` to stop before it) |
 | `create module <name>` | `module.ts`, a first endpoint, the migrations index |
 | `create endpoint <module>/<name>` | An endpoint (`--method`, `--path`, `--group`, `--public`) |
 | `create task <module>/<name>` | A scheduled task (`--cron`), and turns on the `tasks` glob |

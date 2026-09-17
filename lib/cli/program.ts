@@ -94,6 +94,10 @@ export function buildProgram(): Command {
 
       console.log('');
       if (name) console.log(`  next     cd ${name}`);
+      // Until the dependencies are installed, `npx liteb` would go to the
+      // registry and resolve the `latest` tag — a different major, with a
+      // different CLI. With them in place, the local one answers.
+      if (flags.skipInstall) console.log('  next     npm install');
       result.hints.forEach((hint) => console.log(`  next     ${hint}`));
     });
 

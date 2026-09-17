@@ -12,11 +12,15 @@ Express + TypeORM + class-validator underneath, decorators on top.
 ## Start
 
 ```bash
-npx liteb init my-app          # package.json, tsconfig, .env, entry point
+npx liteb@alpha init my-app    # package.json, tsconfig, .env, entry point
 cd my-app
 npx liteb create module billing
 npm run dev
 ```
+
+**`@alpha` matters on that first command.** Plain `npx liteb` resolves the
+`latest` tag, which is still `1.x` and ships a different CLI. Inside the project
+it no longer matters: `npx` finds the local install first.
 
 Into a project you already have:
 
