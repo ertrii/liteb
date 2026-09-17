@@ -161,19 +161,28 @@ describe('loadModules', () => {
 describe('withModuleExtensions', () => {
   it('cambia la extensión declarada por el juego completo', () => {
     expect(withModuleExtensions('./apis/*.api.ts')).toBe(
-      './apis/*.api.{ts,js,cjs,mjs}',
+      './apis/*.api.{ts,js,cjs,mjs,jsc}',
     );
   });
 
   it('acepta un patrón sin extensión', () => {
     expect(withModuleExtensions('./apis/*.api')).toBe(
-      './apis/*.api.{ts,js,cjs,mjs}',
+      './apis/*.api.{ts,js,cjs,mjs,jsc}',
     );
   });
 
   it('respeta el resto del glob', () => {
     expect(withModuleExtensions('./controllers/**/*.controller.js')).toBe(
-      './controllers/**/*.controller.{ts,js,cjs,mjs}',
+      './controllers/**/*.controller.{ts,js,cjs,mjs,jsc}',
+    );
+  });
+
+  it('incluye .jsc: un módulo entregado como bytecode V8', () => {
+    // Sin esto, una entrega on-premise compilada con bytenode arranca con CERO
+    // rutas y un warning: instala, migra, registra contratos y contesta 404 a
+    // todo. Está verificado arrancando la demo entera desde .jsc.
+    expect(withModuleExtensions('./apis/*.api.jsc')).toBe(
+      './apis/*.api.{ts,js,cjs,mjs,jsc}',
     );
   });
 });
@@ -195,6 +204,19 @@ describe('pickOneFilePerModule', () => {
     expect(
       pickOneFilePerModule(['/m/apis/user.api.d.ts', '/m/apis/user.api.js']),
     ).toEqual(['/m/apis/user.api.js']);
+  });
+
+  it('entre .jsc y un archivo legible, gana el legible', () => {
+    // El bytecode va último a propósito: si al lado hay algo que se puede
+    // abrir, es lo que conviene cargar para depurar. En una entrega protegida
+    // el .js no existe y el .jsc queda solo.
+    expect(
+      pickOneFilePerModule(['/m/apis/user.api.jsc', '/m/apis/user.api.js']),
+    ).toEqual(['/m/apis/user.api.js']);
+
+    expect(pickOneFilePerModule(['/m/apis/user.api.jsc'])).toEqual([
+      '/m/apis/user.api.jsc',
+    ]);
   });
 
   it('deja pasar archivos distintos', () => {

@@ -182,14 +182,15 @@ worse than not starting.
 
 The `routes` and `tasks` globs are **extension-agnostic**. Write them however
 you like — `'./apis/*.api.ts'`, `'./apis/*.api.js'` or `'./apis/*.api'` — and
-liteb looks for `.ts`, `.js`, `.cjs` and `.mjs`. You declare *which* files; the
-extension is not your problem.
+liteb looks for `.ts`, `.js`, `.cjs`, `.mjs` and `.jsc`. You declare *which*
+files; the extension is not your problem.
 
-That is what lets **one manifest** work in three places:
+That is what lets **one manifest** work in four places:
 
 - from source in development (`.ts`)
 - from a build you ship to a customer's server (`.js`)
 - from `node_modules`, when the module is published as a package
+- from a **V8 bytecode** build (`.jsc`), for an installation you do not control
 
 ```typescript
 import billing from '@acme/liteb-billing';   // a module someone else wrote
@@ -198,8 +199,37 @@ const app = await Liteb.create({ db, modules: [identity, billing] });
 ```
 
 If a source tree and its build sit side by side, only one of each file is
-loaded (`.ts` wins), so routes are never registered twice. `*.d.ts` files are
-skipped.
+loaded (`.ts` wins, `.jsc` loses to anything readable), so routes are never
+registered twice. `*.d.ts` files are skipped.
+
+#### Loading a module compiled to V8 bytecode
+
+Compiling a build with [bytenode](https://github.com/bytenode/bytenode) turns
+each `.js` into a `.jsc` holding V8's code cache. liteb loads those like any
+other module file — **as long as the application registers the extension
+first**:
+
+```javascript
+require('bytenode');        // registers Module._extensions['.jsc']
+const app = await Liteb.create({ db, modules: [identity, catalog] });
+```
+
+liteb does **not** depend on bytenode, and does not compile anything: what a
+`.jsc` file is depends on the Node build that produced it, and that is the
+application's decision, not the framework's.
+
+`npm run demo:bytecode` does the whole thing on the example app — compiles it,
+deletes every `.js`, boots from the `.jsc` files and prints the route map — so
+the claim on this page is something you can run. Worth knowing before you plan
+around it:
+
+- A `.jsc` is **tied to the Node/V8 version that produced it**. Another version
+  fails with `Invalid or incompatible cached data`, so the runtime has to ship
+  with the build.
+- It is **opacity, not encryption**. The logic is no longer readable as source,
+  but string literals, identifiers, property and class names survive in the
+  cache — and so does everything that was never JavaScript: templates, SQL
+  migrations, static files, environment variables.
 
 ### Calling another module
 

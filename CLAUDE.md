@@ -101,8 +101,8 @@ feature — those tests exercise the path consumers actually use.
 ### Module globs are extension-agnostic (and node_modules-safe)
 
 `withModuleExtensions()` rewrites `./apis/*.api.ts` to
-`./apis/*.api.{ts,js,cjs,mjs}`, and `pickOneFilePerModule()` keeps one file per
-name (`.ts` wins) and drops `*.d.ts`.
+`./apis/*.api.{ts,js,cjs,mjs,jsc}`, and `pickOneFilePerModule()` keeps one file
+per name (`.ts` wins, `.jsc` loses to anything readable) and drops `*.d.ts`.
 
 Why it matters: `dir` is `__dirname`, so after `tsc` it points at the build,
 where nothing ends in `.ts`. The old literal glob found zero files, liteb logged
@@ -113,6 +113,21 @@ ships `.js`.
 The `node_modules` ignore is **anchored to the module's `dir`**, not global: a
 module installed as a package lives under `node_modules`, and an unanchored
 ignore of that name matches none of its files.
+
+`.jsc` is V8 bytecode (bytenode). liteb **loads** it and nothing more: no
+dependency on bytenode, no compilation step. The application calls
+`require('bytenode')` before `start()`, because what a `.jsc` is depends on the
+Node build that produced it — a `.jsc` from another version is rejected with
+`Invalid or incompatible cached data`. Verified end to end by `npm run demo:bytecode`
+(`scripts/bytecode/run.js`): the whole demo under `src/` compiled to 38 `.jsc`
+files with no `.js` beside them boots, mounts the same 11 routes in the same
+order, and answers JSON, a pug page and a CSV. **It cannot be a jest test** —
+jest's runtime intercepts `require`, so bytenode's `Module._extensions['.jsc']`
+never runs and the file is parsed as text; jest covers the glob and the
+preference order instead.
+Without `.jsc` in the list it installed, migrated, registered contracts and
+served **404 to everything** — the same failure the `.ts`→`.js` fix cured.
+Packaging and licensing stay OUT of liteb: MIT framework, product problem.
 
 ### Module system (`lib/modules/`)
 

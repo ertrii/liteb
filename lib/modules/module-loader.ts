@@ -19,8 +19,15 @@ export interface LoadedModule {
 /**
  * Extensions a module's files may have, in the order liteb prefers them when
  * the same file exists more than once.
+ *
+ * `.jsc` is V8 bytecode (bytenode) and comes LAST on purpose: when a readable
+ * file sits beside the compiled one, the readable one wins, so a developer
+ * stepping through a module is not handed the opaque copy. The application
+ * must `require('bytenode')` before `start()` — liteb does not depend on it,
+ * because what a `.jsc` file is depends on the Node that produced it, and a
+ * framework has no business deciding that for its consumer.
  */
-const MODULE_EXTENSIONS = ['.ts', '.js', '.cjs', '.mjs'] as const;
+const MODULE_EXTENSIONS = ['.ts', '.js', '.cjs', '.mjs', '.jsc'] as const;
 
 /**
  * Turns a module's glob into an absolute one, resolved against the module's own

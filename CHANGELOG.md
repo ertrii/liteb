@@ -67,6 +67,29 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   is global rather than per module, because what decides the answer is the order
   Express saw them in, across every router.
 
+- **Modules can be delivered as V8 bytecode** — `.jsc` (bytenode) joined the
+  extensions a module's globs match, so one manifest also works for a build
+  shipped to a machine you do not control.
+
+  liteb loads it and nothing more: no dependency on bytenode, no compilation
+  step. The application registers the extension itself with
+  `require('bytenode')` before `start()`, because what a `.jsc` file is depends
+  on the Node build that produced it — that belongs to whoever ships the
+  runtime, not to the framework.
+
+  It comes last in the preference order, so a readable file beside it wins and
+  nobody ends up stepping through the opaque copy by accident.
+
+  Verified end to end by `npm run demo:bytecode`: the demo under `src/` compiled
+  to 38 `.jsc` files with no `.js` beside them boots, mounts the same 11 routes
+  in the same order and answers JSON, a rendered page and a CSV. Without `.jsc`
+  in the list it installed, migrated, registered its contracts and served 404 to
+  everything — the same shape of failure the `.ts`→`.js` fix cured.
+
+  It is a script and not a jest test because jest's runtime intercepts
+  `require`, so bytenode's `Module._extensions['.jsc']` never runs; the suite
+  covers the glob and the preference order instead.
+
 - **Extension points (slots)** — `slot<T>(id)` opens one, a module fills it from
   its manifest with `contributes: [{ slot, use | factory | value }]`, and the
   module that opened it reads everything installed with `this.all(slot)`.
