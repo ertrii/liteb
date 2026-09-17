@@ -1,12 +1,16 @@
-import type { DataSource } from 'typeorm';
+import type { DataSource, EntitySchema } from 'typeorm';
 import type { Contract, Provider } from './container';
 
 /**
  * A database entity contributed by a module: a decorated class or a TypeORM
- * `EntitySchema`. Typed loosely on purpose — the DataSource is built from the
- * union of every enabled module's entities, and TypeORM accepts both shapes.
+ * `EntitySchema`.
+ *
+ * It matches what TypeORM's `entities` option accepts, minus the string glob —
+ * a module declares its own entities, it does not go looking for them. Keeping
+ * it wider (`object`) made `collectModuleEntities()` unassignable to a
+ * DataSource the application builds itself, which is a supported path.
  */
-export type ModuleEntity = Function | object;
+export type ModuleEntity = Function | EntitySchema<any>;
 
 /**
  * Migrations contributed by a module. Either an array of migration classes or

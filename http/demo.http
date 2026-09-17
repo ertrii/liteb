@@ -1,0 +1,102 @@
+### Liteb 2.x demo — the whole flow, in order.
+### Run the server first: `npm run dev`.
+### Two seeded users, both with password `demo1234`:
+###   owner -> every permission (`*`)
+###   staff -> can view users, and view/manage products
+@host = http://localhost:16001
+
+### ---------------------------------------------------------------- 1. Anonymous
+### `me` answers the anonymous: it reads `this.auth.optional`, not `.actor`.
+GET {{host}}/api/auth/me
+
+### Reading products without signing in -> 401. The endpoint calls
+### `this.auth.assert('catalog.products.view')`, and nobody is signed in.
+GET {{host}}/api/products
+
+### ---------------------------------------------------------------- 2. Validation
+### A body that fails class-validator -> 422, with the offending field named.
+### Nothing in `main()` runs.
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "" }
+
+### ---------------------------------------------------------------- 3. Sign in as staff
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "staff", "password": "demo1234" }
+
+### Now `me` reports the actor and the permission keys it holds.
+GET {{host}}/api/auth/me
+
+### ---------------------------------------------------------------- 4. Permissions
+### staff may view and manage products...
+GET {{host}}/api/products
+
+### ...and only enabled ones, filtered by query string (a STRING: 'true').
+GET {{host}}/api/products?onlyEnabled=true
+
+### 201, because the endpoint sets `this.httpStatus`.
+POST {{host}}/api/products
+Content-Type: application/json
+
+{ "name": "Router 4G", "stock": 5 }
+
+### Two writes in one transaction: the product's stock and its movement.
+POST {{host}}/api/products/1/restock
+Content-Type: application/json
+
+{ "quantity": 10 }
+
+### An id that does not exist -> 404 thrown from `main()`, same error shape.
+GET {{host}}/api/products/9999
+
+### A non-numeric id -> 422 from the param DTO, before `main()` is reached.
+GET {{host}}/api/products/abc
+
+### staff CANNOT create users -> 403 (identity.users.manage).
+### Note the difference with step 1: there it was 401. Signed in but not
+### allowed is a different answer than not signed in at all.
+POST {{host}}/api/users
+Content-Type: application/json
+
+{ "username": "new", "fullName": "New One", "password": "demo1234", "role": "staff" }
+
+### ---------------------------------------------------------------- 5. Sign in as owner
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "owner", "password": "demo1234" }
+
+### Same request as above, now 201: owner holds `*`.
+POST {{host}}/api/users
+Content-Type: application/json
+
+{ "username": "new", "fullName": "New One", "password": "demo1234", "role": "staff" }
+
+GET {{host}}/api/users
+
+### ---------------------------------------------------------------- 6. Templates
+### HTML instead of JSON, rendered from `catalog/views/products.pug`.
+### It resolves because `@Priority(1)` registers it BEFORE `/products/:id`.
+GET {{host}}/api/products/page
+
+### ---------------------------------------------------------------- 7. An optional module
+### `reports` is not core, so it installed DISABLED: this is 404, the route was
+### never mounted.
+GET {{host}}/api/reports/summary
+
+### Turn it on and restart the server:
+###   npm run modules -- list
+###   npm run modules -- enable reports
+### Then the same request answers, reading data from identity AND catalog
+### through their contracts — without importing either.
+GET {{host}}/api/reports/summary
+
+### ---------------------------------------------------------------- 8. Docs
+### OpenAPI generated from the same decorators used for routing.
+GET {{host}}/docs.json
+
+### ---------------------------------------------------------------- 9. Sign out
+POST {{host}}/api/auth/logout

@@ -211,6 +211,30 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Changed
 
+- **`ModuleEntity` narrowed** from `Function | object` to
+  `Function | EntitySchema<any>`. The wide version made
+  `collectModuleEntities()` unassignable to a DataSource the application builds
+  itself, which is a supported path — found while writing the example app
+  against the published surface.
+
+- **The example app under `src/` was rewritten** as one coherent flow, and is
+  now covered by `test/demo-app.spec.ts`, which boots it against an in-process
+  Postgres.
+
+  The previous one had rotted without anyone noticing: `@Priority` was
+  backwards, so `/users/all` resolved to the `:id` route and the handler
+  received the literal string `"all"`; a `@Template` endpoint could never
+  render because nothing ever called `setTemplates`; an endpoint carried a
+  `previous` arrow property that shadowed the method and did nothing; and one
+  module was a leftover from an unrelated project. None of it was reachable by
+  any test.
+
+  It is now `identity` and `catalog` (core) plus `reports` (optional, installs
+  disabled), with per-module migrations and `synchronize: false`, exercising
+  permissions, contracts, validation, `db.transaction()`, a view and a
+  scheduled task. `http/demo.http` walks it request by request, and
+  `npm run modules` toggles the optional one.
+
 - **`Api` is now `Endpoint`.** The class models a single operation, not the whole
   API, and the name now says so. Its file moves to `lib/templates/endpoint.ts`.
   The internals that name it follow: `ApiReader` -> `EndpointReader`,

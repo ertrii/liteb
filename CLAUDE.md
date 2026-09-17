@@ -27,6 +27,13 @@ is **not** an application. Dual layout:
   **Edit here.**
 - **`src/`** — a sample app that dogfoods the framework (`npm run dev`). It
   imports `lib/` by relative path, never by package name. Not published.
+  Three modules (`identity`, `catalog` core; `reports` optional and installed
+  disabled), with per-module migrations and `synchronize: false`.
+  **`test/demo-app.spec.ts` boots it against PGlite** — keep it that way. The
+  previous demo had rotted unnoticed: `@Priority` was backwards so the literal
+  route resolved to `:id`, and a `@Template` endpoint could never render
+  because nothing called `setTemplates`. Both were invisible without a test.
+  `http/demo.http` is the request-by-request walkthrough.
 - **`test/`** — jest suite. Not published.
 
 `bin/` was removed in the 1.0 RC (its scaffolding generated decorators that never
@@ -41,6 +48,7 @@ npm run dev     # nodemon → ts-node ./src/index.ts (needs PostgreSQL)
 npm run build   # clears dist/ + types/, then tsc -p tsconfig.build.json
 npm run clear   # rimraf ./dist ./types
 npm test        # jest, with --experimental-vm-modules (PGlite needs it)
+npm run modules -- list | enable <id> | disable <id>   # ModuleStore CLI (demo)
 npm pack        # tarball, to install into a consumer project
 ```
 

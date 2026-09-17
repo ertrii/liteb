@@ -1,2 +1,0 @@
-GET http://localhost:16001/crm/periodosAdmision
-Content-Type: application/json

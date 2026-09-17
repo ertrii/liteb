@@ -486,6 +486,28 @@ ConfigService.mode(); // 'development' | 'production' from NODE_ENV
 
 The variables your app needs (database host, credentials, port, etc.) are yours to define and pass to your TypeORM `DataSource`; liteb does not require any specific names beyond the logging ones above.
 
-## Example Guide
+## Example app
 
-[Example](https://github.com/ertrii/liteb/tree/main/src)
+[`src/`](https://github.com/ertrii/liteb/tree/main/src) is a small but complete
+2.x application, and [`http/demo.http`](https://github.com/ertrii/liteb/tree/main/http/demo.http)
+walks the whole flow request by request — 401 vs 403, validation, transactions,
+an optional module that starts disabled.
+
+Three modules, on purpose:
+
+| Module | | What it shows |
+| --- | --- | --- |
+| `identity` | core | Entity + migration with seed data, login/logout/me, a contract other modules consume, permissions |
+| `catalog` | core | `requires`, validation DTOs, `@Priority` done right, a pug view, `db.transaction()` for two writes that must land together |
+| `reports` | optional | Installs **disabled**; consumes two contracts without importing either module; a scheduled task that only runs while enabled |
+
+```bash
+cp .env.template .env      # fill in DB_* and SECRET_KEY
+npm run dev                # migrations run on boot; two users are seeded
+npm run modules -- list    # what is installed and enabled
+npm run modules -- enable reports
+```
+
+It is covered by `test/demo-app.spec.ts`, which boots those same three modules
+against an in-process Postgres. Example code nobody runs stops being an
+example.
