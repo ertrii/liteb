@@ -11,6 +11,30 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Added
 
+- **Events between modules** — `event<T>(id)` declares a token, `this.emit()`
+  announces from an endpoint, a task or a contract's implementation, and a
+  `Listener` marked `@On(token)` reacts. A module declares where its listeners
+  live with a `listeners` glob, loaded like `routes` and `tasks`.
+
+  A contract is a call: you ask a particular module and wait for the answer. An
+  event is an announcement, and the rules keep it from collapsing back into the
+  first: a listener that throws does NOT fail the emitter — the failure is
+  logged naming the module and the event — and an event nobody listens to is
+  normal rather than an error. When the outcome matters to the caller, it wants
+  a contract.
+
+  Only ENABLED modules get their listeners registered, the same rule as routes
+  and tasks: a module that is off must not keep having side effects.
+
+  A listener that declares its payload parameter is type-checked against the
+  token, so a renamed field cannot quietly reach a handler that still expects
+  the old one. One that ignores the payload compiles against any token, which is
+  harmless — it cannot misread a field it never touches.
+
+  The bus and the container reference each other — an implementation may emit,
+  a listener may resolve a contract — and are wired with explicit setters once
+  both exist, rather than through a lazy global.
+
 - **Authentication seam (`this.auth`)** — one `AuthResolver`, passed as
   `Liteb.create({ auth })` or `setAuth()`, turns a request into
   `{ actor, permissions }`; every endpoint reads it as `this.auth`. It replaces

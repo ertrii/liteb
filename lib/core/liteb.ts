@@ -23,11 +23,13 @@ import { resolveModules } from '../modules/resolve-modules';
 import {
   LoadedModule,
   loadModules,
+  loadModuleListeners,
   loadModuleTasks,
 } from '../modules/module-loader';
 import { collectModuleEntities } from '../modules/collect-entities';
 import { buildContainer } from '../modules/build-container';
 import { Container } from '../modules/container';
+import { EventBus } from '../modules/events';
 import { AuthResolver } from './auth';
 
 /** What {@link Liteb.create} takes. */
@@ -67,6 +69,7 @@ export default class Liteb extends Server {
   private hostVersion?: string;
   private loadedModules: LoadedModule[] = [];
   private container?: Container;
+  private events?: EventBus;
   private authResolver?: AuthResolver;
   private moduleTasks: Array<new () => Task> = [];
   private templatesAsync: Promise<string[]>[] = [];
@@ -269,6 +272,25 @@ export default class Liteb extends Server {
       Logger.info(`Contracts registered: ${contracts.join(', ')}`);
     }
 
+    // The bus and the container reference each other: an implementation may
+    // emit, a listener may resolve a contract. Wired here, in the open.
+    this.events = new EventBus(this.dbSource);
+    this.container.useEvents(this.events);
+    this.events.useContainer(this.container);
+
+    // Listeners follow the same rule as routes and tasks: only ENABLED modules
+    // react. Turning a module off has to stop its side effects too, or
+    // disabling it would be a lie.
+    for (const mod of active) {
+      for (const { token, ListenerClass } of await loadModuleListeners(mod)) {
+        this.events.register(token, ListenerClass, mod.id);
+      }
+    }
+    const events = this.events.ids();
+    if (events.length > 0) {
+      Logger.info(`Events with listeners: ${events.join(', ')}`);
+    }
+
     this.loadedModules = await loadModules(active);
 
     // Scheduled tasks follow the same rule as routes: only enabled modules get
@@ -380,6 +402,7 @@ export default class Liteb extends Server {
               this.dbSource,
               this.container,
               this.authResolver,
+              this.events,
             );
             const option = new RouterOption(
               endpointReader.pathname,

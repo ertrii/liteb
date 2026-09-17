@@ -39,7 +39,7 @@ npm install liteb
 | Contracts between modules   | ✔      |
 | Per-module migrations       | ✔      |
 | Authentication seam         | ✔      |
-| Events between modules      | —      |
+| Events between modules      | ✔      |
 
 ## Defining endpoints
 
@@ -225,6 +225,59 @@ consumes: [BillingService],
 ```
 
 Scheduled tasks get the same `this.get()`.
+
+### Events between modules
+
+A contract is a call: you ask a particular module for something and wait. An
+event is an announcement: *this happened*, and whoever cares reacts.
+
+```typescript
+// catalog/module.ts — the emitter exports the token, nothing else
+export interface ProductRestocked {
+  productId: number;
+  quantity: number;
+}
+export const ProductRestocked = event<ProductRestocked>('catalog.product.restocked');
+```
+
+```typescript
+// in an endpoint or a task of `catalog`
+await this.emit(ProductRestocked, { productId, quantity });
+```
+
+```typescript
+// reports/listeners/restock-log.listener.ts
+@On(ProductRestocked)
+export class RestockLog extends Listener<ProductRestocked> {
+  async on(payload: ProductRestocked) {
+    await this.get(UserDirectory).nameOf(payload.userId);
+  }
+}
+```
+
+Declare where they live, and they are loaded like routes and tasks:
+
+```typescript
+listeners: './listeners/*.listener.ts',
+```
+
+The rules that keep an event from turning into a call with extra steps:
+
+- **A listener that throws does not fail the emitter.** The failure is logged
+  with the module and the event; the request goes on. If the outcome matters to
+  the caller, it wants a contract, not an event.
+- **An event nobody listens to is normal**, not an error.
+- Listeners run in parallel and `emit()` resolves once they have all settled.
+- **Only enabled modules react.** Turning a module off stops its side effects
+  too, or "disabled" would be a lie.
+- A listener that **declares** its payload parameter is checked against the
+  token, so a renamed field cannot quietly reach a handler still expecting the
+  old one. (One that ignores the payload compiles against any token — it cannot
+  misread what it never reads.)
+
+**GOTCHA:** listeners read on their own connection. Emitting inside
+`db.transaction()` means they will not see the uncommitted rows — emit *after*
+it commits, or put what they need in the payload.
 
 ### Enabling and disabling
 

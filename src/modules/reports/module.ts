@@ -22,6 +22,7 @@ export default defineModule({
 
   routes: './apis/*.api.ts',
   tasks: './tasks/*.task.ts',
+  listeners: './listeners/*.listener.ts',
 
   permissions: [{ key: 'reports.view', label: 'View reports' }],
 });

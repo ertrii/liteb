@@ -44,6 +44,9 @@ Content-Type: application/json
 { "name": "Router 4G", "stock": 5 }
 
 ### Two writes in one transaction: the product's stock and its movement.
+### It also emits `catalog.product.restocked`. Nobody reacts yet — `reports` is
+### still disabled (step 7). Enable it and this same request prints a line from
+### a module `catalog` knows nothing about.
 POST {{host}}/api/products/1/restock
 Content-Type: application/json
 

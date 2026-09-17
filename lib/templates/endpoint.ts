@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorType } from '../interfaces/type-error';
 import { Auth } from '../core/auth';
+import type { EventBus, EventToken } from '../modules/events';
 import type { Container, Contract } from '../modules/container';
 
 export type DataJson =
@@ -60,6 +61,9 @@ export abstract class Endpoint<
    */
   public container?: Container;
 
+  /** Event bus of this application, injected on the prototype like `db`. */
+  public events?: EventBus;
+
   /**
    * Resolves a contract another module provides.
    *
@@ -88,6 +92,26 @@ export abstract class Endpoint<
    * `this.auth` are already there, where a `@Use` middleware only gets the raw
    * request. Throwing from here skips `main()` and maps like any other error.
    */
+
+  /**
+   * Announces that something happened, for whatever modules are listening.
+   *
+   * It is NOT a call: a listener that fails does not fail this request, and an
+   * event nobody listens to is normal. When the outcome matters, use a
+   * contract with {@link get} instead.
+   *
+   * GOTCHA: listeners read on their own connection. Emitting inside
+   * `db.transaction()` means they cannot see the uncommitted rows — emit after
+   * it commits, or put what they need in the payload.
+   *
+   * @example
+   * await this.emit(ChargeCreated, { chargeId: charge.id, customerId });
+   */
+  protected async emit<T>(token: EventToken<T>, payload: T): Promise<void> {
+    if (!this.events) return;
+    await this.events.emit(token, payload);
+  }
+
   public previous(): void | Promise<void> {}
   /**
    * Main method of the endpoint.

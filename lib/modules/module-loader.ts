@@ -3,6 +3,9 @@ import { Glob } from 'glob';
 import slash from 'slash';
 import EndpointReader from '../core/endpoint-reader';
 import { Endpoint } from '../templates/endpoint';
+import { Listener } from '../templates/listener';
+import { ON, OnMetadata } from '../decorators/on.decorator';
+import type { EventToken } from './events';
 import { Task } from '../templates/task';
 import { ResolvedModule } from './module-manifest';
 import { Logger } from '../utilities/logger';
@@ -158,6 +161,44 @@ export async function loadModuleEndpoints(
 ): Promise<EndpointReader[]> {
   if (mod.routes.length === 0) return [];
   return toEndpointReaders(await readExports(mod.routes, mod.dir));
+}
+
+/** A listener class together with the event it declared. */
+export interface LoadedListener {
+  token: EventToken<unknown>;
+  ListenerClass: new () => Listener<unknown>;
+}
+
+/**
+ * Reads the event listeners a module contributes.
+ *
+ * A `Listener` without `@On` is skipped rather than fatal, the same way an
+ * endpoint without a verb is: it reads as a file being written, not as a broken
+ * installation.
+ */
+export async function loadModuleListeners(
+  mod: ResolvedModule,
+): Promise<LoadedListener[]> {
+  if (mod.listeners.length === 0) return [];
+
+  const exported = await readExports(mod.listeners, mod.dir);
+
+  return exported
+    .filter(
+      (value): value is new () => Listener<unknown> =>
+        typeof value === 'function' && value.prototype instanceof Listener,
+    )
+    .map((ListenerClass) => {
+      const metadata = Reflect.getMetadata(ON, ListenerClass) as OnMetadata;
+      if (!metadata) {
+        Logger.warn(
+          `Listener ${ListenerClass.name} in module "${mod.id}" has no @On(event) and was skipped.`,
+        );
+        return null;
+      }
+      return { token: metadata.token, ListenerClass };
+    })
+    .filter((loaded): loaded is LoadedListener => loaded !== null);
 }
 
 /** Reads the scheduled tasks a module contributes. */

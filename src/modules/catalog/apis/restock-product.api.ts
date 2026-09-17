@@ -10,6 +10,7 @@ import { ProductIdDto } from '../dto/product-id.dto';
 import { RestockDto } from '../dto/restock.dto';
 import { Product } from '../entities/product.entity';
 import { StockMove } from '../entities/stock-move.entity';
+import { ProductRestocked } from '../module';
 
 /**
  * Two writes that must land together — this is what `db.transaction()` is for.
@@ -31,7 +32,7 @@ export class RestockProductApi extends Endpoint<ProductIdDto, RestockDto> {
     const { quantity } = this.body;
     const userId = this.auth.actor.userId;
 
-    return this.db.transaction(async (manager) => {
+    const result = await this.db.transaction(async (manager) => {
       const product = await manager.findOneBy(Product, { id: productId });
       if (!product) throw new NotFoundError('Product not found.');
 
@@ -41,5 +42,16 @@ export class RestockProductApi extends Endpoint<ProductIdDto, RestockDto> {
 
       return { id: product.id, stock: product.stock };
     });
+
+    // AFTER the transaction commits, never inside it: a listener reads on its
+    // own connection and would not see the uncommitted rows.
+    await this.emit(ProductRestocked, {
+      productId,
+      quantity,
+      stock: result.stock,
+      userId,
+    });
+
+    return result;
   }
 }

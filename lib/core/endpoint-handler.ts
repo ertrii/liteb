@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 import ErrorControl from '../utilities/error-control';
 import type { Container, Contract } from '../modules/container';
 import { Auth, AuthContext, AuthResolver } from './auth';
+import type { EventBus } from '../modules/events';
 
 export default class EndpointHandler {
   constructor(
@@ -14,6 +15,7 @@ export default class EndpointHandler {
     private dbSource: DataSource,
     private container?: Container,
     private authResolver?: AuthResolver,
+    private eventBus?: EventBus,
   ) {}
 
   /**
@@ -84,6 +86,9 @@ export default class EndpointHandler {
     // Like `db`: on the prototype, so it is there before the instance exists
     // and a field initializer can already reach it.
     EndpointClass.prototype.container = this.container;
+    // Same rule as `db` and `container`: stable for the life of the handler, so
+    // it goes on the prototype and is there before the instance exists.
+    EndpointClass.prototype.events = this.eventBus;
 
     const requiereRender = this.endpointReader.requiereRender();
     const endpointClass = new EndpointClass();

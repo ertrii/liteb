@@ -84,9 +84,10 @@ export interface ModuleManifest {
   entities?: ModuleEntity[];
   migrations?: ModuleMigrations;
 
-  /** Globs for this module's endpoints and scheduled tasks. */
+  /** Globs for this module's endpoints, scheduled tasks and event listeners. */
   routes?: ModulePattern;
   tasks?: ModulePattern;
+  listeners?: ModulePattern;
 
   permissions?: ModulePermission[];
 
@@ -123,6 +124,7 @@ export interface ResolvedModule {
   migrations: Function[];
   routes: string[];
   tasks: string[];
+  listeners: string[];
   permissions: ModulePermission[];
   provides: Provider<any>[];
   consumes: Contract<any>[];

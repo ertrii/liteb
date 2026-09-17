@@ -208,6 +208,7 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     migrations: toMigrations(manifest.migrations),
     routes: toArray(manifest.routes),
     tasks: toArray(manifest.tasks),
+    listeners: toArray(manifest.listeners),
     permissions,
     provides,
     consumes,

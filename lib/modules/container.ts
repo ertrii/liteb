@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import type { EventBus, EventToken } from './events';
 
 /**
  * A capability one module publishes and others consume.
@@ -23,6 +24,12 @@ export function contract<T>(id: string): Contract<T> {
 export interface ContainerContext {
   db: DataSource;
   get: <T>(token: Contract<T>) => T;
+  /**
+   * Announces something happened. Available here so a contract's
+   * implementation — where most of a module's work lives — can emit without
+   * reaching for a global.
+   */
+  emit: <T>(token: EventToken<T>, payload: T) => Promise<void>;
 }
 
 /**
@@ -64,6 +71,7 @@ interface Registration {
  */
 export class Container {
   private registry = new Map<string, Registration>();
+  private events?: EventBus;
 
   constructor(private readonly db: DataSource) {}
 
@@ -135,10 +143,19 @@ export class Container {
     }
   }
 
+  /** See {@link EventBus.useContainer}: the two reference each other. */
+  public useEvents(events: EventBus): void {
+    this.events = events;
+  }
+
   private build(provider: Provider<unknown>): unknown {
     const ctx: ContainerContext = {
       db: this.db,
       get: (token) => this.get(token),
+      emit: async (token, payload) => {
+        // An application with no bus (no modules) simply has nobody listening.
+        await this.events?.emit(token, payload);
+      },
     };
 
     if ('value' in provider) return provider.value;

@@ -126,6 +126,7 @@ ignore of that name matches none of its files.
 | `module-migrator.ts` | Per-module migrations + `_module_migrations` |
 | `module-loader.ts` | Reads endpoints/tasks from a module's globs, any extension |
 | `container.ts` / `build-container.ts` | Contracts between modules |
+| `events.ts` | Event bus: `event()`, `EventBus`, listeners |
 | `collect-entities.ts` | Union of every module's entities |
 
 Decisions that are easy to undo by accident, so do not:
@@ -251,7 +252,8 @@ Keep that split — the decision is the part worth testing.
 
 ## Still missing in 2.0
 
-Event bus, extension slots, and the license gate.
+Extension slots, and the license gate — which arguably does not belong in an
+MIT framework at all and should live in the product.
 
 Permissions are **half** done: `this.auth.can()` / `assert()` enforce them at the
 call site, but nothing checks that a key passed to them is one some module's

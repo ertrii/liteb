@@ -40,13 +40,18 @@ export type { AppliedMigration } from './modules/module-migrator';
 export {
   loadModules,
   loadModuleEndpoints,
+  loadModuleListeners,
   loadModuleTasks,
   toEndpointReaders,
   resolveModulePattern,
 } from './modules/module-loader';
-export type { LoadedModule } from './modules/module-loader';
+export type { LoadedModule, LoadedListener } from './modules/module-loader';
 export { collectModuleEntities } from './modules/collect-entities';
 export { contract, Container, ContractError } from './modules/container';
+export { event, EventBus } from './modules/events';
+export type { EventToken } from './modules/events';
+export { On } from './decorators/on.decorator';
+export * from './templates/listener';
 export type {
   Contract,
   Provider,
