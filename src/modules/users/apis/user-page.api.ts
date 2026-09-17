@@ -1,14 +1,14 @@
 import {
   Api,
   DataJson,
-  Get,
+  HttpGet,
   Module,
   Priority,
   Template,
 } from '../../../../lib';
 
 @Module('users')
-@Get('/page')
+@HttpGet('/page')
 @Template('page-user')
 @Priority(1)
 export class UsePageApi extends Api {

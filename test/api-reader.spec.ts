@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it } from '@jest/globals';
 import { IsInt, IsString } from 'class-validator';
 import ApiReader from '../lib/core/api-reader';
-import { Api, Body, Get, Module, Params, Post, Priority, Use } from '../lib';
+import { Api, Body, HttpGet, Module, Params, HttpPost, Priority, Use } from '../lib';
 
 class BodyDto {
   @IsString()
@@ -15,7 +15,7 @@ class ParamsDto {
 }
 
 @Module('users')
-@Get('list')
+@HttpGet('list')
 class ListUsersApi extends Api {
   main() {
     return { ok: true };
@@ -23,7 +23,7 @@ class ListUsersApi extends Api {
 }
 
 @Module('users')
-@Post(':id')
+@HttpPost(':id')
 @Params(ParamsDto)
 @Body(BodyDto)
 @Priority(1)

@@ -3,7 +3,6 @@ import { describe, expect, it } from '@jest/globals';
 import ApiReader from '../lib/core/api-reader';
 import {
   Api,
-  Get,
   HttpDelete,
   HttpGet,
   HttpPatch,
@@ -11,7 +10,6 @@ import {
   HttpPut,
   HttpQuery,
   Module,
-  Patch,
 } from '../lib';
 
 const build = (decorate: (target: any) => void) => {
@@ -39,17 +37,6 @@ describe('decoradores HTTP', () => {
     expect(reader.method).toBe(esperado);
     expect(reader.pathname).toBe('ruta');
     expect(reader.isInvalid()).toBe(false);
-  });
-
-  it('los alias deprecados son los mismos decoradores', () => {
-    // Guarantees existing code keeps working unchanged.
-    expect(Get).toBe(HttpGet);
-    expect(Patch).toBe(HttpPatch);
-  });
-
-  it('un alias deprecado produce el mismo metadato que su equivalente Http*', () => {
-    expect(build((t) => Get('vieja')(t)).method).toBe('get');
-    expect(build((t) => HttpGet('nueva')(t)).method).toBe('get');
   });
 
   it('el path por defecto es vacío', () => {

@@ -4,38 +4,16 @@ import schemaValidator from '../services/schema-validator';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorIdentifier } from '../interfaces/type-error';
 import { DataSource } from 'typeorm';
-import { MiddlewareFn } from '../decorators/use.decorator';
-import { Middleware } from '../templates/middleware';
 import ErrorControl from '../utilities/error-control';
 
 export default class ApiHandler {
-  private isMiddlewareFunction = (
-    funcOrClass: (new () => Middleware) | MiddlewareFn,
-  ): funcOrClass is MiddlewareFn => {
-    return !/^\s*class\s/.test(Function.prototype.toString.call(funcOrClass));
-  };
-
   constructor(
     private apiReader: ApiReader,
     private dbSource: DataSource,
   ) {}
 
-  public middleware = async (req: Request, res: Response, next: () => void) => {
-    if (this.isMiddlewareFunction(this.apiReader.MiddlewareClass)) {
-      this.apiReader.MiddlewareClass(req, res, next);
-      return;
-    }
-    const middleware = new this.apiReader.MiddlewareClass();
-    middleware.request = req;
-    try {
-      await middleware.canContinue();
-      next();
-    } catch (error) {
-      res.status(HttpStatus.UNAUTHORIZED).json({
-        message: error.message,
-        type: ErrorIdentifier.UNAUTHORIZED,
-      });
-    }
+  public middleware = (req: Request, res: Response, next: () => void) => {
+    this.apiReader.MiddlewareClass(req, res, next);
   };
 
   public schema = async (req: Request, res: Response, next: () => void) => {

@@ -1,9 +1,9 @@
-import { Api, Module, Post, Body } from '../../../../lib';
+import { Api, Module, HttpPost, Body } from '../../../../lib';
 import { CreateUser } from '../dto/create-user.dto';
 import { User } from '../entities/user.entity';
 
 @Module('users')
-@Post()
+@HttpPost()
 @Body(CreateUser)
 export class CreateUserApi extends Api<null, CreateUser> {
   private readonly userRep = this.db.getRepository(User);

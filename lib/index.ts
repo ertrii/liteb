@@ -7,12 +7,6 @@ export {
   HttpPut,
   HttpPatch,
   HttpQuery,
-  // Deprecated aliases, kept so you can migrate without pressure.
-  Get,
-  Post,
-  Delete,
-  Put,
-  Patch,
 } from './decorators/http.decorator';
 export { Body, Params, Query } from './decorators/request.decorator';
 export { Module } from './decorators/module.decorator';
@@ -32,16 +26,12 @@ export type {
   OpenAPIInfo,
   OpenAPIDocument,
 } from './services/openapi-generator';
-export * from './utilities/transaction';
 export * from './templates/api';
-export * from './templates/middleware';
 export * from './templates/task';
 export * from './utilities/logger';
 export type { LoggerOptions } from './services/log4js';
 export * from './utilities/errors';
 export * from './utilities/config-service';
-export * from './templates/service';
-export * from './utilities/queue';
 export * from './interfaces/type-error';
 export * from './interfaces/utils';
 export { Liteb };

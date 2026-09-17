@@ -1,5 +1,5 @@
 import { IsString } from 'class-validator';
-import { Api, Get, Module, Query } from '../../lib';
+import { Api, HttpGet, Module, Query } from '../../lib';
 
 export class EchoQueryDto {
   @IsString()
@@ -15,7 +15,7 @@ export class EchoQueryDto {
  * per prototype (shared-state regression).
  */
 @Module('eco')
-@Get('')
+@HttpGet('')
 @Query(EchoQueryDto)
 export class EchoApi extends Api<null, null, EchoQueryDto> {
   async main() {

@@ -22,25 +22,6 @@ export class CustomerError<T = Record<string, string>> {
   ) {}
 }
 
-/**
- * @deprecated Throw a native `Error`. Will be removed in a future major version.
- *
- * `ErrorControl` already maps any `Error` to a 500, keeping its message and
- * logging it, so wrapping it adds nothing.
- *
- * @example
- * throw new Error('Could not record the payment.');
- */
-export class InternalError {
-  identifier = ErrorIdentifier.INTERNAL;
-  status = HttpStatus.INTERNAL_SERVER_ERROR;
-  message = '';
-
-  constructor(public error: Error) {
-    this.message = error.message;
-    Logger.error(error);
-  }
-}
 
 export class NotFoundError {
   identifier = ErrorIdentifier.NOT_FOUND;

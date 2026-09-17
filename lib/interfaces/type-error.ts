@@ -2,7 +2,6 @@ import {
   AuthError,
   CustomerError,
   CustomError,
-  InternalError,
   NotFoundError,
   SchemaError,
 } from '../utilities/errors';
@@ -11,7 +10,6 @@ export type ErrorType =
   | Error
   | SchemaError
   | CustomerError
-  | InternalError
   | NotFoundError
   | AuthError
   | CustomError

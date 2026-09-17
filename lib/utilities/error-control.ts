@@ -1,7 +1,6 @@
 import {
   SchemaError,
   CustomerError,
-  InternalError,
   NotFoundError,
   AuthError,
   CustomError,
@@ -29,11 +28,6 @@ export default class ErrorControl {
       this.status = this.error.status;
       this.message = this.error.message;
       this.errorFields = this.error.fieldsError;
-      this.identifier = this.error.identifier;
-    } else if (this.error instanceof InternalError) {
-      Logger.error(this.error);
-      this.status = this.error.status;
-      this.message = this.error.message;
       this.identifier = this.error.identifier;
     } else if (this.error instanceof NotFoundError) {
       this.status = this.error.status;

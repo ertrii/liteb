@@ -17,7 +17,6 @@ import {
 import { MiddlewareFn, USE, UseMetadata } from '../decorators/use.decorator';
 import { PRIORITY, PriorityMetadata } from '../decorators/priority.decorator';
 import { Api } from '../templates/api';
-import { Middleware } from '../templates/middleware';
 import { TEMPLATE, TemplateMetadata } from '../decorators/render.decorator';
 import {
   API_DESCRIPTION,
@@ -40,7 +39,7 @@ export default class ApiReader {
   public ParamsSchema: new () => Record<string, any> = undefined;
   public BodySchema: new () => Record<string, any> = undefined;
   public QuerySchema: new () => Record<string, any> = undefined;
-  public MiddlewareClass: MiddlewareFn | (new () => Middleware) = undefined;
+  public MiddlewareClass: MiddlewareFn = undefined;
   public apiTags: string[] = [];
   public apiSummary: string | null = null;
   public apiDescription: string | null = null;

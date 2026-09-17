@@ -39,14 +39,3 @@ export const HttpPatch = httpDecorator(PATCH);
  * may not be supported by proxies, CDNs or intermediate clients.
  */
 export const HttpQuery = httpDecorator(QUERY_METHOD);
-
-/** @deprecated use `HttpGet`. Will be removed in a future major version. */
-export const Get = HttpGet;
-/** @deprecated use `HttpPost`. Will be removed in a future major version. */
-export const Post = HttpPost;
-/** @deprecated use `HttpPut`. Will be removed in a future major version. */
-export const Put = HttpPut;
-/** @deprecated use `HttpDelete`. Will be removed in a future major version. */
-export const Delete = HttpDelete;
-/** @deprecated use `HttpPatch`. Will be removed in a future major version. */
-export const Patch = HttpPatch;

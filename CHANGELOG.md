@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2.0.0
+
+Work toward `2.0.0`, which turns liteb from a routing library into a module
+framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
+
+### Removed
+
+**Breaking.** Everything marked `@deprecated` in `1.0` is gone. Migration is the
+one stated in each deprecation notice.
+
+- `Get` / `Post` / `Put` / `Delete` / `Patch` aliases — use `HttpGet` /
+  `HttpPost` / `HttpPut` / `HttpDelete` / `HttpPatch`.
+- `Queue`, `Transaction`, `createTransaction` and `Api.createTransaction()` —
+  use TypeORM's `dataSource.transaction(cb)` / `this.db.transaction(cb)`.
+- `Service` base class — define your own in the application.
+- `InternalError` — throw a native `Error`; `ErrorControl` already maps it to a
+  500, keeping its message and logging it.
+- `Middleware` class — use a middleware function with `@Use`. `@Use` now only
+  accepts `MiddlewareFn`, which removes the class/function branch from
+  `ApiHandler` and the runtime `class` sniffing it relied on.
+
 ## [1.0.0-rc.1]
 
 First release candidate for `1.0.0`. This entry summarizes everything that

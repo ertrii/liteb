@@ -2,14 +2,14 @@ import {
   Api,
   ErrorResponse,
   ErrorType,
-  Get,
+  HttpGet,
   Module,
   Priority,
 } from '../../../../lib';
 import { User } from '../entities/user.entity';
 
 @Module('users')
-@Get('all')
+@HttpGet('all')
 @Priority(2)
 export class GetUsersApi extends Api {
   private readonly userRep = this.db.getRepository(User);

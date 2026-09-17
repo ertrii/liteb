@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { Transaction } from '../utilities/transaction';
 import { DataSource } from 'typeorm';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorType } from '../interfaces/type-error';
@@ -84,16 +83,4 @@ export abstract class Api<
     return this.request?.session[key];
   }
 
-  /**
-   * @deprecated Use TypeORM's `this.db.transaction(cb)`. Will be removed in a
-   * future major version.
-   *
-   * @example
-   * await this.db.transaction(async (manager) => {
-   *   await manager.save(customer);
-   * }); // automatic commit / rollback / release
-   */
-  protected createTransaction = () => {
-    return new Transaction(this.db);
-  };
 }

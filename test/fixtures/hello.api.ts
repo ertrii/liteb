@@ -1,7 +1,7 @@
-import { Api, Get, Module } from '../../lib';
+import { Api, HttpGet, Module } from '../../lib';
 
 @Module('saludo')
-@Get('hola')
+@HttpGet('hola')
 export class HelloApi extends Api {
   main() {
     return { ok: true, msg: 'ruta viva' };
