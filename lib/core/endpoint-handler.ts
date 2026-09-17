@@ -8,6 +8,7 @@ import ErrorControl from '../utilities/error-control';
 import type { Container, Contract } from '../modules/container';
 import { Auth, AuthContext, AuthResolver } from './auth';
 import type { EventBus } from '../modules/events';
+import type { PermissionRegistry } from '../modules/permissions';
 
 export default class EndpointHandler {
   constructor(
@@ -16,6 +17,7 @@ export default class EndpointHandler {
     private container?: Container,
     private authResolver?: AuthResolver,
     private eventBus?: EventBus,
+    private permissions?: PermissionRegistry,
   ) {}
 
   /**
@@ -109,7 +111,11 @@ export default class EndpointHandler {
     state.response = res;
     // Anonymous until the resolver says otherwise, so `error()` and `final()`
     // still find an `auth` if resolution itself blows up.
-    state.auth = new Auth(null, this.authResolver !== undefined);
+    state.auth = new Auth(
+      null,
+      this.authResolver !== undefined,
+      this.permissions,
+    );
     try {
       // Inside the try on purpose: a resolver that throws on a malformed token
       // should become a 401 through the usual mapping, not an unhandled
@@ -118,6 +124,7 @@ export default class EndpointHandler {
         state.auth = new Auth(
           (await this.authResolver(req, this.authContext())) ?? null,
           true,
+          this.permissions,
         );
       }
       await endpointClass.previous();

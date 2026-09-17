@@ -30,6 +30,10 @@ import { collectModuleEntities } from '../modules/collect-entities';
 import { buildContainer } from '../modules/build-container';
 import { Container } from '../modules/container';
 import { EventBus } from '../modules/events';
+import {
+  PermissionRegistry,
+  RegisteredPermission,
+} from '../modules/permissions';
 import { AuthResolver } from './auth';
 
 /** What {@link Liteb.create} takes. */
@@ -70,6 +74,7 @@ export default class Liteb extends Server {
   private loadedModules: LoadedModule[] = [];
   private container?: Container;
   private events?: EventBus;
+  private permissionRegistry = new PermissionRegistry();
   private authResolver?: AuthResolver;
   private moduleTasks: Array<new () => Task> = [];
   private templatesAsync: Promise<string[]>[] = [];
@@ -161,6 +166,20 @@ export default class Liteb extends Server {
 
     return app;
   };
+
+  /**
+   * Every permission the installed modules declare, with the module that owns
+   * each one.
+   *
+   * This is what a "who may do what" screen is built from: the catalog comes
+   * from the modules, so adding a feature adds its permission without editing
+   * a central list somebody has to remember. Modules that are installed but
+   * DISABLED are included — turning one off decides what runs, not what exists.
+   *
+   * Populated during `start()`, so call it after.
+   */
+  public permissions = (): RegisteredPermission[] =>
+    this.permissionRegistry.list();
 
   /**
    * Configures the template engine and the views directory.
@@ -291,6 +310,13 @@ export default class Liteb extends Server {
       Logger.info(`Events with listeners: ${events.join(', ')}`);
     }
 
+    // From every module PRESENT, enabled or not — like entities. Turning a
+    // module off must not change what a permission key means.
+    this.permissionRegistry = PermissionRegistry.from(this.modules);
+    if (this.permissionRegistry.size() > 0) {
+      Logger.info(`Permissions declared: ${this.permissionRegistry.size()}`);
+    }
+
     this.loadedModules = await loadModules(active);
 
     // Scheduled tasks follow the same rule as routes: only enabled modules get
@@ -403,6 +429,7 @@ export default class Liteb extends Server {
               this.container,
               this.authResolver,
               this.events,
+              this.permissionRegistry,
             );
             const option = new RouterOption(
               endpointReader.pathname,

@@ -226,6 +226,45 @@ consumes: [BillingService],
 
 Scheduled tasks get the same `this.get()`.
 
+### Permissions
+
+A module declares the vocabulary of what can be gated inside it:
+
+```typescript
+permissions: [
+  { key: 'billing.view', label: 'View billing' },
+  { key: 'billing.void', label: 'Void a charge' },
+],
+```
+
+Keys **must** be namespaced with the module id. Every module, including one
+someone else wrote, shares a single permission space, and the namespace is what
+keeps two of them from claiming the same key.
+
+Endpoints then demand them (see [Authentication](#authentication)), and the
+application builds its "who may do what" screen from the catalog instead of a
+central file somebody has to remember to edit:
+
+```typescript
+app.permissions();
+// [{ key: 'billing.view', label: 'View billing', moduleId: 'billing' }, ...]
+```
+
+**A key no installed module declares is refused**, with a plain `Error` (500)
+and a suggestion — not a 403. A 403 would send whoever debugs it to look at
+roles and grants, when the problem is a typo:
+
+```
+Unknown permission "billing.veiw": no installed module declares it.
+Add it to that module's "permissions" in defineModule().
+Did you mean: billing.view, billing.void?
+```
+
+The check runs **before** the 401, so an undeclared key surfaces on the first
+request even while you are still anonymous. Modules that are installed but
+disabled still contribute their keys: disabling decides what runs, not what
+exists.
+
 ### Events between modules
 
 A contract is a call: you ask a particular module for something and wait. An

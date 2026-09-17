@@ -93,11 +93,14 @@ describe('Auth (sin servidor)', () => {
 
 describe('Auth (extremo a extremo)', () => {
   const fixtures = defineModule({
-    id: 'auth-fixtures',
+    id: 'secretos',
     version: '1.0.0',
     core: true,
     dir: path.join(__dirname, 'fixtures/auth'),
     routes: './*.api.ts',
+    // Declarado: desde el registro de permisos, exigir una clave que ningún
+    // módulo declara es un error de programación, no un 403.
+    permissions: [{ key: 'secretos.ver', label: 'Ver secretos' }],
   });
 
   let liteb: Liteb;
@@ -167,6 +170,18 @@ describe('Auth (extremo a extremo)', () => {
     expect(res.body).toEqual({ ok: true });
   });
 
+  it('un permiso que nadie declara es 500, no 403', async () => {
+    // Un 403 mandaría a revisar roles; el 500 dice que el código está mal.
+    const res = await request(app())
+      .get('/api/yo/roto')
+      .set('x-user', '42')
+      .set('x-perms', 'secretos.ver');
+
+    expect(res.status).toBe(500);
+    expect(res.body.message).toMatch(/Unknown permission "secretos.vre"/);
+    expect(res.body.message).toMatch(/Did you mean: secretos.ver/);
+  });
+
   it('dos peticiones simultáneas no se pisan el actor', async () => {
     // El mismo riesgo que obligó a mover params/body/query del prototipo a la
     // instancia: si `auth` viviera en el prototipo, el segundo actor
@@ -212,12 +227,13 @@ describe('el resolutor recibe db y contratos', () => {
   });
 
   const fixtures = defineModule({
-    id: 'auth-fixtures',
+    id: 'secretos',
     version: '1.0.0',
     core: true,
     requires: ['grants'],
     dir: path.join(__dirname, 'fixtures/auth'),
     routes: './*.api.ts',
+    permissions: [{ key: 'secretos.ver', label: 'Ver secretos' }],
   });
 
   let liteb: Liteb;

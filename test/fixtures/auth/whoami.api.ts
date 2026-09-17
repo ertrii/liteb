@@ -37,3 +37,13 @@ export class SecretApi extends Endpoint {
     return { ok: true };
   }
 }
+
+/** Exige una clave que ningún módulo declara: un typo, básicamente. */
+@Module('yo')
+@HttpGet('roto')
+export class TypoApi extends Endpoint {
+  main() {
+    this.auth.assert('secretos.vre');
+    return { ok: true };
+  }
+}

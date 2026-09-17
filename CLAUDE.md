@@ -127,6 +127,7 @@ ignore of that name matches none of its files.
 | `module-loader.ts` | Reads endpoints/tasks from a module's globs, any extension |
 | `container.ts` / `build-container.ts` | Contracts between modules |
 | `events.ts` | Event bus: `event()`, `EventBus`, listeners |
+| `permissions.ts` | Registry of what the modules declare |
 | `collect-entities.ts` | Union of every module's entities |
 
 Decisions that are easy to undo by accident, so do not:
@@ -140,6 +141,14 @@ Decisions that are easy to undo by accident, so do not:
   `"10000"` as text).
 - **A new module installs disabled** unless `core: true`.
 - **A module whose code vanished is reported, never deleted.**
+- **An undeclared permission key throws a plain `Error` (500), not a 403.** A
+  key that exists nowhere is a mistake in the code; answering 403 would send
+  whoever debugs it to look at roles and grants instead of at the typo. The
+  check runs BEFORE the 401 for the same reason: in development the first
+  request is usually anonymous, which is exactly when the author should hear
+  about it.
+- **The registry is built from every module present, enabled or not** — like
+  entities. Disabling must not change what a key means.
 - **`this.get(Token)`, not a free `inject()`.** Resolving without an explicit
   receiver needs a process-wide container, and two apps in one process would see
   each other's implementations. The container is per application.
@@ -255,7 +264,7 @@ Keep that split — the decision is the part worth testing.
 Extension slots, and the license gate — which arguably does not belong in an
 MIT framework at all and should live in the product.
 
-Permissions are **half** done: `this.auth.can()` / `assert()` enforce them at the
-call site, but nothing checks that a key passed to them is one some module's
-manifest actually declares, and there is no grant store — the resolver hands the
-list over and the framework trusts it.
+There is still no **grant store**: the resolver hands the actor's permission
+list over and the framework trusts it. That is deliberate — who holds what is
+the application's policy — but it means liteb validates the keys, never the
+grants.

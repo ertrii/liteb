@@ -2,6 +2,7 @@ import { Request } from 'express';
 import type { DataSource } from 'typeorm';
 import { AuthError, ForbiddenError } from '../utilities/errors';
 import type { Contract } from '../modules/container';
+import { GRANT_ALL, PermissionRegistry } from '../modules/permissions';
 
 declare global {
   /**
@@ -95,9 +96,6 @@ export type AuthResolver = (
   context: AuthContext,
 ) => AuthResult | null | undefined | Promise<AuthResult | null | undefined>;
 
-/** Permission key that grants every other one. */
-const GRANT_ALL = '*';
-
 /**
  * Per-request view of who is asking and what they may do.
  *
@@ -115,6 +113,11 @@ export class Auth {
   constructor(
     private readonly result: AuthResult | null = null,
     private readonly configured = false,
+    /**
+     * What the installed modules declare. Without it — an `Auth` built by
+     * hand — keys are not checked.
+     */
+    private readonly registry?: PermissionRegistry,
   ) {
     this.granted = new Set(result?.permissions ?? []);
   }
@@ -155,6 +158,7 @@ export class Auth {
    * if (!this.auth.can('billing.void')) return this.readOnlyView();
    */
   public can(...permissions: string[]): boolean {
+    permissions.forEach((permission) => this.assertDeclared(permission));
     if (!this.result) return false;
     if (this.granted.has(GRANT_ALL)) return true;
     return permissions.every((permission) => this.granted.has(permission));
@@ -171,6 +175,10 @@ export class Auth {
    * this.auth.assert('billing.void');
    */
   public assert(...permissions: string[]): void {
+    // BEFORE the 401 on purpose: an undeclared key is a code error, and it must
+    // not stay hidden until someone signs in. In development the first request
+    // is usually anonymous, which is exactly when you want to hear about it.
+    permissions.forEach((permission) => this.assertDeclared(permission));
     this.requireActor();
     if (this.can(...permissions)) return;
     const missing = permissions.filter(
@@ -179,6 +187,23 @@ export class Auth {
     throw new ForbiddenError(
       `Missing permission: ${missing.join(', ')}.`,
       missing,
+    );
+  }
+
+  /**
+   * Refuses a key no module declares.
+   *
+   * It throws a plain `Error` (500) rather than a 403 ON PURPOSE: a key that
+   * exists nowhere is a mistake in the code, and answering 403 would send
+   * whoever debugs it to look at roles and grants instead of at the typo.
+   */
+  private assertDeclared(permission: string): void {
+    if (!this.registry || this.registry.has(permission)) return;
+
+    const near = this.registry.suggest(permission);
+    const hint = near.length > 0 ? ` Did you mean: ${near.join(', ')}?` : '';
+    throw new Error(
+      `Unknown permission "${permission}": no installed module declares it. Add it to that module's "permissions" in defineModule().${hint}`,
     );
   }
 

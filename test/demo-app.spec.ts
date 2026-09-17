@@ -71,6 +71,20 @@ describe('la app de ejemplo (src/)', () => {
     expect(products).toHaveLength(2);
   });
 
+  it('el catálogo de permisos sale de los módulos, no de una lista central', async () => {
+    const permisos = app.permissions();
+
+    expect(permisos).toHaveLength(5);
+    expect(permisos).toContainEqual({
+      key: 'catalog.products.manage',
+      label: 'Create and restock products',
+      moduleId: 'catalog',
+    });
+    // `reports` está APAGADO y sus permisos igual figuran: apagar decide qué
+    // corre, no qué existe.
+    expect(permisos.map((p) => p.key)).toContain('reports.view');
+  });
+
   it('un módulo opcional instala APAGADO: su ruta no existe', async () => {
     const res = await request(server()).get('/api/reports/summary');
 

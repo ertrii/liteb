@@ -11,6 +11,27 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Added
 
+- **Permission registry** — the permissions modules declare are now collected at
+  boot and checked. `this.auth.can()` / `assert()` refuse a key no installed
+  module declares, with a plain `Error` (500) and a suggestion drawn from the
+  same module's namespace.
+
+  It closes the half of the feature that was missing: modules listed their
+  permissions and nothing read the list, so `assert('billing.veiw')` was not a
+  mistake the framework could see — it was a 403 in production, sending whoever
+  debugged it to look at roles instead of at a typo. The check runs BEFORE the
+  401, so an undeclared key surfaces on the first request even while the caller
+  is still anonymous.
+
+  `app.permissions()` returns the catalog with the owning module, which is what
+  a "who may do what" screen is built from — the list comes from the modules
+  instead of a central file somebody has to remember to edit. Modules that are
+  installed but disabled still contribute their keys, like entities: disabling
+  decides what runs, not what exists.
+
+  Enabling it immediately caught four call sites in liteb's own tests that
+  demanded a key no manifest declared.
+
 - **Events between modules** — `event<T>(id)` declares a token, `this.emit()`
   announces from an endpoint, a task or a contract's implementation, and a
   `Listener` marked `@On(token)` reacts. A module declares where its listeners

@@ -49,6 +49,8 @@ export type { LoadedModule, LoadedListener } from './modules/module-loader';
 export { collectModuleEntities } from './modules/collect-entities';
 export { contract, Container, ContractError } from './modules/container';
 export { event, EventBus } from './modules/events';
+export { PermissionRegistry } from './modules/permissions';
+export type { RegisteredPermission } from './modules/permissions';
 export type { EventToken } from './modules/events';
 export { On } from './decorators/on.decorator';
 export * from './templates/listener';
