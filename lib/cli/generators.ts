@@ -5,6 +5,7 @@ import {
   parseTarget,
   Target,
   timestamp,
+  toCamel,
   toKebab,
   toPascal,
   toSnake,
@@ -52,6 +53,12 @@ export interface ModuleOptions extends CommonOptions {
   name: string;
   label?: string;
   /**
+   * The file holding `Liteb.create({ modules: [...] })`. The module is
+   * registered there, which is the step everyone forgets and which shows up as
+   * "my routes are 404".
+   */
+  entry?: string;
+  /**
    * An optional module installs DISABLED and has to be turned on. The default
    * is a core module, because the first one someone generates is part of their
    * own application, not an extension to it — and a scaffold that answers 404
@@ -87,8 +94,9 @@ export default defineModule({
   // Core modules cannot be turned off. Set this to false for an extension
   // that installs disabled and is enabled on purpose.
   core: ${options.optional ? 'false' : 'true'},
-  // Which host versions this module works with.
-  engine: '^2.0.0',
+  // Which versions of the HOST APPLICATION this module plugs into — the
+  // \`version\` passed to Liteb.create(). Not liteb's own version.
+  engine: '^1.0.0',
   // Always __dirname: every glob below resolves against it, so the module
   // keeps working from a build, from node_modules or from bytecode.
   dir: __dirname,
@@ -124,19 +132,33 @@ export {};
     from: relativeFrom(options.from, 3),
   });
 
+  const entry = options.entry ?? 'src/index.ts';
+  const variable = toCamel(id);
+  const importPath = path.posix.relative(
+    path.posix.dirname(entry.replace(/\\/g, '/')),
+    `${dir}/module`,
+  );
+
   return plan(
     [
       { path: `${dir}/module.ts`, content: manifest },
       { path: `${dir}/migrations/index.ts`, content: migrationsIndex },
       { path: `${dir}/apis/${id}.api.ts`, content: endpoint },
     ],
-    [],
     [
-      `Register it where the application starts: modules: [..., ${toPascal(id).charAt(0).toLowerCase() + toPascal(id).slice(1)}]`,
-      `  import ${toPascal(id).charAt(0).toLowerCase() + toPascal(id).slice(1)} from './${moduleDir(options, id).replace(/^src\//, '')}/module';`,
+      {
+        path: entry,
+        arrayEntry: {
+          field: 'modules',
+          value: variable,
+          importLine: `import ${variable} from '${importPath.startsWith('.') ? importPath : `./${importPath}`}';`,
+        },
+      },
+    ],
+    [
       options.optional
-        ? `It installs DISABLED (core: false). Turn it on with your ModuleStore CLI once it is registered.`
-        : `It is a core module: it cannot be turned off. Pass --optional for an extension that installs disabled.`,
+        ? 'It installs DISABLED (core: false): an extension is turned on on purpose.'
+        : 'It is a core module: it cannot be turned off. Pass --optional for an extension that installs disabled.',
     ],
   );
 }

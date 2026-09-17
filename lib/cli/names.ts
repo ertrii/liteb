@@ -29,6 +29,12 @@ export function toPascal(value: string): string {
     .join('');
 }
 
+/** `list-products` -> `listProducts`, for a variable name. */
+export function toCamel(value: string): string {
+  const pascal = toPascal(value);
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
+}
+
 /** `list-products` -> `list_products`, for a default table name. */
 export function toSnake(value: string): string {
   return toKebab(value).replace(/-/g, '_');

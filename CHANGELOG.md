@@ -4,10 +4,12 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2.0.0
+## [2.0.0-alpha.1] - 2026-09-17
 
-Work toward `2.0.0`, which turns liteb from a routing library into a module
-framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
+First published 2.0: liteb goes from a routing library to a module framework.
+**Alpha** — the API will still move, and it is published under the `alpha`
+dist-tag so `npm i liteb` keeps installing `1.x`. That line is frozen on the
+`v1` branch and only receives fixes.
 
 ### Added
 
@@ -67,9 +69,16 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   is global rather than per module, because what decides the answer is the order
   Express saw them in, across every router.
 
-- **A scaffolding CLI** — `npx liteb create module billing`, plus `endpoint`,
-  `task`, `listener`, `entity` and `migration`, and `liteb build` (with
-  `--bytecode`). Built on commander.
+- **A CLI** — `npx liteb init my-app` writes a project that runs (package.json,
+  tsconfig with the two decorator flags and `strictPropertyInitialization: false`,
+  `.env`, an entry point) and installs its dependencies. Then
+  `npx liteb create module billing`, plus `endpoint`, `task`, `listener`,
+  `entity` and `migration`, and `liteb build` (with `--bytecode`). Built on
+  commander.
+
+  `create module` registers the module in `Liteb.create({ modules: [...] })`
+  itself, so `init` + `create module` + `npm run dev` needs no hand editing —
+  forgetting that line is the classic "my routes are 404".
 
   A module is a shape — a manifest, globs that have to match, a migrations
   index, permission keys namespaced by the module id — and every one of those is

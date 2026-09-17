@@ -14,6 +14,7 @@ import {
 } from '../lib/cli/generators';
 import { applyEdit } from '../lib/cli/writer';
 import { apply } from '../lib/cli/writer';
+import { createProject } from '../lib/cli/init';
 import { parseTarget, toKebab, toPascal } from '../lib/cli/names';
 import { AuthResolver, collectModuleEntities, Liteb, ResolvedModule } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
@@ -33,6 +34,8 @@ const modulesDir = 'src/modules';
 
 const scaffold = (plan: ReturnType<typeof createModule>) =>
   apply(plan, { root: workspace, force: true });
+
+const litebVersion = '^2.0.0-alpha.1';
 
 const read = (file: string) =>
   fs.readFileSync(path.join(workspace, file), 'utf8');
@@ -101,6 +104,44 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
   });
 });
 
+describe('liteb init', () => {
+  it('escribe un proyecto que arranca, no una carpeta vacía', () => {
+    const files = createProject({ name: 'Mi App', litebVersion }).files;
+    const paths = files.map((file) => file.path);
+
+    expect(paths).toEqual([
+      'package.json',
+      'tsconfig.json',
+      '.gitignore',
+      '.env',
+      '.env.template',
+      'src/index.ts',
+    ]);
+  });
+
+  it('el package.json es válido y trae lo que el framework necesita', () => {
+    const [pkg] = createProject({ name: 'mi-app', litebVersion }).files;
+    const parsed = JSON.parse(pkg.content);
+
+    expect(parsed.name).toBe('mi-app');
+    expect(parsed.dependencies.liteb).toBe(litebVersion);
+    // Son peer dependencies de liteb: sin ellas no arranca nada.
+    expect(Object.keys(parsed.dependencies)).toEqual(
+      expect.arrayContaining(['typeorm', 'express', 'class-validator']),
+    );
+    expect(parsed.scripts.build).toBe('liteb build');
+  });
+
+  it('el tsconfig trae los dos flags sin los cuales nada funciona', () => {
+    const tsconfig = createProject({ name: 'mi-app', litebVersion }).files[1];
+
+    expect(tsconfig.content).toContain('"experimentalDecorators": true');
+    expect(tsconfig.content).toContain('"emitDecoratorMetadata": true');
+    // Con esto en true, cada campo de una entidad es un error.
+    expect(tsconfig.content).toContain('"strictPropertyInitialization": false');
+  });
+});
+
 describe('un módulo generado y puesto a andar', () => {
   let db: DataSource;
   let app: Liteb;
@@ -119,6 +160,8 @@ describe('un módulo generado y puesto a andar', () => {
   beforeAll(async () => {
     fs.rmSync(workspace, { recursive: true, force: true });
 
+    // El camino real: primero el proyecto, después los módulos.
+    scaffold(createProject({ name: 'inventory-app', litebVersion }));
     scaffold(createModule({ name: 'Inventory', modulesDir, from: 'liteb' }));
     scaffold(
       createEndpoint({
@@ -147,7 +190,10 @@ describe('un módulo generado y puesto a andar', () => {
     app = await Liteb.create({
       db,
       modules: [inventory],
-      version: '2.0.0',
+      // La versión de LA APLICACIÓN, que es contra lo que se chequea el
+      // `engine` de cada módulo. La plantilla del manifiesto pide `^1.0.0` y
+      // la de `init` declara `1.0.0`: si se separan, no arranca.
+      version: '1.0.0',
       basePath: '/api',
       auth,
     });
@@ -210,6 +256,22 @@ describe('un módulo generado y puesto a andar', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].module).toBe('inventory');
     expect(rows[0].name).toMatch(/^CreateItems\d+$/);
+  });
+
+  it('el módulo quedó registrado en el punto de entrada, sin editar a mano', () => {
+    const entry = read('src/index.ts');
+
+    expect(entry).toContain("import inventory from './modules/inventory/module';");
+    expect(entry).toContain('modules: [inventory]');
+  });
+
+  it('el punto de entrada compila y expone createApp() sin arrancar nada', () => {
+    // Requerirlo lo TYPECHEQUEA (ts-jest) y, como `require.main` no es él, no
+    // levanta ningún servidor: por eso la plantilla separa createApp() de main().
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const entry = require(path.join(workspace, 'src/index.ts'));
+
+    expect(typeof entry.createApp).toBe('function');
   });
 
   it('tarea y oyente encendieron sus globs en el manifiesto', () => {

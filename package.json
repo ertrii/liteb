@@ -1,20 +1,22 @@
 {
   "name": "liteb",
   "npmName": "liteb",
-  "version": "2.0.0-dev.0",
-  "description": "Is a simple backend framework",
+  "version": "2.0.0-alpha.1",
+  "description": "Backend framework whose unit is the installable module: routes, entities, migrations, permissions and contracts declared per module.",
   "main": "./dist/lib/index.js",
   "types": "./types/lib/index.d.ts",
   "bin": {
-    "liteb": "./bin/liteb.js"
+    "liteb": "bin/liteb.js"
   },
   "bugs": "https://github.com/ertrii/liteb/issues",
+  "homepage": "https://github.com/ertrii/liteb#readme",
   "scripts": {
     "dev": "nodemon --legacy-watch ./src/index.ts",
     "build": "npm run clear && npx tsc -p ./tsconfig.build.json --declarationDir ./types",
     "clear": "rimraf ./dist ./types",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "modules": "ts-node ./src/scripts/modules.ts",
+    "prepublishOnly": "node ./scripts/publish-guard.js && npm run build",
     "demo:bytecode": "node ./scripts/bytecode/run.js"
   },
   "files": [
@@ -41,10 +43,13 @@
     "type": "git",
     "url": "git+https://github.com/ertrii/liteb.git"
   },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
   "peerDependencies": {
     "class-validator": "^0.14.0",
     "express": "^4.18.2",
-    "express-session": "^1.17.3",
     "typeorm": "^0.3.17",
     "typescript": "^5.1.6"
   },

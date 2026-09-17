@@ -9,7 +9,7 @@ before anything else:
 
 | Branch | Version | What it is | Who consumes it |
 | --- | --- | --- | --- |
-| `main` | `2.0.0-dev.x` | Module framework. Active development. | Wisnee v3 (not built yet) |
+| `main` | `2.0.0-alpha.x` | Module framework. Published under the `alpha` dist-tag. | Wisnee v3 (not built yet) |
 | `v1` | `1.0.0-rc.1` | Routing framework. **Frozen — fixes only.** | `wisnet-server` (Wisnee v2) |
 
 `git branch --show-current` settles it. A quick tell: if `lib/modules/` exists
@@ -36,13 +36,17 @@ is **not** an application. Dual layout:
   `http/demo.http` is the request-by-request walkthrough.
 - **`test/`** — jest suite. Not published.
 
-- **`bin/` + `lib/cli/`** — the scaffolding CLI (`npx liteb create ...`,
+- **`bin/` + `lib/cli/`** — the CLI (`npx liteb init`, `liteb create ...`,
   `liteb build`). It came back in 2.0 **with the redesign the old one needed**:
   templates are TypeScript strings inside the build (the 1.x ones were loose
   `.txt` assets nobody compiled, and they drifted until they generated
   decorators the framework no longer had), and `test/cli.spec.ts` scaffolds a
   module and BOOTS it against PGlite. If a template stops matching the
   framework, the suite fails. **Do not turn the templates back into assets.**
+
+- **`README.md`** is the short version, on purpose; **`docs/guide.md`** is the
+  long one. Only the README ships in the tarball (`files`). Put the reasoning in
+  the guide, not in the README.
 
 Comments and JSDoc are in **English**: they ship inside the `.d.ts`.
 

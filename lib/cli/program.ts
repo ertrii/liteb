@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Command } from 'commander';
 import { runBuild } from './build';
+import { createProject, install } from './init';
 import {
   createEndpoint,
   createEntity,
@@ -66,6 +67,36 @@ export function buildProgram(): Command {
     .description('Scaffolding and builds for a liteb application.')
     .version(version());
 
+  program
+    .command('init [name]')
+    .description('A project that runs: package.json, tsconfig, .env, entry point')
+    .option('--skip-install', 'write the files and stop')
+    .option('--dir <path>', 'where modules will live', 'src/modules')
+    .action((name: string | undefined, flags) => {
+      const project = name ?? path.basename(process.cwd());
+      // With a name, the project is a NEW folder; without one, it is this one.
+      const root = name ? path.resolve(process.cwd(), name) : process.cwd();
+
+      const result = apply(
+        createProject({
+          name: project,
+          litebVersion: `^${version()}`,
+          modulesDir: flags.dir,
+        }),
+        { root },
+      );
+      result.created.forEach((file) => console.log(`  created  ${file}`));
+
+      if (!flags.skipInstall) {
+        console.log('\nInstalling dependencies...');
+        install(root);
+      }
+
+      console.log('');
+      if (name) console.log(`  next     cd ${name}`);
+      result.hints.forEach((hint) => console.log(`  next     ${hint}`));
+    });
+
   const create = program
     .command('create')
     .description('Writes the shape of a module, or of something inside one.');
@@ -86,6 +117,11 @@ export function buildProgram(): Command {
       .description('A module: manifest, first endpoint and migrations index')
       .option('--label <text>', 'human name, for a "modules" screen')
       .option(
+        '--entry <file>',
+        'file holding Liteb.create({ modules: [...] })',
+        'src/index.ts',
+      )
+      .option(
         '--optional',
         'an extension: installs DISABLED and is turned on on purpose',
       ),
@@ -96,6 +132,7 @@ export function buildProgram(): Command {
         modulesDir: flags.dir,
         from: flags.from,
         label: flags.label,
+        entry: flags.entry,
         optional: flags.optional,
       }),
       flags,
