@@ -18,7 +18,7 @@ This project is designed for developers who are looking for a simple and fast al
 npm install liteb
 ```
 
-`liteb` relies on a few peer dependencies you provide in your app: `typeorm`, `express`, `express-session`, `class-validator` and `typescript`.
+`liteb` relies on a few peer dependencies you provide in your app: `typeorm`, `express`, `class-validator` and `typescript`. Add `express-session` only if your auth resolver uses cookie sessions — the framework no longer depends on it.
 
 ## Feature status
 
@@ -38,6 +38,7 @@ npm install liteb
 | Installable modules         | ✔      |
 | Contracts between modules   | ✔      |
 | Per-module migrations       | ✔      |
+| Authentication seam         | ✔      |
 | Events between modules      | —      |
 
 ## Defining endpoints
@@ -70,7 +71,8 @@ export class GetUserApi extends Endpoint<UserParams> {
 
 - **Lifecycle**: `previous()` → `main()` → `error(err)` → `final()`. `final()` always runs.
 - **Request state** (`this.params`, `this.body`, `this.query`, `this.request`, `this.response`, `this.file(s)`) is injected per request.
-- **Errors**: throw a framework error to get a mapped HTTP status — `NotFoundError` (404), `AuthError` (401), `CustomerError` (406), `SchemaError` (422), `CustomError(status, ...)`. Any other thrown value becomes a 500. Unmatched routes return the same `{ message, identifier }` shape with 404.
+- **Errors**: throw a framework error to get a mapped HTTP status — `NotFoundError` (404), `AuthError` (401), `ForbiddenError` (403), `CustomerError` (406), `SchemaError` (422), `CustomError(status, ...)`. Any other thrown value becomes a 500. Unmatched routes return the same `{ message, identifier }` shape with 404.
+- **Who is asking** is `this.auth` (see [Authentication](#authentication)).
 
 ### HTTP verb decorators
 
@@ -208,6 +210,68 @@ cd ../your-project && npm install ../liteb/liteb-<version>.tgz
 
 A tarball is closer to what npm actually installs than `npm link`, which
 resolves through symlinks and can hide a missing file or a bad `files` entry.
+
+## Authentication
+
+Endpoints never learn how a caller was identified. One resolver turns a request
+into an **actor**, and every endpoint reads it as `this.auth`.
+
+```typescript
+const app = await Liteb.create({
+  db,
+  modules: [identity, billing],
+  auth: (req) => {
+    const userId = req.session?.userId;      // or a bearer token, or an API key
+    if (!userId) return null;                // anonymous
+    return { actor: { userId }, permissions: req.session.permissions };
+  },
+});
+```
+
+Declare the actor's shape **once**, anywhere in your app, and it is typed
+everywhere:
+
+```typescript
+declare global {
+  namespace LitebAuth {
+    interface Actor {
+      userId: number;
+      tenant: string;
+    }
+  }
+}
+```
+
+Then, inside an endpoint:
+
+```typescript
+this.auth.actor.userId          // typed; throws AuthError (401) if anonymous
+this.auth.optional              // Actor | null, for endpoints open to everyone
+this.auth.isAuthenticated       // boolean
+this.auth.can('billing.void')   // boolean, false when anonymous
+this.auth.assert('billing.void')// 401 if anonymous, 403 if signed in but not allowed
+```
+
+Notes:
+
+- `this.auth.actor` **throws on purpose**. Reading the caller and checking it
+  exists were two steps that had to be written together every time, and
+  forgetting the second failed silently. Use `optional` where anonymous is a
+  valid case.
+- 401 and 403 are not interchangeable: 401 tells a client to authenticate, 403
+  tells it not to bother. `assert()` picks the right one.
+- The permission keys are the ones modules declare in their manifest. `*` grants
+  everything.
+- The resolver runs once per request, before `previous()`, so keep it cheap.
+  Throwing from it is legitimate — a malformed token is a 401 — and maps through
+  the normal error handling.
+- `this.auth` is **per-request state**: like `params` and `body`, it is not
+  readable from a constructor or a field initializer.
+- Without a resolver, reading `this.auth.actor` raises a plain `Error` (500), not
+  a 401: an app that never wired auth up has a bug, not an unauthorized visitor.
+
+With `new Liteb(dataSource)` instead of `create()`, set it with
+`app.setAuth(resolver)` before `start()`.
 
 ## Bootstrapping
 

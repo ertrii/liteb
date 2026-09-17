@@ -122,10 +122,33 @@ regression test for it. **Do not revert to prototype-wide state.**
 Consequence: request state is **not** readable in constructors or field
 initializers. Only `db` and `container` are.
 
+`auth` follows the same rule and for the same reason: it is resolved per request
+and assigned on the **instance**. There is a regression test with two concurrent
+callers whose actors must not cross.
+
+### Auth seam (2.x)
+
+`lib/core/auth.ts`. One `AuthResolver` (`LitebOptions.auth` or `setAuth()`)
+turns a request into `{ actor, permissions }`; endpoints read `this.auth`.
+
+- `Actor` is declared **empty** in a `declare global { namespace LitebAuth }`
+  block. An interface re-exported from the package entry cannot be merged from
+  outside, so a global namespace is the only shape a consumer can widen. Do not
+  "tidy" it into a plain exported interface — augmentation silently stops
+  merging and apps get `{}`.
+- The framework deliberately does not define `userId`: baking one actor shape in
+  is exactly what made 1.x's `getSession('userId')` impossible to move off.
+- Resolution happens **inside** the handler's `try`, so a resolver that throws on
+  a bad credential becomes a 401 instead of an unhandled rejection.
+- `Auth` carries a `configured` flag so "no resolver wired" (a bug, 500) reads
+  differently from "nobody is signed in" (a 401).
+
 ### Errors
 
 `ErrorControl` maps `SchemaError` (422), `CustomerError` (406), `NotFoundError`
-(404), `AuthError` (401), `CustomError` (free status) and a native `Error` (500).
+(404), `AuthError` (401), `ForbiddenError` (403), `CustomError` (free status) and
+a native `Error` (500). The `ForbiddenError` branch must stay **above** the
+generic-object branch, which also answers 403 but echoes the raw object back.
 The 404 fallback reuses `NotFoundError`, so an unmatched route answers with the
 same contract.
 
@@ -141,6 +164,8 @@ same contract.
 | `Get`/`Post`/… | `HttpGet`/`HttpPost`/… |
 | `Queue`, `Transaction` | `dataSource.transaction(cb)` |
 | `Service`, `InternalError`, `Middleware` class | Removed |
+| `getSession(k)` / `setSession(k, v)` | `this.auth` + an `auth` resolver |
+| `SessionDataExtends<T>` | Removed (the framework no longer imports `express-session`) |
 
 The OpenAPI decorators (`ApiTag`, `ApiSummary`, `ApiDescription`, `ApiResponse`)
 keep their names: there "Api" means OpenAPI, not the base class.
@@ -172,7 +197,7 @@ Keep that split — the decision is the part worth testing.
   tsc infers `lib/` as root and `main` fails to resolve) and `incremental: false`
   (a stale `.tsbuildinfo` with a cleared `dist/` made tsc emit nothing).
 - `removeComments: false` → comments ship. Hence the English rule.
-- Peer deps, not bundled: `typeorm`, `express`, `express-session`,
+- Peer deps, not bundled: `typeorm`, `express`,
   `class-validator`, `typescript`. `reflect-metadata` and `semver` are direct.
 - Not published yet. To test in a consumer: `npm run build && npm pack`, then
   install the `.tgz`. A tarball is closer to what npm installs than `npm link`,
@@ -180,5 +205,9 @@ Keep that split — the decision is the part worth testing.
 
 ## Still missing in 2.0
 
-Event bus, extension slots, and enforcing the permissions and license gate that
-the manifest already declares.
+Event bus, extension slots, and the license gate.
+
+Permissions are **half** done: `this.auth.can()` / `assert()` enforce them at the
+call site, but nothing checks that a key passed to them is one some module's
+manifest actually declares, and there is no grant store — the resolver hands the
+list over and the framework trusts it.

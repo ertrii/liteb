@@ -6,12 +6,14 @@ import { ErrorIdentifier } from '../interfaces/type-error';
 import { DataSource } from 'typeorm';
 import ErrorControl from '../utilities/error-control';
 import type { Container } from '../modules/container';
+import { Auth, AuthResolver } from './auth';
 
 export default class EndpointHandler {
   constructor(
     private endpointReader: EndpointReader,
     private dbSource: DataSource,
     private container?: Container,
+    private authResolver?: AuthResolver,
   ) {}
 
   public middleware = (req: Request, res: Response, next: () => void) => {
@@ -77,7 +79,16 @@ export default class EndpointHandler {
     state.file = req.file;
     state.request = req;
     state.response = res;
+    // Anonymous until the resolver says otherwise, so `error()` and `final()`
+    // still find an `auth` if resolution itself blows up.
+    state.auth = new Auth(null, this.authResolver !== undefined);
     try {
+      // Inside the try on purpose: a resolver that throws on a malformed token
+      // should become a 401 through the usual mapping, not an unhandled
+      // rejection that leaves the request hanging.
+      if (this.authResolver) {
+        state.auth = new Auth((await this.authResolver(req)) ?? null, true);
+      }
       await endpointClass.previous();
       const dataResponse = await endpointClass.main();
       if (requiereRender) {

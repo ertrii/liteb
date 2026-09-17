@@ -37,6 +37,23 @@ export class AuthError {
   constructor(public message: string) {}
 }
 
+/**
+ * The caller is known but not allowed. Maps to 403.
+ *
+ * Kept apart from {@link AuthError} because the two say opposite things to a
+ * client: 401 means "authenticate and try again", 403 means "don't bother".
+ */
+export class ForbiddenError {
+  identifier = ErrorIdentifier.FORBIDDEN;
+  status = HttpStatus.FORBIDDEN;
+
+  constructor(
+    public message: string,
+    /** Permission keys the actor was missing, when the check knows them. */
+    public missing: string[] = [],
+  ) {}
+}
+
 export class CustomError {
   identifier = ErrorIdentifier.CUSTOM;
   constructor(

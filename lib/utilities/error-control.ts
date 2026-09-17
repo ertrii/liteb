@@ -3,6 +3,7 @@ import {
   CustomerError,
   NotFoundError,
   AuthError,
+  ForbiddenError,
   CustomError,
 } from './errors';
 import { ErrorIdentifier, ErrorType } from '../interfaces/type-error';
@@ -34,6 +35,11 @@ export default class ErrorControl {
       this.message = this.error.message;
       this.identifier = this.error.identifier;
     } else if (this.error instanceof AuthError) {
+      Logger.warn(this.error);
+      this.status = this.error.status;
+      this.message = this.error.message;
+      this.identifier = this.error.identifier;
+    } else if (this.error instanceof ForbiddenError) {
       Logger.warn(this.error);
       this.status = this.error.status;
       this.message = this.error.message;

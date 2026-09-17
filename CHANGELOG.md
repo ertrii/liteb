@@ -11,6 +11,39 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Added
 
+- **Authentication seam (`this.auth`)** — one `AuthResolver`, passed as
+  `Liteb.create({ auth })` or `setAuth()`, turns a request into
+  `{ actor, permissions }`; every endpoint reads it as `this.auth`. It replaces
+  `getSession`/`setSession`.
+
+  The point is that endpoints stop knowing *how* a caller was identified. A
+  cookie session, a bearer token from a mobile app and an API key issued to a
+  third-party extension are all the same one function, so swapping the transport
+  no longer means touching every endpoint that reads the current user.
+
+  `Actor` is declared **empty**, in a global `LitebAuth` namespace, and the
+  application widens it by declaration merging — the framework defining `userId`
+  is exactly what made 1.x's `getSession('userId')` impossible to move off. The
+  global namespace is deliberate: an interface re-exported from the package
+  entry cannot be merged from outside.
+
+  `this.auth.actor` throws `AuthError` when the call is anonymous, because
+  reading the caller and checking it exists were two steps that had to be
+  written together every time and forgetting the second failed silently;
+  `this.auth.optional` is the nullable version for endpoints open to everyone.
+  `can()` and `assert()` check the permission keys modules declare in their
+  manifests, with `*` granting everything.
+
+  Resolution happens inside the handler's `try`, so a resolver that throws on a
+  malformed credential becomes a 401 rather than an unhandled rejection. `Auth`
+  also tracks whether a resolver exists at all, so "this app never wired auth
+  up" surfaces as a 500 programming error instead of masquerading as a 401.
+
+- **`ForbiddenError`** (403) — the caller is known but not allowed. Kept apart
+  from `AuthError` (401) because the two say opposite things to a client:
+  authenticate and retry, versus don't bother.
+
+
 - **`defineModule()`** — the manifest a module declares about itself: `id`,
   `version`, `engine` range, `requires`, entities, migrations, route and task
   globs, permissions and lifecycle hooks. It returns a `ResolvedModule` with
@@ -183,6 +216,16 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   `setApis` / `addApis` are untouched for now — the module system replaces them.
 
 ### Removed
+
+- **`Endpoint.getSession()` / `setSession()`** and the `SessionDataExtends<T>`
+  type. They returned `any` (666 untyped call sites in the main consumer, for
+  two keys) and hard-wired the framework to `express-session`. Replaced by
+  `this.auth`; writing to the session — a concern of whichever module owns
+  login — is `this.request.session` directly.
+
+  As a result `express-session` is no longer a peer dependency: add it only if
+  your resolver uses cookie sessions.
+
 
 **Breaking.** Everything marked `@deprecated` in `1.0` is gone. Migration is the
 one stated in each deprecation notice.

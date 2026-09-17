@@ -29,6 +29,7 @@ import {
 import { collectModuleEntities } from '../modules/collect-entities';
 import { buildContainer } from '../modules/build-container';
 import { Container } from '../modules/container';
+import { AuthResolver } from './auth';
 
 /** What {@link Liteb.create} takes. */
 export interface LitebOptions {
@@ -46,6 +47,12 @@ export interface LitebOptions {
 
   /** Host version, checked against each module's `engine` range. */
   version?: string;
+
+  /**
+   * Turns a request into whoever is behind it. Without one, `this.auth` in an
+   * endpoint stays anonymous and reading `this.auth.actor` is an error.
+   */
+  auth?: AuthResolver;
 }
 
 interface EndpointGroup {
@@ -64,6 +71,7 @@ export default class Liteb extends Server {
   private hostVersion?: string;
   private loadedModules: LoadedModule[] = [];
   private container?: Container;
+  private authResolver?: AuthResolver;
   private moduleTasks: Array<new () => Task> = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private templatesAsync: Promise<string[]>[] = [];
@@ -147,6 +155,8 @@ export default class Liteb extends Server {
 
     const app = new Liteb(dataSource);
 
+    if (options.auth) app.setAuth(options.auth);
+
     if (modules.length > 0) {
       app.useModules(modules, {
         basePath: options.basePath,
@@ -155,6 +165,25 @@ export default class Liteb extends Server {
     }
 
     return app;
+  };
+
+  /**
+   * Sets how a request becomes an actor, for applications built with
+   * `new Liteb(dataSource)`. {@link Liteb.create} takes it as the `auth`
+   * option instead.
+   *
+   * It has to be set before `start()`: handlers capture the resolver when the
+   * routes are mounted.
+   *
+   * @example
+   * app.setAuth((req) => {
+   *   const userId = req.session?.userId;
+   *   if (!userId) return null;
+   *   return { actor: { userId }, permissions: req.session.permissions };
+   * });
+   */
+  public setAuth = (resolver: AuthResolver) => {
+    this.authResolver = resolver;
   };
 
   private resolveApiPatterns = (
@@ -465,6 +494,7 @@ export default class Liteb extends Server {
               endpointReader,
               this.dbSource,
               this.container,
+              this.authResolver,
             );
             const option = new RouterOption(
               endpointReader.pathname,

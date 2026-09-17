@@ -1,6 +1,7 @@
 import { ConfigService, Liteb } from '../lib';
 import enableCors from './config/enable-cors';
 import enableSession from './config/enable-session';
+import sessionAuth from './config/session-auth';
 import users from './modules/users/module';
 import categories from './modules/categories/module';
 import crm from './modules/crm/module';
@@ -22,6 +23,8 @@ async function main() {
     modules: [users, categories, crm],
     version: '2.0.0',
     basePath: '/api',
+    // How a request becomes an actor. Endpoints read it as `this.auth`.
+    auth: sessionAuth,
   });
 
   liteb.use(enableCors());

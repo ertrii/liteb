@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorType } from '../interfaces/type-error';
-import { ErrorResponse, SessionDataExtends } from '../interfaces/utils';
+import { ErrorResponse } from '../interfaces/utils';
+import { Auth } from '../core/auth';
 import type { Container, Contract } from '../modules/container';
 
 export type DataJson =
@@ -34,6 +35,25 @@ export abstract class Endpoint<
   public response: Response;
   public db: DataSource;
   public httpStatus: HttpStatus = HttpStatus.OK;
+
+  /**
+   * Who is making this request, and what they may do.
+   *
+   * Filled by the application's `auth` resolver, so the endpoint never learns
+   * where the identity came from — a cookie session, a bearer token from the
+   * mobile app, an API key from a third-party extension all arrive here the
+   * same way.
+   *
+   * GOTCHA: per-request state, assigned AFTER the instance is built. Not
+   * readable from the constructor or a field initializer (`db` and `container`
+   * are).
+   *
+   * @example
+   * const userId = this.auth.actor.userId;   // 401 if anonymous
+   * this.auth.assert('billing.void');        // 403 if not allowed
+   * if (this.auth.optional) { ... }          // public endpoint
+   */
+  public auth: Auth = new Auth();
 
   /**
    * Container of the application this endpoint belongs to. Injected on the
@@ -85,29 +105,4 @@ export abstract class Endpoint<
    * Useful for cleanup, logging, or any final action after the client response.
    */
   public final(): void | Promise<void> {}
-
-  /**
-   * Stores a value in the session.
-   * @param key session key
-   * @param value
-   * @example
-   * // Equivalent to
-   * this.request.session.key = value
-   */
-  protected setSession(key: string, value: any) {
-    const session = this.request?.session as SessionDataExtends<any>;
-    session[key as string] = value;
-  }
-
-  /**
-   * Returns the session value for a key.
-   * @param key session key
-   * @example
-   * // Equivalent to
-   * this.request.session.key
-   */
-  protected getSession(key: string) {
-    return this.request?.session[key];
-  }
-
 }
