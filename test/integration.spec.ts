@@ -167,3 +167,23 @@ describe('aislamiento de estado por petición', () => {
     expect(resB.body).toEqual({ value: 'b' });
   });
 });
+
+describe('previous()', () => {
+  it('corre antes de main() y sobre la misma instancia', async () => {
+    const res = await request(app()).get('/api/guardia/abierto');
+
+    // El 202 sale de previous(); el cuerpo, de main().
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ ok: true });
+  });
+
+  it('lanzar desde previous() saltea main() y se mapea como cualquier error', async () => {
+    const res = await request(app()).get('/api/guardia/cerrado');
+
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({
+      identifier: ErrorIdentifier.UNAUTHORIZED,
+      message: 'Sin pase.',
+    });
+  });
+});

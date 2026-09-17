@@ -39,6 +39,10 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   also tracks whether a resolver exists at all, so "this app never wired auth
   up" surfaces as a 500 programming error instead of masquerading as a 401.
 
+- **`HttpStatus` is now exported** from the package entry. It never was, which
+  left `CustomError(status, ...)` and `this.httpStatus` without a way to name
+  the value they take.
+
 - **`ForbiddenError`** (403) — the caller is known but not allowed. Kept apart
   from `AuthError` (401) because the two say opposite things to a client:
   authenticate and retry, versus don't bother.
@@ -216,6 +220,30 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   `setApis` / `addApis` are untouched for now — the module system replaces them.
 
 ### Removed
+
+- **`Endpoint.error()` and `Endpoint.final()`**, and the `ErrorResponse` type
+  with them. `previous()` stays.
+
+  Measured against the main consumer: of 323 endpoints, 9 implemented each hook,
+  and all 9 `error()` bodies were a single `rollbackTransaction()` while all 9
+  `final()` bodies were a single `release()`. Nobody ever used `error()` for
+  what it documented — reshaping the error response — because throwing the right
+  error class already does that.
+
+  So the hooks were not a lifecycle, they were a `try/catch/finally` split
+  across three methods, which hid a transaction's boundaries from the code
+  inside it: one endpoint opened on line 29, committed on line 83, rolled back
+  on 111 and released on 114, and forgetting any of them was not a compile
+  error. `this.db.transaction(cb)` makes commit, rollback and release the
+  callback's contract instead.
+
+  `previous()` is kept because it is the one hook nothing else replaces: it runs
+  on the instance with validated `params`/`body`/`query` and the resolved
+  `auth`, where a `@Use` middleware only sees the raw request, and throwing from
+  it skips `main()`.
+
+  Dropping `error()` also collapsed the handler's nested double `catch`, which
+  only existed because that hook could itself throw.
 
 - **`setApis()`, `addApis()`, `setTasks()`**, and the public constructor and
   `useModules()`. `Liteb.create({ db, modules })` is the only entry point, and

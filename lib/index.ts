@@ -79,7 +79,7 @@ export * from './utilities/logger';
 export type { LoggerOptions } from './services/log4js';
 export * from './utilities/errors';
 export * from './utilities/config-service';
+export { HttpStatus } from './interfaces/http-status';
 export * from './interfaces/type-error';
-export * from './interfaces/utils';
 export type { LitebOptions } from './core/liteb';
 export { Liteb };

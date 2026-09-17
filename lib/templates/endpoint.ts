@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorType } from '../interfaces/type-error';
-import { ErrorResponse } from '../interfaces/utils';
 import { Auth } from '../core/auth';
 import type { Container, Contract } from '../modules/container';
 
@@ -82,7 +81,12 @@ export abstract class Endpoint<
   }
 
   /**
-   * Runs before the main method (main).
+   * Runs before {@link main}, inside the instance.
+   *
+   * Kept while `error()` and `final()` were dropped because it is the only
+   * guard that sees validated state: `this.params`, `this.body` and
+   * `this.auth` are already there, where a `@Use` middleware only gets the raw
+   * request. Throwing from here skips `main()` and maps like any other error.
    */
   public previous(): void | Promise<void> {}
   /**
@@ -91,18 +95,4 @@ export abstract class Endpoint<
    * May return data, error objects, or null depending on the API's logic.
    */
   public abstract main(): DataJson | Promise<DataJson>;
-  /**
-   * Handles and processes the errors raised while running the main method.
-   * Lets you customize the error response sent to the client based on the type
-   * of error received. Can be used to log, transform or reshape the error
-   * before returning it.
-   * @param error The error instance caught in the main method.
-   * @returns A custom error object, null, or a promise, as the implementation needs.
-   */
-  public error(error: ErrorType): ErrorResponse | Promise<ErrorResponse> {}
-  /**
-   * Runs after the main method (main) and error handling have finished.
-   * Useful for cleanup, logging, or any final action after the client response.
-   */
-  public final(): void | Promise<void> {}
 }

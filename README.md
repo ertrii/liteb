@@ -69,10 +69,26 @@ export class GetUserApi extends Endpoint<UserParams> {
 }
 ```
 
-- **Lifecycle**: `previous()` → `main()` → `error(err)` → `final()`. `final()` always runs.
+- **Lifecycle**: `previous()` → `main()`. `previous()` is optional and runs on the same instance, with `params`, `body`, `query` and `auth` already in place — throwing from it skips `main()`, which is what makes it a guard. There is no `error()` or `final()` hook: throw the right error class and the framework maps it, and wrap work that must commit or roll back in `this.db.transaction(cb)`.
 - **Request state** (`this.params`, `this.body`, `this.query`, `this.request`, `this.response`, `this.file(s)`) is injected per request.
 - **Errors**: throw a framework error to get a mapped HTTP status — `NotFoundError` (404), `AuthError` (401), `ForbiddenError` (403), `CustomerError` (406), `SchemaError` (422), `CustomError(status, ...)`. Any other thrown value becomes a 500. Unmatched routes return the same `{ message, identifier }` shape with 404.
 - **Who is asking** is `this.auth` (see [Authentication](#authentication)).
+
+### Transactions
+
+There is no transaction hook and no transaction decorator. Use TypeORM's own:
+
+```typescript
+async main() {
+  return this.db.transaction(async (manager) => {
+    const charge = await manager.save(Charge, { ... });
+    await manager.update(Subscription, id, { lastChargeId: charge.id });
+    return charge;
+  });
+}
+```
+
+Commit, rollback and release are the callback's contract, so they cannot be forgotten. Spreading them across lifecycle hooks — `startTransaction` in one method, `commit` in another, `rollback` in a third — hides the transaction's boundaries from the code that depends on them; that is why those hooks are gone.
 
 ### HTTP verb decorators
 

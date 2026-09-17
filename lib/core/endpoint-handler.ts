@@ -100,32 +100,17 @@ export default class EndpointHandler {
       if (res.headersSent) return;
       res.status(endpointClass.httpStatus).json(dataResponse);
     } catch (error) {
-      try {
-        const errorResponse = await endpointClass.error(error);
-        const errResult = new ErrorControl(
-          errorResponse ? errorResponse : error,
+      // One layer of catching is enough now that no endpoint hook runs in here:
+      // the nested catch only existed because `error()` could itself throw.
+      const errResult = new ErrorControl(error);
+      if (requiereRender) {
+        res.send(
+          `<html><body>${JSON.stringify(errResult.toJson())}</body></html>`,
         );
-        if (requiereRender) {
-          res.send(
-            `<html><body>${JSON.stringify(errResult.toJson())}</body></html>`,
-          );
-          return;
-        }
-        if (res.headersSent) return;
-        res.status(errResult.getStatus()).json(errResult.toJson());
-      } catch (error) {
-        const errResult = new ErrorControl(error);
-        if (requiereRender) {
-          res.send(
-            `<html><body>${JSON.stringify(errResult.toJson())}</body></html>`,
-          );
-          return;
-        }
-        if (res.headersSent) return;
-        res.status(errResult.getStatus()).json(errResult.toJson());
+        return;
       }
-    } finally {
-      await endpointClass.final();
+      if (res.headersSent) return;
+      res.status(errResult.getStatus()).json(errResult.toJson());
     }
   };
 }
