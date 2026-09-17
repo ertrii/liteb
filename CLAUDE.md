@@ -127,6 +127,7 @@ ignore of that name matches none of its files.
 | `module-loader.ts` | Reads endpoints/tasks from a module's globs, any extension |
 | `container.ts` / `build-container.ts` | Contracts between modules |
 | `events.ts` | Event bus: `event()`, `EventBus`, listeners |
+| `slots.ts` | Extension points: `slot()`, filled via `contributes` |
 | `permissions.ts` | Registry of what the modules declare |
 | `collect-entities.ts` | Union of every module's entities |
 
@@ -141,6 +142,11 @@ Decisions that are easy to undo by accident, so do not:
   `"10000"` as text).
 - **A new module installs disabled** unless `core: true`.
 - **A module whose code vanished is reported, never deleted.**
+- **A slot accepts many contributions; a contract refuses a second provider.**
+  That asymmetry IS the difference between them. Do not "fix" either one.
+- **The module that opens a slot must not depend on its contributors.**
+  Extensions import the host's token, never the reverse — otherwise core
+  depends on its own extensions and none can be removed.
 - **An undeclared permission key throws a plain `Error` (500), not a 403.** A
   key that exists nowhere is a mistake in the code; answering 403 would send
   whoever debugs it to look at roles and grants instead of at the typo. The
@@ -259,10 +265,24 @@ Keep that split — the decision is the part worth testing.
   install the `.tgz`. A tarball is closer to what npm installs than `npm link`,
   which resolves through symlinks and hides a bad `files` entry.
 
+## The three ways modules meet
+
+Keep them distinct; collapsing any two is the easiest way to ruin this design.
+
+| | Answers | Read by | Refuses |
+| --- | --- | --- | --- |
+| `contract` / `get` | exactly one | the caller, waiting | a second provider |
+| `event` / `emit` | any number | nobody | nothing; failures are logged |
+| `slot` / `all` | any number | the module that opened it | nothing |
+
+`Contract` and `Slot` each carry a `kind` literal so neither can be passed where
+the other goes. They are otherwise structurally identical, and that one
+confusion is the one that matters: one provider versus many.
+
 ## Still missing in 2.0
 
-Extension slots, and the license gate — which arguably does not belong in an
-MIT framework at all and should live in the product.
+The license gate — which arguably does not belong in an MIT framework at all and
+should live in the product.
 
 There is still no **grant store**: the resolver hands the actor's permission
 list over and the framework trusts it. That is deliberate — who holds what is

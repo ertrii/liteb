@@ -24,6 +24,12 @@ export function buildContainer(
     for (const provider of mod.provides) {
       container.register(mod.id, provider);
     }
+    // Contributions need no check of their own: an extension point with no
+    // contributions is a feature nobody installed, and one with many is the
+    // whole point.
+    for (const contribution of mod.contributes) {
+      container.contribute(contribution, mod.id);
+    }
   }
 
   for (const mod of modules) {

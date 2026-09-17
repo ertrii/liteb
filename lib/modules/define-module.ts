@@ -209,6 +209,7 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     routes: toArray(manifest.routes),
     tasks: toArray(manifest.tasks),
     listeners: toArray(manifest.listeners),
+    contributes: manifest.contributes ?? [],
     permissions,
     provides,
     consumes,

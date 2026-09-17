@@ -291,6 +291,11 @@ export default class Liteb extends Server {
       Logger.info(`Contracts registered: ${contracts.join(', ')}`);
     }
 
+    const slots = this.container.slotIds();
+    if (slots.length > 0) {
+      Logger.info(`Extension points filled: ${slots.join(', ')}`);
+    }
+
     // The bus and the container reference each other: an implementation may
     // emit, a listener may resolve a contract. Wired here, in the open.
     this.events = new EventBus(this.dbSource);

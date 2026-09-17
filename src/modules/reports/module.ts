@@ -1,6 +1,7 @@
 import { defineModule } from '../../../lib';
 import { UserDirectory } from '../identity/module';
-import { ProductCatalog } from '../catalog/module';
+import { ProductBadges, ProductCatalog } from '../catalog/module';
+import { lowStockBadge } from './badges';
 
 /**
  * The optional one. Not `core`, so it INSTALLS DISABLED: an update must not
@@ -19,6 +20,9 @@ export default defineModule({
   // Declaring what it calls turns a missing provider into a refusal to start,
   // instead of a 500 on whichever request happened to need it first.
   consumes: [UserDirectory, ProductCatalog],
+
+  // Fills an extension point catalog opened. Nothing in catalog changes.
+  contributes: [{ slot: ProductBadges, value: lowStockBadge }],
 
   routes: './apis/*.api.ts',
   tasks: './tasks/*.task.ts',

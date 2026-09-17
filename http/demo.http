@@ -31,7 +31,9 @@ Content-Type: application/json
 GET {{host}}/api/auth/me
 
 ### ---------------------------------------------------------------- 4. Permissions
-### staff may view and manage products...
+### staff may view and manage products. Note `badges: []` on every product:
+### that is an extension point with nothing installed. Enable `reports`
+### (step 7) and a "Low stock" badge appears, without catalog changing.
 GET {{host}}/api/products
 
 ### ...and only enabled ones, filtered by query string (a STRING: 'true').

@@ -48,6 +48,8 @@ export {
 export type { LoadedModule, LoadedListener } from './modules/module-loader';
 export { collectModuleEntities } from './modules/collect-entities';
 export { contract, Container, ContractError } from './modules/container';
+export { slot } from './modules/slots';
+export type { Slot } from './modules/slots';
 export { event, EventBus } from './modules/events';
 export { PermissionRegistry } from './modules/permissions';
 export type { RegisteredPermission } from './modules/permissions';
@@ -56,6 +58,7 @@ export { On } from './decorators/on.decorator';
 export * from './templates/listener';
 export type {
   Contract,
+  Contribution,
   Provider,
   ContainerContext,
 } from './modules/container';

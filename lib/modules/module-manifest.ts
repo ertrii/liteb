@@ -1,5 +1,5 @@
 import type { DataSource, EntitySchema } from 'typeorm';
-import type { Contract, Provider } from './container';
+import type { Contract, Contribution, Provider } from './container';
 
 /**
  * A database entity contributed by a module: a decorated class or a TypeORM
@@ -46,9 +46,8 @@ export type ModuleHook = (ctx: ModuleContext) => void | Promise<void>;
  * registry reads it to resolve dependencies, run migrations and mount routes,
  * and it is readable without evaluating any decorator.
  *
- * Contracts, events and extension slots are not here yet — each one lands with
- * its own subsystem, so that the manifest never describes something the
- * framework cannot honor.
+ * Every field here is honored by a subsystem that exists: the manifest never
+ * describes something the framework cannot do.
  */
 export interface ModuleManifest {
   /** Unique id: lowercase, digits and dashes (`billing`, `customer-portal`). */
@@ -95,6 +94,14 @@ export interface ModuleManifest {
   provides?: Provider<any>[];
 
   /**
+   * What this module contributes to OTHER modules' extension points.
+   *
+   * This is the third-party seam: an extension does not change the module it
+   * extends, it fills a slot that module opened.
+   */
+  contributes?: Contribution<any>[];
+
+  /**
    * Contracts this module calls. Optional, but declaring them turns a missing
    * provider into a refusal to start instead of a failure on the first request
    * that happens to need it.
@@ -127,6 +134,7 @@ export interface ResolvedModule {
   listeners: string[];
   permissions: ModulePermission[];
   provides: Provider<any>[];
+  contributes: Contribution<any>[];
   consumes: Contract<any>[];
   onInstall: ModuleHook | null;
   onEnable: ModuleHook | null;

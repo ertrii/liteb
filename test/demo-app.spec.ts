@@ -116,6 +116,17 @@ describe('la app de ejemplo (src/)', () => {
     expect(res.body).toHaveLength(2);
   });
 
+  it('una ranura sin extensiones instaladas devuelve vacío', async () => {
+    // `reports` aporta el badge "low stock" pero está APAGADO, así que el
+    // endpoint no ve ninguna contribución — y no se entera de que existe.
+    const res = await request(server())
+      .get('/api/products')
+      .set('x-user', '2')
+      .set('x-perms', STAFF.join(','));
+
+    expect(res.body[0].badges).toEqual([]);
+  });
+
   it('"*" concede todo, que es lo que significa owner', async () => {
     const res = await request(server())
       .get('/api/users')

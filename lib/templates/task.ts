@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import type { Container, Contract } from '../modules/container';
+import type { Slot } from '../modules/slots';
 import type { EventBus, EventToken } from '../modules/events';
 
 export abstract class Task {
@@ -24,6 +25,29 @@ export abstract class Task {
     return this.container.get(token);
   }
 
+
+  /**
+   * Everything the installed modules contributed to an extension point.
+   *
+   * Where {@link get} asks ONE module for a capability, this asks whoever
+   * showed up. An empty array is a normal answer: a slot nobody filled is a
+   * feature nobody installed.
+   *
+   * Contributions come only from ENABLED modules, so turning an extension off
+   * removes what it added — a payment method, a channel, a report.
+   *
+   * @example
+   * const methods = this.all(PaymentMethods);
+   * return methods.map((m) => ({ id: m.id, label: m.label }));
+   */
+  protected all<T>(target: Slot<T>): T[] {
+    if (!this.container) {
+      throw new Error(
+        `Cannot read the extension point "${target.id}": this application has no modules. Start it with Liteb.create({ modules }).`,
+      );
+    }
+    return this.container.all(target);
+  }
 
   /**
    * Announces that something happened, for whatever modules are listening.

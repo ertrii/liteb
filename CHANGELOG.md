@@ -11,6 +11,30 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
 ### Added
 
+- **Extension points (slots)** — `slot<T>(id)` opens one, a module fills it from
+  its manifest with `contributes: [{ slot, use | factory | value }]`, and the
+  module that opened it reads everything installed with `this.all(slot)`.
+
+  This is the seam a third-party extension plugs into, and it is the one the
+  other two could not cover: a contract has exactly ONE provider and refuses a
+  second, an event has no answer at all. A slot is the case where the host does
+  not know what will exist — payment methods, notification channels, report
+  sections — so it declares the shape and enumerates whoever showed up.
+
+  The dependency direction is the part worth guarding: the module that opens the
+  slot is the one extensions depend on. A contributor imports the host's token;
+  the host imports nothing. Backwards, core would depend on its own extensions
+  and none of them could be removed.
+
+  Only enabled modules contribute, so turning an extension off removes what it
+  added. An empty array is a normal answer. Contributions are built on first
+  read and cached, and one that asks for its own slot is reported rather than
+  exhausting the stack.
+
+  `Contract` and `Slot` now each carry a `kind` literal so neither can be passed
+  where the other goes — they were structurally identical, and one-provider
+  versus many is exactly the confusion worth preventing.
+
 - **Permission registry** — the permissions modules declare are now collected at
   boot and checked. `this.auth.can()` / `assert()` refuse a key no installed
   module declares, with a plain `Error` (500) and a suggestion drawn from the

@@ -40,6 +40,7 @@ npm install liteb
 | Per-module migrations       | ✔      |
 | Authentication seam         | ✔      |
 | Events between modules      | ✔      |
+| Extension points (slots)    | ✔      |
 
 ## Defining endpoints
 
@@ -225,6 +226,53 @@ consumes: [BillingService],
 ```
 
 Scheduled tasks get the same `this.get()`.
+
+### Extension points
+
+Three ways modules meet, and they are not interchangeable:
+
+| | Who answers | Who reads |
+| --- | --- | --- |
+| **Contract** (`get`) | exactly one | the caller, who waits for the answer |
+| **Event** (`emit`) | any number of listeners | nobody — there is no answer |
+| **Slot** (`all`) | any number of contributions | the module that opened it |
+
+A slot is what a third-party extension plugs into: the host does not know what
+will exist, so it declares the shape and enumerates whatever is installed.
+
+```typescript
+// catalog opens the point
+export interface ProductBadge {
+  id: string;
+  for(product: { id: number; stock: number }): string | null;
+}
+export const ProductBadges = slot<ProductBadge>('catalog.product-badges');
+```
+
+```typescript
+// any module fills it, without catalog changing
+contributes: [{ slot: ProductBadges, value: lowStockBadge }],
+```
+
+```typescript
+// catalog reads whoever showed up
+const badges = this.all(ProductBadges);
+```
+
+**Watch the direction.** The module that OPENS the slot is the one extensions
+depend on: `catalog` knows nothing about who fills it, while a contributor
+imports its token. Backwards, core would depend on its own extensions and none
+of them could be removed.
+
+- Contributions take the same three shapes as a provider: `use` (a class built
+  with `{ db, get, all, emit }`), `factory` or `value`.
+- **Only enabled modules contribute**, so turning an extension off removes what
+  it added.
+- An empty array is a normal answer: a slot nobody filled is a feature nobody
+  installed.
+- They are built on first read and cached, and a contribution that asks for its
+  own slot is reported instead of exhausting the stack.
+- Order is dependency order, so it is stable across boots.
 
 ### Permissions
 
