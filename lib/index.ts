@@ -29,6 +29,16 @@ export type {
 export { defineModule } from './modules/define-module';
 export { ModuleDefinitionError } from './modules/module-manifest';
 export { resolveModules, ModuleResolutionError } from './modules/resolve-modules';
+export { reconcileModules } from './modules/reconcile-modules';
+export { ModuleStore } from './modules/module-store';
+export { ModuleRecord } from './modules/module-record.entity';
+export type {
+  ModuleState,
+  ModuleInstall,
+  ModuleUpgrade,
+  ModuleOrphan,
+  Reconciliation,
+} from './modules/reconcile-modules';
 export type { ResolveModulesOptions } from './modules/resolve-modules';
 export type {
   ModuleManifest,

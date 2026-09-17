@@ -45,6 +45,27 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   which would leave a prerelease host unable to load anything — exactly while
   2.0 is being built. It only drops the tag: `3.0.0-alpha` still fails `^2.0.0`.
 
+- **`_modules` table, `ModuleStore` and `reconcileModules()`** — what an
+  installation remembers about its modules, and how the code on disk is matched
+  against it on boot. The framework creates the table itself through TypeORM's
+  schema builder: it is read *before* any module migration runs, so it cannot
+  come from one.
+
+  The decision is pure and tested on its own (`reconcileModules()`); the store
+  is only I/O. It reports what to install, what changed version (flagging a
+  downgrade, which happens when a deploy is rolled back) and which modules are
+  recorded but no longer in the code.
+
+  Two rules it enforces: a new module arrives **disabled** unless it is core, so
+  a release never puts unrequested screens in front of an operator — nor hands
+  out a package that was not paid for once modules are licensed; and a module
+  whose code is gone is **reported, never deleted**, because dropping data is
+  the installer's call, not a boot sequence's.
+
+  Turning a module off does not hide its data: every module present in the code
+  contributes its entities to the DataSource regardless, so the tables and their
+  contents stay. What this table governs is what runs.
+
 - `semver` as a direct dependency, to validate versions and `engine` ranges.
 
 ### Changed
