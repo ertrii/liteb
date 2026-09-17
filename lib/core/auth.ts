@@ -1,5 +1,7 @@
 import { Request } from 'express';
+import type { DataSource } from 'typeorm';
 import { AuthError, ForbiddenError } from '../utilities/errors';
+import type { Contract } from '../modules/container';
 
 declare global {
   /**
@@ -49,6 +51,33 @@ export interface AuthResult {
 }
 
 /**
+ * What a resolver gets besides the request.
+ *
+ * Without it, any application whose permissions live in the database had to
+ * close over an imported DataSource singleton — the exact global the module
+ * container exists to avoid — or copy them into the session at login and let
+ * them go stale.
+ */
+export interface AuthContext {
+  /** The running DataSource, with every module's entities registered. */
+  db: DataSource;
+
+  /**
+   * Resolves a contract a module provides, so the policy for who may do what
+   * can stay inside the module that owns it.
+   *
+   * @example
+   * auth: async (req, { get }) => {
+   *   const userId = req.session?.userId;
+   *   if (!userId) return null;
+   *   const directory = get(UserDirectory);
+   *   return { actor: { userId }, permissions: await directory.permissionsOf(userId) };
+   * }
+   */
+  get<T>(token: Contract<T>): T;
+}
+
+/**
  * Turns a request into whoever is behind it, or `null` when nobody is.
  *
  * This is the seam that keeps the transport out of the endpoints: a cookie
@@ -63,6 +92,7 @@ export interface AuthResult {
  */
 export type AuthResolver = (
   request: Request,
+  context: AuthContext,
 ) => AuthResult | null | undefined | Promise<AuthResult | null | undefined>;
 
 /** Permission key that grants every other one. */

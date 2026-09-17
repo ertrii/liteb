@@ -1,7 +1,6 @@
 import { Body, CustomerError, Endpoint, HttpPost, Module } from '../../../../lib';
 import { LoginDto } from '../dto/login.dto';
 import { User } from '../entities/user.entity';
-import { PERMISSIONS_BY_ROLE } from '../roles';
 import { verifyPassword } from '../services/password';
 
 /**
@@ -23,10 +22,9 @@ export class LoginApi extends Endpoint<null, LoginDto> {
       throw new CustomerError('Wrong username or password.');
     }
 
+    // The session holds the id and nothing else. Permissions are resolved per
+    // request by the auth resolver, through this module's contract.
     this.request.session.userId = user.id;
-    // Resolved once, at login, so no request pays for a lookup. The trade-off
-    // is explicit: a role change only takes effect on the next login.
-    this.request.session.permissions = PERMISSIONS_BY_ROLE[user.role];
 
     return { id: user.id, fullName: user.fullName, role: user.role };
   }

@@ -39,6 +39,19 @@ framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
   also tracks whether a resolver exists at all, so "this app never wired auth
   up" surfaces as a 500 programming error instead of masquerading as a 401.
 
+- **`AuthResolver` receives an `AuthContext`** as a second argument:
+  `{ db, get }`, the running DataSource and a resolver for module contracts.
+
+  Without it, an application whose permissions live in the database had two bad
+  options: close over an imported DataSource singleton — the exact global the
+  module container exists to avoid — or copy the permissions into the session at
+  login, where a revoked role keeps working until the next sign-in and a deleted
+  user stays an actor. With `get`, the policy for who may do what stays inside
+  the module that owns it, behind a contract.
+
+  The context is built once per handler, not per request: the DataSource and the
+  container are stable, only the request changes.
+
 - **`HttpStatus` is now exported** from the package entry. It never was, which
   left `CustomError(status, ...)` and `this.httpStatus` without a way to name
   the value they take.

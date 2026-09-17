@@ -72,7 +72,12 @@ export type {
   ModulePattern,
 } from './modules/module-manifest';
 export { Auth } from './core/auth';
-export type { Actor, AuthResult, AuthResolver } from './core/auth';
+export type {
+  Actor,
+  AuthResult,
+  AuthResolver,
+  AuthContext,
+} from './core/auth';
 export * from './templates/endpoint';
 export * from './templates/task';
 export * from './utilities/logger';

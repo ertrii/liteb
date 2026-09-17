@@ -236,10 +236,16 @@ into an **actor**, and every endpoint reads it as `this.auth`.
 const app = await Liteb.create({
   db,
   modules: [identity, billing],
-  auth: (req) => {
+  auth: async (req, { db, get }) => {
     const userId = req.session?.userId;      // or a bearer token, or an API key
     if (!userId) return null;                // anonymous
-    return { actor: { userId }, permissions: req.session.permissions };
+
+    // `get` resolves a contract, so who-may-do-what stays inside the module
+    // that owns it. `db` is there too, for a resolver that queries directly.
+    const permissions = await get(UserDirectory).permissionsOf(userId);
+    if (!permissions) return null;           // user deleted mid-session
+
+    return { actor: { userId }, permissions };
   },
 });
 ```
@@ -281,6 +287,10 @@ Notes:
 - The resolver runs once per request, before `previous()`, so keep it cheap.
   Throwing from it is legitimate — a malformed token is a 401 — and maps through
   the normal error handling.
+- It receives `{ db, get }` as a second argument. Without it, an application
+  whose permissions live in the database had to close over an imported
+  DataSource singleton, or copy them into the session at login and let them go
+  stale — a revoked role would keep working until the next sign-in.
 - `this.auth` is **per-request state**: like `params` and `body`, it is not
   readable from a constructor or a field initializer.
 - Without a resolver, reading `this.auth.actor` raises a plain `Error` (500), not

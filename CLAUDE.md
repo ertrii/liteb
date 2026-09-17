@@ -151,7 +151,8 @@ callers whose actors must not cross.
 ### Auth seam (2.x)
 
 `lib/core/auth.ts`. One `AuthResolver` (`LitebOptions.auth`) turns a request
-into `{ actor, permissions }`; endpoints read `this.auth`.
+plus an `AuthContext` (`{ db, get }`) into `{ actor, permissions }`; endpoints
+read `this.auth`.
 
 - `Actor` is declared **empty** in a `declare global { namespace LitebAuth }`
   block. An interface re-exported from the package entry cannot be merged from
@@ -164,6 +165,11 @@ into `{ actor, permissions }`; endpoints read `this.auth`.
   a bad credential becomes a 401 instead of an unhandled rejection.
 - `Auth` carries a `configured` flag so "no resolver wired" (a bug, 500) reads
   differently from "nobody is signed in" (a 401).
+- The resolver gets `{ db, get }` because without it an app whose permissions
+  live in the database had to close over an imported DataSource singleton — the
+  exact global the container exists to avoid — or freeze them into the session
+  at login. The context is built **once per handler**, not per request: the
+  DataSource and container are stable, only the request changes.
 
 ### Errors
 

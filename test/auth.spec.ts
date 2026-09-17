@@ -2,7 +2,14 @@ import 'reflect-metadata';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import { Auth, AuthError, defineModule, ForbiddenError, Liteb } from '../lib';
+import {
+  Auth,
+  AuthError,
+  contract,
+  defineModule,
+  ForbiddenError,
+  Liteb,
+} from '../lib';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { testAuthResolver } from './fixtures/auth/actor';
 import { closeTestDb, createTestDb } from './helpers/test-db';
@@ -171,5 +178,109 @@ describe('Auth (extremo a extremo)', () => {
 
     expect(uno.body).toEqual({ userId: 1 });
     expect(dos.body).toEqual({ userId: 2 });
+  });
+});
+
+describe('el resolutor recibe db y contratos', () => {
+  // La política de permisos vive en el módulo que la posee, y el resolutor
+  // llega a ella por contrato — sin importar el módulo ni cerrar sobre un
+  // DataSource global.
+  interface Grants {
+    forUser(userId: number): Promise<string[] | null>;
+  }
+  const Grants = contract<Grants>('grants.policy');
+
+  const grantsModule = defineModule({
+    id: 'grants',
+    version: '1.0.0',
+    core: true,
+    provides: [
+      {
+        token: Grants,
+        factory: ({ db }) => ({
+          forUser: async (userId) => {
+            // Usa el `db` del contenedor: prueba que llega vivo.
+            const rows: Array<{ perms: string }> = await db.query(
+              'select perms from permisos_demo where user_id = $1',
+              [userId],
+            );
+            return rows.length > 0 ? rows[0].perms.split(',') : null;
+          },
+        }),
+      },
+    ],
+  });
+
+  const fixtures = defineModule({
+    id: 'auth-fixtures',
+    version: '1.0.0',
+    core: true,
+    requires: ['grants'],
+    dir: path.join(__dirname, 'fixtures/auth'),
+    routes: './*.api.ts',
+  });
+
+  let liteb: Liteb;
+  let visto: { db: boolean } = { db: false };
+
+  beforeAll(async () => {
+    const db = await createTestDb();
+    await db.query(
+      'create table permisos_demo (user_id int primary key, perms varchar)',
+    );
+    await db.query("insert into permisos_demo values (7, 'secretos.ver')");
+    await db.query("insert into permisos_demo values (8, 'otra.cosa')");
+
+    liteb = await Liteb.create({
+      db,
+      modules: [grantsModule, fixtures],
+      version: '2.0.0-dev.0',
+      auth: async (request, ctx) => {
+        visto.db = ctx.db.isInitialized;
+        const raw = request.headers['x-user'];
+        if (!raw) return null;
+
+        const permissions = await ctx.get(Grants).forUser(Number(raw));
+        if (!permissions) return null;
+
+        return { actor: { userId: Number(raw) }, permissions };
+      },
+    });
+    await liteb.start(0);
+  });
+
+  afterAll(async () => {
+    await liteb?.close({ database: false }).catch(() => undefined);
+    await closeTestDb();
+  });
+
+  it('el DataSource llega vivo en el contexto', async () => {
+    await request(liteb.getApp()).get('/api/yo/publico');
+
+    expect(visto.db).toBe(true);
+  });
+
+  it('los permisos salen de la base, por contrato', async () => {
+    const res = await request(liteb.getApp())
+      .get('/api/yo/secreto')
+      .set('x-user', '7');
+
+    expect(res.status).toBe(200);
+  });
+
+  it('otro usuario, otros permisos: 403', async () => {
+    const res = await request(liteb.getApp())
+      .get('/api/yo/secreto')
+      .set('x-user', '8');
+
+    expect(res.status).toBe(403);
+  });
+
+  it('un usuario que ya no existe deja de ser actor, sin re-login', async () => {
+    const res = await request(liteb.getApp())
+      .get('/api/yo/actual')
+      .set('x-user', '999');
+
+    expect(res.status).toBe(401);
   });
 });

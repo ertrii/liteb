@@ -5,8 +5,8 @@ import { HttpStatus } from '../interfaces/http-status';
 import { ErrorIdentifier } from '../interfaces/type-error';
 import { DataSource } from 'typeorm';
 import ErrorControl from '../utilities/error-control';
-import type { Container } from '../modules/container';
-import { Auth, AuthResolver } from './auth';
+import type { Container, Contract } from '../modules/container';
+import { Auth, AuthContext, AuthResolver } from './auth';
 
 export default class EndpointHandler {
   constructor(
@@ -15,6 +15,29 @@ export default class EndpointHandler {
     private container?: Container,
     private authResolver?: AuthResolver,
   ) {}
+
+  /**
+   * Built once and reused: the DataSource and the container are stable for the
+   * whole life of this handler, only the request changes.
+   */
+  private context: AuthContext | null = null;
+
+  private authContext = (): AuthContext => {
+    if (!this.context) {
+      this.context = {
+        db: this.dbSource,
+        get: <T>(token: Contract<T>): T => {
+          if (!this.container) {
+            throw new Error(
+              `Cannot resolve the contract "${token.id}": this application has no modules. Start it with Liteb.create({ modules }).`,
+            );
+          }
+          return this.container.get(token);
+        },
+      };
+    }
+    return this.context;
+  };
 
   public middleware = (req: Request, res: Response, next: () => void) => {
     this.endpointReader.MiddlewareClass(req, res, next);
@@ -87,7 +110,10 @@ export default class EndpointHandler {
       // should become a 401 through the usual mapping, not an unhandled
       // rejection that leaves the request hanging.
       if (this.authResolver) {
-        state.auth = new Auth((await this.authResolver(req)) ?? null, true);
+        state.auth = new Auth(
+          (await this.authResolver(req, this.authContext())) ?? null,
+          true,
+        );
       }
       await endpointClass.previous();
       const dataResponse = await endpointClass.main();

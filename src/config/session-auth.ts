@@ -1,9 +1,9 @@
 import { AuthResolver } from '../../lib';
+import { UserDirectory } from '../modules/identity/module';
 
 declare module 'express-session' {
   interface SessionData {
     userId?: number;
-    permissions?: string[];
   }
 }
 
@@ -29,18 +29,22 @@ declare global {
  * Replace it with one that reads a bearer token (mobile app) or an API key
  * (third-party extension) and every endpoint keeps working untouched.
  *
- * It runs once per request, before `previous()`, so it must stay cheap: this
- * one reads the session and nothing else. Throwing from here is legitimate — a
- * malformed credential is a 401 — and maps like any other error.
+ * The session holds nothing but the user id. Permissions are resolved per
+ * request through the `identity` contract, so revoking a role takes effect on
+ * the next request instead of the next login — and a user deleted mid-session
+ * stops being an actor at once.
+ *
+ * That costs one lookup per request. An application that minds can cache it,
+ * but the default should be correct rather than fast.
  */
-const sessionAuth: AuthResolver = (request) => {
+const sessionAuth: AuthResolver = async (request, { get }) => {
   const userId = request.session?.userId;
   if (!userId) return null;
 
-  return {
-    actor: { userId },
-    permissions: request.session.permissions ?? [],
-  };
+  const permissions = await get(UserDirectory).permissionsOf(userId);
+  if (!permissions) return null;
+
+  return { actor: { userId }, permissions };
 };
 
 export default sessionAuth;
