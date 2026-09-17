@@ -2,14 +2,14 @@ import { DataSource } from 'typeorm';
 import { Request, Response } from 'express';
 import cron from 'node-cron';
 import swaggerUi from 'swagger-ui-express';
-import ApiHandler from './api-handler';
-import ApiReader from './api-reader';
+import EndpointHandler from './endpoint-handler';
+import EndpointReader from './endpoint-reader';
 import PatternResolve from './pattern-resolver';
 import Server, { RouterOption } from './server';
 import { Logger } from '../utilities/logger';
 import ErrorControl from '../utilities/error-control';
 import { NotFoundError } from '../utilities/errors';
-import { Api } from '../templates/api';
+import { Endpoint } from '../templates/endpoint';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';
 import path from 'path';
@@ -18,9 +18,9 @@ import {
   OpenAPIInfo,
 } from '../services/openapi-generator';
 
-interface ApiGroup {
+interface EndpointGroup {
   basePath: string;
-  modulesAsync: Promise<Array<new () => Api> | undefined>[];
+  modulesAsync: Promise<Array<new () => Endpoint> | undefined>[];
 }
 
 /**
@@ -28,7 +28,7 @@ interface ApiGroup {
  * resolving their routes and dynamically loading the defined controllers and tasks.
  */
 export default class Liteb extends Server {
-  private apiGroups: ApiGroup[] = [];
+  private endpointGroups: EndpointGroup[] = [];
   private tasksAsync: Promise<Array<new () => Task>>[] = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
@@ -40,22 +40,22 @@ export default class Liteb extends Server {
   } | null = null;
 
   /**
-   * Groups ApiReaders by module name.
+   * Groups EndpointReaders by module name.
    *
-   * @param apiReaders Array of ApiReader instances.
-   * @returns An object holding the ApiReaders grouped by module name.
+   * @param endpointReaders Array of EndpointReader instances.
+   * @returns An object holding the EndpointReaders grouped by module name.
    */
-  private groupApiReaders = (apiReaders: ApiReader[]) => {
-    return apiReaders.reduce(
-      (acc, apiReader) => {
-        const moduleName = apiReader.moduleName || 'default';
+  private groupEndpointReaders = (endpointReaders: EndpointReader[]) => {
+    return endpointReaders.reduce(
+      (acc, endpointReader) => {
+        const moduleName = endpointReader.moduleName || 'default';
         if (!acc[moduleName]) {
           acc[moduleName] = [];
         }
-        acc[moduleName].push(apiReader);
+        acc[moduleName].push(endpointReader);
         return acc;
       },
-      {} as { [moduleName: string]: typeof apiReaders },
+      {} as { [moduleName: string]: typeof endpointReaders },
     );
   };
 
@@ -69,15 +69,15 @@ export default class Liteb extends Server {
 
   private resolveApiPatterns = (
     pattern: string[],
-  ): ApiGroup['modulesAsync'] => {
+  ): EndpointGroup['modulesAsync'] => {
     return pattern
       .map(async (apiPattern) => {
-        const patternResolver = new PatternResolve<new () => Api>(apiPattern);
+        const patternResolver = new PatternResolve<new () => Endpoint>(apiPattern);
         await patternResolver.readModule();
         if (!patternResolver.hasExport()) return undefined;
         return patternResolver.getModules().flat();
       })
-      .flat() as ApiGroup['modulesAsync'];
+      .flat() as EndpointGroup['modulesAsync'];
   };
 
   /**
@@ -91,7 +91,7 @@ export default class Liteb extends Server {
    * @param pattern Array of glob patterns pointing at API module files.
    */
   public setApis = (path: string, pattern: string[]) => {
-    this.apiGroups = [
+    this.endpointGroups = [
       { basePath: path, modulesAsync: this.resolveApiPatterns(pattern) },
     ];
   };
@@ -108,7 +108,7 @@ export default class Liteb extends Server {
    * @param pattern Array of glob patterns pointing at API module files.
    */
   public addApis = (path: string, pattern: string[]) => {
-    this.apiGroups.push({
+    this.endpointGroups.push({
       basePath: path,
       modulesAsync: this.resolveApiPatterns(pattern),
     });
@@ -206,36 +206,36 @@ export default class Liteb extends Server {
     // Resolve API patterns per group (each group has its own basePath)
     const resolvedGroups: Array<{
       basePath: string;
-      apiReaders: ApiReader[];
+      endpointReaders: EndpointReader[];
     }> = [];
-    for (const group of this.apiGroups) {
+    for (const group of this.endpointGroups) {
       const modules = await Promise.all(group.modulesAsync);
       const exporteds = modules
-        .filter((m): m is Array<new () => Api> => m !== undefined)
+        .filter((m): m is Array<new () => Endpoint> => m !== undefined)
         .flat()
         // A controller/view file may export things besides the class
         // (constants, helpers, types). `Reflect.getMetadata` blows up with a
         // TypeError if given a primitive, so we only consider classes that
-        // extend `Api`; everything else is silently ignored.
+        // extend `Endpoint`; everything else is silently ignored.
         .filter(
-          (exported): exported is new () => Api =>
+          (exported): exported is new () => Endpoint =>
             typeof exported === 'function' &&
-            exported.prototype instanceof Api,
+            exported.prototype instanceof Endpoint,
         );
-      const apiReaders = exporteds
+      const endpointReaders = exporteds
         .map((exported) => {
-          const apiReader = new ApiReader(exported);
-          if (apiReader.isInvalid()) return;
-          return apiReader;
+          const endpointReader = new EndpointReader(exported);
+          if (endpointReader.isInvalid()) return;
+          return endpointReader;
         })
-        .filter((apiReader): apiReader is ApiReader => apiReader !== undefined)
+        .filter((endpointReader): endpointReader is EndpointReader => endpointReader !== undefined)
         .sort((a, b) => {
           if (a.priority === null && b.priority === null) return 0;
           if (a.priority === null) return 1;
           if (b.priority === null) return -1;
           return a.priority - b.priority;
         });
-      resolvedGroups.push({ basePath: group.basePath, apiReaders });
+      resolvedGroups.push({ basePath: group.basePath, endpointReaders });
     }
 
     // Mount Swagger UI first so /<docsPath> doesn't get shadowed by a
@@ -257,25 +257,25 @@ export default class Liteb extends Server {
 
     // Create routes and attach handlers, once per group
     Logger.clear('router');
-    for (const { basePath, apiReaders } of resolvedGroups) {
+    for (const { basePath, endpointReaders } of resolvedGroups) {
       Logger.router(`[API] BASE PATH: ${basePath}`);
-      const apiReadersByModule = this.groupApiReaders(apiReaders);
-      Object.entries(apiReadersByModule).forEach(
+      const endpointReadersByModule = this.groupEndpointReaders(endpointReaders);
+      Object.entries(endpointReadersByModule).forEach(
         ([moduleName, moduleReaders]) => {
-          const options = moduleReaders.map((apiReader) => {
-            const apiHandler = new ApiHandler(apiReader, this.dbSource);
+          const options = moduleReaders.map((endpointReader) => {
+            const endpointHandler = new EndpointHandler(endpointReader, this.dbSource);
             const option = new RouterOption(
-              apiReader.pathname,
-              apiReader.method,
+              endpointReader.pathname,
+              endpointReader.method,
             );
-            if (apiReader.hasMiddleware()) {
-              option.setHandler(apiHandler.middleware);
+            if (endpointReader.hasMiddleware()) {
+              option.setHandler(endpointHandler.middleware);
             }
-            if (apiReader.hasSchema()) {
-              option.setHandler(apiHandler.schema);
+            if (endpointReader.hasSchema()) {
+              option.setHandler(endpointHandler.schema);
             }
-            option.setHandler(apiHandler.main);
-            Logger.router(apiReader);
+            option.setHandler(endpointHandler.main);
+            Logger.router(endpointReader);
             return option;
           });
           this.router(path.join(basePath, moduleName), options);

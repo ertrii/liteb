@@ -10,12 +10,12 @@ export type DataJson =
   | null;
 
 /**
- * Api parents
+ * Endpoint parents
  * @template P Params data
  * @template B Body data
  * @template Q Queries data
  */
-export abstract class Api<
+export abstract class Endpoint<
   P extends Record<string, any> | null = null,
   B extends Record<string, any> | null = null,
   Q extends Record<string, any> | null = null,

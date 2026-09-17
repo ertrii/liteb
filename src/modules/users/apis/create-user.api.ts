@@ -1,11 +1,11 @@
-import { Api, Module, HttpPost, Body } from '../../../../lib';
+import { Endpoint, Module, HttpPost, Body } from '../../../../lib';
 import { CreateUser } from '../dto/create-user.dto';
 import { User } from '../entities/user.entity';
 
 @Module('users')
 @HttpPost()
 @Body(CreateUser)
-export class CreateUserApi extends Api<null, CreateUser> {
+export class CreateUserApi extends Endpoint<null, CreateUser> {
   private readonly userRep = this.db.getRepository(User);
   async main() {
     const user = new User();

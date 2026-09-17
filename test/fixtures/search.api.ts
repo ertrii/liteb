@@ -1,5 +1,5 @@
 import { IsOptional, IsString } from 'class-validator';
-import { Api, Body, HttpQuery, Module } from '../../lib';
+import { Endpoint, Body, HttpQuery, Module } from '../../lib';
 
 export class SearchBodyDto {
   @IsString()
@@ -17,7 +17,7 @@ export class SearchBodyDto {
 @Module('busqueda')
 @HttpQuery('clientes')
 @Body(SearchBodyDto)
-export class SearchCustomersApi extends Api<null, SearchBodyDto> {
+export class SearchCustomersApi extends Endpoint<null, SearchBodyDto> {
   main() {
     return { buscado: this.body.termino, ciudad: this.body.ciudad ?? null };
   }

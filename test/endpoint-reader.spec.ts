@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { describe, expect, it } from '@jest/globals';
 import { IsInt, IsString } from 'class-validator';
-import ApiReader from '../lib/core/api-reader';
-import { Api, Body, HttpGet, Module, Params, HttpPost, Priority, Use } from '../lib';
+import EndpointReader from '../lib/core/endpoint-reader';
+import { Endpoint, Body, HttpGet, Module, Params, HttpPost, Priority, Use } from '../lib';
 
 class BodyDto {
   @IsString()
@@ -16,7 +16,7 @@ class ParamsDto {
 
 @Module('users')
 @HttpGet('list')
-class ListUsersApi extends Api {
+class ListUsersApi extends Endpoint {
   main() {
     return { ok: true };
   }
@@ -28,22 +28,22 @@ class ListUsersApi extends Api {
 @Body(BodyDto)
 @Priority(1)
 @Use((_req, _res, next) => next())
-class CreateUserApi extends Api {
+class CreateUserApi extends Endpoint {
   main() {
     return { ok: true };
   }
 }
 
 /** No decorators: the reader must discard it. */
-class NakedApi extends Api {
+class NakedApi extends Endpoint {
   main() {
     return null;
   }
 }
 
-describe('ApiReader', () => {
+describe('EndpointReader', () => {
   it('lee módulo, verbo y ruta de los decoradores', () => {
-    const reader = new ApiReader(ListUsersApi);
+    const reader = new EndpointReader(ListUsersApi);
 
     expect(reader.isInvalid()).toBe(false);
     expect(reader.moduleName).toBe('users');
@@ -52,11 +52,11 @@ describe('ApiReader', () => {
   });
 
   it('descarta una clase sin @Module ni verbo HTTP', () => {
-    expect(new ApiReader(NakedApi).isInvalid()).toBe(true);
+    expect(new EndpointReader(NakedApi).isInvalid()).toBe(true);
   });
 
   it('detecta esquemas, middleware y prioridad', () => {
-    const reader = new ApiReader(CreateUserApi);
+    const reader = new EndpointReader(CreateUserApi);
 
     expect(reader.method).toBe('post');
     expect(reader.priority).toBe(1);
@@ -68,7 +68,7 @@ describe('ApiReader', () => {
   });
 
   it('sin esquemas ni middleware no reporta ninguno', () => {
-    const reader = new ApiReader(ListUsersApi);
+    const reader = new EndpointReader(ListUsersApi);
 
     expect(reader.hasSchema()).toBe(false);
     expect(reader.hasMiddleware()).toBe(false);

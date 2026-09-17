@@ -26,7 +26,7 @@ export type {
   OpenAPIInfo,
   OpenAPIDocument,
 } from './services/openapi-generator';
-export * from './templates/api';
+export * from './templates/endpoint';
 export * from './templates/task';
 export * from './utilities/logger';
 export type { LoggerOptions } from './services/log4js';

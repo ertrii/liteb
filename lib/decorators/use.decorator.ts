@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Api } from '../templates/api';
+import { Endpoint } from '../templates/endpoint';
 
 export const USE = Symbol('__use__');
 
@@ -14,7 +14,7 @@ export interface UseMetadata {
 }
 
 export function Use(middleware: MiddlewareFn) {
-  return function (target: new () => Api<any, any, any>) {
+  return function (target: new () => Endpoint<any, any, any>) {
     Reflect.defineMetadata(USE, { middleware } as UseMetadata, target);
   };
 }

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import ApiReader from '../core/api-reader';
+import EndpointReader from '../core/endpoint-reader';
 import slash from 'slash';
 import log4js, {
   configureLogger,
@@ -55,13 +55,13 @@ export class Logger {
 
   /**
    * Logs a message to the route log ('router') and console.
-   * @param message Message to log; can be a string or an ApiReader instance.
+   * @param message Message to log; can be a string or an EndpointReader instance.
    * @param args Extra arguments for the logger.
    * @returns Result of the log4js router trace call.
    */
-  static router(message: string | ApiReader, ...args: any[]) {
+  static router(message: string | EndpointReader, ...args: any[]) {
     const logRouter = log4js.getLogger('router');
-    if (message instanceof ApiReader) {
+    if (message instanceof EndpointReader) {
       const type = 'API';
       const priority = message.priority ?? '-';
       const method = message.method.toUpperCase();

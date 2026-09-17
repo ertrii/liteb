@@ -1,11 +1,11 @@
-import { Api, Module, HttpGet, Priority } from '../../../../lib';
+import { Endpoint, Module, HttpGet, Priority } from '../../../../lib';
 import { GetUserDto } from '../dto/get-user.dto';
 import { User } from '../entities/user.entity';
 
 @Module('users')
 @HttpGet(':user_id')
 @Priority(1)
-export class GetUserApi extends Api<GetUserDto> {
+export class GetUserApi extends Endpoint<GetUserDto> {
   userRep = this.db.getRepository(User);
   main() {
     const userId = +this.params.user_id;

@@ -9,6 +9,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Work toward `2.0.0`, which turns liteb from a routing library into a module
 framework. The `1.x` line is frozen on the `v1` branch and only receives fixes.
 
+### Changed
+
+- **`Api` is now `Endpoint`.** The class models a single operation, not the whole
+  API, and the name now says so. Its file moves to `lib/templates/endpoint.ts`.
+  The internals that name it follow: `ApiReader` -> `EndpointReader`,
+  `ApiHandler` -> `EndpointHandler`, `ApiClass` -> `EndpointClass`.
+  The OpenAPI decorators (`ApiTag`, `ApiSummary`, `ApiDescription`,
+  `ApiResponse`) keep their names: there, "Api" means OpenAPI.
+  `setApis` / `addApis` are untouched for now — the module system replaces them.
+
 ### Removed
 
 **Breaking.** Everything marked `@deprecated` in `1.0` is gone. Migration is the

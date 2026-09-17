@@ -16,7 +16,7 @@ import {
 } from '../decorators/request.decorator';
 import { MiddlewareFn, USE, UseMetadata } from '../decorators/use.decorator';
 import { PRIORITY, PriorityMetadata } from '../decorators/priority.decorator';
-import { Api } from '../templates/api';
+import { Endpoint } from '../templates/endpoint';
 import { TEMPLATE, TemplateMetadata } from '../decorators/render.decorator';
 import {
   API_DESCRIPTION,
@@ -30,7 +30,7 @@ import {
   ApiTagMetadata,
 } from '../decorators/openapi.decorator';
 
-export default class ApiReader {
+export default class EndpointReader {
   public moduleName: string;
   public pathname: string;
   public method: 'get' | 'post' | 'put' | 'delete' | 'patch' | 'query';
@@ -48,7 +48,7 @@ export default class ApiReader {
   private getModule = () => {
     const moduleDefine = Reflect.getMetadata(
       MODULE,
-      this.ApiClass,
+      this.EndpointClass,
     ) as ModuleMetadata;
     if (moduleDefine) {
       this.moduleName = moduleDefine.basePath;
@@ -65,7 +65,7 @@ export default class ApiReader {
       ['query', QUERY_METHOD],
     ];
     for (const [method, KEY] of MethodKeys) {
-      const metadata = Reflect.getMetadata(KEY, this.ApiClass) as HTTPMetadata;
+      const metadata = Reflect.getMetadata(KEY, this.EndpointClass) as HTTPMetadata;
       if (metadata) {
         this.pathname = metadata.path;
         this.method = method;
@@ -77,7 +77,7 @@ export default class ApiReader {
   private getPriority = () => {
     const priorityDefine = Reflect.getMetadata(
       PRIORITY,
-      this.ApiClass,
+      this.EndpointClass,
     ) as PriorityMetadata;
     if (priorityDefine) {
       this.priority = priorityDefine.number;
@@ -85,7 +85,7 @@ export default class ApiReader {
   };
 
   private getUse = () => {
-    const useDefine = Reflect.getMetadata(USE, this.ApiClass) as UseMetadata;
+    const useDefine = Reflect.getMetadata(USE, this.EndpointClass) as UseMetadata;
     if (useDefine) {
       this.MiddlewareClass = useDefine.middleware;
     }
@@ -94,7 +94,7 @@ export default class ApiReader {
   private getParams = () => {
     const paramsDefine = Reflect.getMetadata(
       PARAMS,
-      this.ApiClass,
+      this.EndpointClass,
     ) as RequestMetadata;
     if (paramsDefine) {
       this.ParamsSchema = paramsDefine.Schema;
@@ -104,7 +104,7 @@ export default class ApiReader {
   private getBody = () => {
     const bodyDefine = Reflect.getMetadata(
       BODY,
-      this.ApiClass,
+      this.EndpointClass,
     ) as RequestMetadata;
     if (bodyDefine) {
       this.BodySchema = bodyDefine.Schema;
@@ -114,7 +114,7 @@ export default class ApiReader {
   private getQuery = () => {
     const queryDefine = Reflect.getMetadata(
       QUERY,
-      this.ApiClass,
+      this.EndpointClass,
     ) as RequestMetadata;
     if (queryDefine) {
       this.QuerySchema = queryDefine.Schema;
@@ -124,7 +124,7 @@ export default class ApiReader {
   private getTemplate = () => {
     const viewDefine = Reflect.getMetadata(
       TEMPLATE,
-      this.ApiClass,
+      this.EndpointClass,
     ) as TemplateMetadata;
     if (viewDefine) {
       this.view = viewDefine.path;
@@ -134,35 +134,35 @@ export default class ApiReader {
   private getOpenApi = () => {
     const tagDefine = Reflect.getMetadata(
       API_TAG,
-      this.ApiClass,
+      this.EndpointClass,
     ) as ApiTagMetadata;
     if (tagDefine) {
       this.apiTags = tagDefine.tags;
     }
     const summaryDefine = Reflect.getMetadata(
       API_SUMMARY,
-      this.ApiClass,
+      this.EndpointClass,
     ) as ApiSummaryMetadata;
     if (summaryDefine) {
       this.apiSummary = summaryDefine.summary;
     }
     const descDefine = Reflect.getMetadata(
       API_DESCRIPTION,
-      this.ApiClass,
+      this.EndpointClass,
     ) as ApiDescriptionMetadata;
     if (descDefine) {
       this.apiDescription = descDefine.description;
     }
     const responsesDefine = Reflect.getMetadata(
       API_RESPONSES,
-      this.ApiClass,
+      this.EndpointClass,
     ) as ApiResponsesMetadata;
     if (responsesDefine) {
       this.apiResponses = responsesDefine.responses;
     }
   };
 
-  constructor(private ApiClass: new () => Api) {
+  constructor(private EndpointClass: new () => Endpoint) {
     this.getModule();
     this.getHttp();
     this.getPriority();
@@ -181,8 +181,8 @@ export default class ApiReader {
     return false;
   };
 
-  public getApiClass = () => {
-    return this.ApiClass;
+  public getEndpointClass = () => {
+    return this.EndpointClass;
   };
 
   public hasMiddleware = () => {

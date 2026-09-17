@@ -1,4 +1,4 @@
-import { Api } from '../templates/api';
+import { Endpoint } from '../templates/endpoint';
 
 export const MODULE = Symbol('__module__');
 
@@ -7,7 +7,7 @@ export interface ModuleMetadata {
 }
 
 export function Module(basePath: string) {
-  return function (target: new () => Api<any, any, any>) {
+  return function (target: new () => Endpoint<any, any, any>) {
     Reflect.defineMetadata(MODULE, { basePath } as ModuleMetadata, target);
   };
 }

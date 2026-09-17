@@ -1,5 +1,5 @@
 import {
-  Api,
+  Endpoint,
   DataJson,
   HttpGet,
   Module,
@@ -11,7 +11,7 @@ import {
 @HttpGet('/page')
 @Template('page-user')
 @Priority(1)
-export class UsePageApi extends Api {
+export class UsePageApi extends Endpoint {
   public main(): DataJson | Promise<DataJson> {
     return {
       message:

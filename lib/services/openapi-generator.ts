@@ -1,7 +1,7 @@
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import path from 'path';
 import slash from 'slash';
-import ApiReader from '../core/api-reader';
+import EndpointReader from '../core/endpoint-reader';
 
 export interface OpenAPIInfo {
   title?: string;
@@ -99,12 +99,12 @@ function paramsFromSchema(
 
 export interface OpenAPIGroup {
   basePath: string;
-  apiReaders: ApiReader[];
+  endpointReaders: EndpointReader[];
 }
 
 /**
  * Generate an OpenAPI 3.0.3 spec from one or more groups of registered
- * ApiReaders. Each group has its own basePath; routes are emitted at
+ * EndpointReaders. Each group has its own basePath; routes are emitted at
  * `path.join(group.basePath, reader.moduleName, reader.pathname)`.
  */
 export class OpenAPIGenerator {
@@ -113,7 +113,7 @@ export class OpenAPIGenerator {
     info?: OpenAPIInfo;
   }): OpenAPIDocument;
   generate(args: {
-    apiReaders: ApiReader[];
+    endpointReaders: EndpointReader[];
     basePath: string;
     info?: OpenAPIInfo;
   }): OpenAPIDocument;
@@ -122,7 +122,7 @@ export class OpenAPIGenerator {
     const groups: OpenAPIGroup[] =
       'groups' in args
         ? args.groups
-        : [{ basePath: args.basePath, apiReaders: args.apiReaders }];
+        : [{ basePath: args.basePath, endpointReaders: args.endpointReaders }];
 
     // Convert all class-validator decorated DTOs into JSON schemas at once.
     // class-validator-jsonschema reads the global metadata storage, so any DTO
@@ -136,7 +136,7 @@ export class OpenAPIGenerator {
     const tagSet = new Set<string>();
 
     for (const group of groups) {
-      for (const reader of group.apiReaders) {
+      for (const reader of group.endpointReaders) {
         if (reader.requiereRender()) continue; // skip view-rendering endpoints
         // OpenAPI 3 does not define QUERY as an operation: including it would
         // produce an invalid document, so it is omitted from the spec.

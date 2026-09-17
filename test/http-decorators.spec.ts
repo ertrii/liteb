@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { describe, expect, it } from '@jest/globals';
-import ApiReader from '../lib/core/api-reader';
+import EndpointReader from '../lib/core/endpoint-reader';
 import {
-  Api,
+  Endpoint,
   HttpDelete,
   HttpGet,
   HttpPatch,
@@ -14,13 +14,13 @@ import {
 
 const build = (decorate: (target: any) => void) => {
   @Module('demo')
-  class Endpoint extends Api {
+  class Demo extends Endpoint {
     main() {
       return null;
     }
   }
-  decorate(Endpoint);
-  return new ApiReader(Endpoint as unknown as new () => Api);
+  decorate(Demo);
+  return new EndpointReader(Demo as unknown as new () => Endpoint);
 };
 
 describe('decoradores HTTP', () => {

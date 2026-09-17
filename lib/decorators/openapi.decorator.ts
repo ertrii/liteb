@@ -1,4 +1,4 @@
-import { Api } from '../templates/api';
+import { Endpoint } from '../templates/endpoint';
 
 export const API_TAG = Symbol('__api_tag__');
 export const API_SUMMARY = Symbol('__api_summary__');
@@ -33,7 +33,7 @@ export interface ApiResponsesMetadata {
  * from `@Module` is used as the default tag.
  */
 export function ApiTag(...tags: string[]) {
-  return function (target: new () => Api<any, any, any>) {
+  return function (target: new () => Endpoint<any, any, any>) {
     Reflect.defineMetadata(API_TAG, { tags } as ApiTagMetadata, target);
   };
 }
@@ -42,7 +42,7 @@ export function ApiTag(...tags: string[]) {
  * Short summary for the endpoint (shows as the title in Swagger UI).
  */
 export function ApiSummary(summary: string) {
-  return function (target: new () => Api<any, any, any>) {
+  return function (target: new () => Endpoint<any, any, any>) {
     Reflect.defineMetadata(
       API_SUMMARY,
       { summary } as ApiSummaryMetadata,
@@ -55,7 +55,7 @@ export function ApiSummary(summary: string) {
  * Longer description for the endpoint (Markdown allowed in Swagger UI).
  */
 export function ApiDescription(description: string) {
-  return function (target: new () => Api<any, any, any>) {
+  return function (target: new () => Endpoint<any, any, any>) {
     Reflect.defineMetadata(
       API_DESCRIPTION,
       { description } as ApiDescriptionMetadata,
@@ -75,7 +75,7 @@ export function ApiResponse(
     Schema?: new () => Record<string, any>;
   } = {},
 ) {
-  return function (target: new () => Api<any, any, any>) {
+  return function (target: new () => Endpoint<any, any, any>) {
     const existing = (Reflect.getMetadata(API_RESPONSES, target) as
       | ApiResponsesMetadata
       | undefined) ?? { responses: [] };

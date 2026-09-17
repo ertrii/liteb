@@ -1,8 +1,8 @@
-import { Api, DataJson, HttpGet, Module } from '../../../../lib';
+import { Endpoint, DataJson, HttpGet, Module } from '../../../../lib';
 
 @Module('crm')
 @HttpGet('periodosAdmisionTarifa')
-export default class RatesApi extends Api {
+export default class RatesApi extends Endpoint {
   public main(): DataJson {
     return [
       {

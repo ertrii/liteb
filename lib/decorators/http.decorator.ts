@@ -1,4 +1,4 @@
-import { Api } from '../templates/api';
+import { Endpoint } from '../templates/endpoint';
 
 export const GET = Symbol('__get__');
 export const POST = Symbol('__post__');
@@ -13,7 +13,7 @@ export interface HTTPMetadata {
 
 const httpDecorator = (KEY: symbol) => {
   return (path: string = '') => {
-    return function (target: new () => Api<any, any, any>) {
+    return function (target: new () => Endpoint<any, any, any>) {
       Reflect.defineMetadata(KEY, { path } as HTTPMetadata, target);
     };
   };

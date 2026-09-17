@@ -1,5 +1,5 @@
 import {
-  Api,
+  Endpoint,
   ErrorResponse,
   ErrorType,
   HttpGet,
@@ -11,7 +11,7 @@ import { User } from '../entities/user.entity';
 @Module('users')
 @HttpGet('all')
 @Priority(2)
-export class GetUsersApi extends Api {
+export class GetUsersApi extends Endpoint {
   private readonly userRep = this.db.getRepository(User);
 
   public previous(): void | Promise<void> {

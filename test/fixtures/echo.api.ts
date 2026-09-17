@@ -1,5 +1,5 @@
 import { IsString } from 'class-validator';
-import { Api, HttpGet, Module, Query } from '../../lib';
+import { Endpoint, HttpGet, Module, Query } from '../../lib';
 
 export class EchoQueryDto {
   @IsString()
@@ -17,7 +17,7 @@ export class EchoQueryDto {
 @Module('eco')
 @HttpGet('')
 @Query(EchoQueryDto)
-export class EchoApi extends Api<null, null, EchoQueryDto> {
+export class EchoApi extends Endpoint<null, null, EchoQueryDto> {
   async main() {
     await new Promise((resolve) => setTimeout(resolve, Number(this.query.delay)));
     return { value: this.query.value };

@@ -1,19 +1,19 @@
 import { Request, Response } from 'express';
-import ApiReader from './api-reader';
+import EndpointReader from './endpoint-reader';
 import schemaValidator from '../services/schema-validator';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorIdentifier } from '../interfaces/type-error';
 import { DataSource } from 'typeorm';
 import ErrorControl from '../utilities/error-control';
 
-export default class ApiHandler {
+export default class EndpointHandler {
   constructor(
-    private apiReader: ApiReader,
+    private endpointReader: EndpointReader,
     private dbSource: DataSource,
   ) {}
 
   public middleware = (req: Request, res: Response, next: () => void) => {
-    this.apiReader.MiddlewareClass(req, res, next);
+    this.endpointReader.MiddlewareClass(req, res, next);
   };
 
   public schema = async (req: Request, res: Response, next: () => void) => {
@@ -21,9 +21,9 @@ export default class ApiHandler {
     let errors: Record<string, any> | null = null;
 
     const schemasClass: Array<[new () => any, any, string]> = [
-      [this.apiReader.ParamsSchema, req.params, 'Invalid parameters'],
-      [this.apiReader.BodySchema, req.body, 'Invalid body'],
-      [this.apiReader.QuerySchema, req.query, 'Invalid query'],
+      [this.endpointReader.ParamsSchema, req.params, 'Invalid parameters'],
+      [this.endpointReader.BodySchema, req.body, 'Invalid body'],
+      [this.endpointReader.QuerySchema, req.query, 'Invalid query'],
     ];
 
     for (const [schemaClass, object, msg] of schemasClass) {
@@ -49,14 +49,14 @@ export default class ApiHandler {
   };
 
   public main = async (req: Request, res: Response) => {
-    const ApiClass = this.apiReader.getApiClass();
+    const EndpointClass = this.endpointReader.getEndpointClass();
     // `db` is stable across requests, so it lives on the prototype: it is
     // available during field initializers (e.g.
     // `private rep = this.db.getRepository(...)`), which run inside `new`.
-    ApiClass.prototype.db = this.dbSource;
+    EndpointClass.prototype.db = this.dbSource;
 
-    const requiereRender = this.apiReader.requiereRender();
-    const apiClass = new ApiClass();
+    const requiereRender = this.endpointReader.requiereRender();
+    const endpointClass = new EndpointClass();
     // The rest of the state is PER REQUEST and is assigned on the INSTANCE, not
     // the prototype. With the prototype, two concurrent requests to the same
     // endpoint overwrote each other: one `await`ed inside `main()` while the
@@ -64,28 +64,28 @@ export default class ApiHandler {
     // them, so both ended up with the last one's data. Assigning on the
     // instance gives each request its own state. (cast: the instance is typed
     // with the default `null` generics; the real state comes from the DTOs.)
-    const state = apiClass as unknown as Record<string, unknown>;
-    state.params = this.apiReader.ParamsSchema ? req.params : null;
-    state.body = this.apiReader.BodySchema ? req.body : null;
-    state.query = this.apiReader.QuerySchema ? req.query : null;
+    const state = endpointClass as unknown as Record<string, unknown>;
+    state.params = this.endpointReader.ParamsSchema ? req.params : null;
+    state.body = this.endpointReader.BodySchema ? req.body : null;
+    state.query = this.endpointReader.QuerySchema ? req.query : null;
     state.files = req.files;
     state.file = req.file;
     state.request = req;
     state.response = res;
     try {
-      await apiClass.previous();
-      const dataResponse = await apiClass.main();
+      await endpointClass.previous();
+      const dataResponse = await endpointClass.main();
       if (requiereRender) {
-        res.render(this.apiReader.getTemplatePath(), dataResponse);
+        res.render(this.endpointReader.getTemplatePath(), dataResponse);
         return;
       }
       // The controller may have written directly to `this.response` (binaries,
       // HTML, streams). If it already ended the response, don't overwrite it.
       if (res.headersSent) return;
-      res.status(apiClass.httpStatus).json(dataResponse);
+      res.status(endpointClass.httpStatus).json(dataResponse);
     } catch (error) {
       try {
-        const errorResponse = await apiClass.error(error);
+        const errorResponse = await endpointClass.error(error);
         const errResult = new ErrorControl(
           errorResponse ? errorResponse : error,
         );
@@ -109,7 +109,7 @@ export default class ApiHandler {
         res.status(errResult.getStatus()).json(errResult.toJson());
       }
     } finally {
-      await apiClass.final();
+      await endpointClass.final();
     }
   };
 }
