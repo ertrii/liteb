@@ -72,6 +72,8 @@ writes the shape; you write the code.
 | `create module <name>` | `module.ts`, its permissions file and a first endpoint |
 | `create endpoint <module>/<name>` | An endpoint (`--method`, `--path`, `--group`, `--public`) |
 | `create routine <module>/<name>` | Work on a schedule (`--cron`) |
+| `create contract <module>/<name>` | A capability this module publishes: token and shape |
+| `create provider <module>/<name>` | The class that answers it (`--slot` to fill an extension point) |
 | `create listener <module>/<name>` | A listener |
 | `create entity <module>/<name>` | An entity (`--table`) |
 | `create migration <module>/<name>` | A timestamped migration |
@@ -258,9 +260,12 @@ export default defineModule({
   dir: __dirname,             // the folder everything is found from
 
   permissions: [{ key: 'billing.view', label: 'View billing' }],
-  provides: [{ token: BillingService, use: BillingServiceImpl }],
 });
 ```
+
+A manifest is where the pieces are **wired**, and nothing else: no paths,
+because the folders are the layout below, and no implementation, because that
+is a class in `providers/`.
 
 ### The standard layout
 
@@ -274,6 +279,7 @@ is particular to **this** module. The folders are found from `dir`:
 | `endpoints/*.endpoint.ts` | the endpoints, mounted under the module id |
 | `routines/*.routine.ts` | the scheduled routines |
 | `listeners/*.listener.ts` | the event listeners |
+| `providers/*.provider.ts` | the `Provider` classes: what it answers, what it contributes |
 
 Writing the file is all there is to do. `liteb create entity billing/charge`
 writes `entities/charge.entity.ts` and edits **nothing**: the folder is what
@@ -282,6 +288,17 @@ declares it.
 Only decorated entities and migration classes are taken. An enum, a DTO or a
 helper exported from the same file is ignored, so a folder can hold what
 belongs with it.
+
+Two more folders are convention without being globs, because there is nothing
+in them to discover — a token is imported by name:
+
+| Folder | What goes in it |
+| --- | --- |
+| `contracts/*.contract.ts` | the contracts this module publishes |
+| `events/*.event.ts` · `slots/*.slot.ts` | the events it announces, the extension points it opens |
+
+Together they are the module's public face: the only files another module ever
+imports.
 
 **Naming a field says something else**, and only for that field:
 
@@ -409,6 +426,48 @@ consumes: [BillingService],
 
 Routines get the same `this.get()`.
 
+#### The two halves
+
+A contract is deliberately split in two, and they live in different folders.
+
+```typescript
+// billing/contracts/billing-service.contract.ts — the promise
+export interface BillingService {
+  issueCharge(input: IssueChargeInput): Promise<Charge>;
+}
+export const BillingService = contract<BillingService>('billing.service');
+```
+
+```typescript
+// billing/providers/billing-service.provider.ts — how it is kept
+@Provides(BillingService)
+export class BillingServiceProvider extends Provider implements BillingService {
+  private readonly charges = this.db.getRepository(Charge);
+
+  async issueCharge(input: IssueChargeInput) { ... }
+}
+```
+
+The consumer imports the **contract file** and never the provider. Nothing
+lists the provider: the folder is what registers it and the decorator says
+which contract it answers.
+
+- **`this.db`, `this.get()`, `this.all()` and `this.emit()`** are injected
+  before the instance is built, so a field initializer can already reach for a
+  repository — the same as an endpoint, a routine or a listener.
+- **Built on first use, then reused.** A contract nobody calls costs nothing,
+  and the boot does not hang on something one endpoint needs.
+- **Exactly one provider.** Two modules answering the same contract is an error
+  at boot, because otherwise the caller would get one of them by load order.
+- Two implementations asking for each other is reported by name instead of
+  exhausting the stack.
+- A `Provider` with no decorator is skipped with a warning: a file being
+  written is not a broken installation.
+
+> The manifest's `provides:` and `contributes:` still work, deprecated. They
+> put a module's real work inside `module.ts`, which is the one file that
+> should only wire things together.
+
 ### Extension points
 
 Three ways modules meet, and they are not interchangeable:
@@ -432,8 +491,12 @@ export const ProductBadges = slot<ProductBadge>('catalog.product-badges');
 ```
 
 ```typescript
-// any module fills it, without catalog changing
-contributes: [{ slot: ProductBadges, value: lowStockBadge }],
+// any module fills it, without catalog changing — providers/low-stock-badge.provider.ts
+@Contributes(ProductBadges)
+export class LowStockBadge extends Provider implements ProductBadge {
+  readonly id = 'low-stock';
+  for(product) { return product.stock < 10 ? 'Low stock' : null; }
+}
 ```
 
 ```typescript
@@ -446,8 +509,10 @@ depend on: `catalog` knows nothing about who fills it, while a contributor
 imports its token. Backwards, core would depend on its own extensions and none
 of them could be removed.
 
-- Contributions take the same three shapes as a provider: `use` (a class built
-  with `{ db, get, all, emit }`), `factory` or `value`.
+- A contribution is a `Provider` like any other — same folder, same injection —
+  and `@Contributes` takes a slot where `@Provides` takes a contract. Passing
+  one where the other goes fails at the decorator, with the difference spelled
+  out.
 - **Only enabled modules contribute**, so turning an extension off removes what
   it added.
 - An empty array is a normal answer: a slot nobody filled is a feature nobody

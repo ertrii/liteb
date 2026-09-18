@@ -1,6 +1,6 @@
 import { Listener, On } from '../../../../lib';
-import { ProductRestocked } from '../../catalog/module';
-import { UserDirectory } from '../../identity/module';
+import { ProductRestocked } from '../../catalog/events/product-restocked.event';
+import { UserDirectory } from '../../identity/contracts/user-directory.contract';
 
 /**
  * Reacts to something `catalog` announced, and enriches it with data owned by

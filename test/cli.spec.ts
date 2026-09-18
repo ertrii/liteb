@@ -5,18 +5,26 @@ import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import {
+  createContract,
   createEndpoint,
   createEntity,
   createListener,
   createMigration,
   createModule,
+  createProvider,
   createRoutine,
 } from '../lib/cli/generators';
 import { applyEdit } from '../lib/cli/writer';
 import { apply } from '../lib/cli/writer';
 import { createProject } from '../lib/cli/init';
 import { parseTarget, toKebab, toPascal } from '../lib/cli/names';
-import { AuthResolver, collectModuleEntities, Liteb, ResolvedModule } from '../lib';
+import {
+  AuthResolver,
+  buildContainer,
+  collectModuleEntities,
+  Liteb,
+  ResolvedModule,
+} from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 
 /**
@@ -190,6 +198,12 @@ describe('un módulo generado y puesto a andar', () => {
     scaffold(createListener({ target: 'inventory/audit', modulesDir, from: 'liteb' }));
     scaffold(
       createMigration({ target: 'inventory/create-items', modulesDir, from: 'liteb' }),
+    );
+    scaffold(
+      createContract({ target: 'inventory/stock', modulesDir, from: 'liteb' }),
+    );
+    scaffold(
+      createProvider({ target: 'inventory/stock', modulesDir, from: 'liteb' }),
     );
 
     // Antes que nada: el archivo que le enseña al compilador las claves de
@@ -388,6 +402,22 @@ describe('un módulo generado y puesto a andar', () => {
     const entry = require(path.join(workspace, 'src/index.ts'));
 
     expect(typeof entry.createApp).toBe('function');
+  });
+
+  it('el contrato y su proveedor quedan enchufados, sin manifiesto', async () => {
+    // Dos archivos: el token en contracts/, la clase en providers/. El
+    // manifiesto no nombra ninguno y el contenedor igual lo resuelve.
+    const declaredManifest = declared(`${modulesDir}/inventory/module.ts`);
+    expect(declaredManifest).not.toContain('provides');
+
+    expect(
+      read(`${modulesDir}/inventory/providers/stock.provider.ts`),
+    ).toContain('@Provides(Stock)');
+
+    const container = await buildContainer([inventory], db);
+    expect(container.providerOf({ id: 'inventory.stock' } as never)).toBe(
+      'inventory',
+    );
   });
 
   it('rutina, oyente y migración no tocan el manifiesto', () => {

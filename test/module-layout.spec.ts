@@ -9,6 +9,7 @@ import {
 import {
   loadModuleEndpoints,
   loadModuleListeners,
+  loadModuleProviders,
   loadModuleRoutines,
 } from '../lib/modules/module-loader';
 
@@ -27,7 +28,7 @@ const base = { id: 'layout', version: '1.0.0' };
 const names = (values: unknown[]) => values.map((v) => (v as Function).name);
 
 describe('disposición estándar', () => {
-  it('sin declarar nada, encuentra las cinco carpetas', () => {
+  it('sin declarar nada, encuentra las seis carpetas', () => {
     const mod = defineModule({ ...base, dir });
 
     expect(names(mod.entities)).toEqual(['Thing']);
@@ -38,6 +39,7 @@ describe('disposición estándar', () => {
     expect(mod.routes).toEqual([MODULE_LAYOUT.routes]);
     expect(mod.routines).toEqual([MODULE_LAYOUT.routines]);
     expect(mod.listeners).toEqual([MODULE_LAYOUT.listeners]);
+    expect(mod.providers).toEqual([MODULE_LAYOUT.providers]);
   });
 
   it('y lo encontrado se monta: no son sólo rutas en un arreglo', async () => {
@@ -46,12 +48,17 @@ describe('disposición estándar', () => {
     const endpoints = await loadModuleEndpoints(mod);
     const routines = await loadModuleRoutines(mod);
     const listeners = await loadModuleListeners(mod);
+    const providers = await loadModuleProviders(mod);
 
     expect(endpoints).toHaveLength(1);
     // Sin `@Group`: el prefijo sale del id del módulo.
     expect(endpoints[0].group).toBe('layout');
     expect(routines).toHaveLength(1);
     expect(listeners).toHaveLength(1);
+
+    // Y el token sale del decorador de la clase, no de una lista.
+    expect(providers).toHaveLength(1);
+    expect(providers[0].target.id).toBe('layout.things');
   });
 
   it('en la carpeta de entidades, lo que no es entidad se ignora', () => {
@@ -79,6 +86,7 @@ describe('disposición estándar', () => {
       'routes',
       'routines',
       'listeners',
+      'providers',
     ]);
   });
 });
@@ -98,6 +106,7 @@ describe('cuando el módulo está en otro lado', () => {
       'migrations',
       'routines',
       'listeners',
+      'providers',
     ]);
   });
 

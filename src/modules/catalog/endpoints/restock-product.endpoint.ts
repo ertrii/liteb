@@ -10,7 +10,7 @@ import { ProductIdDto } from '../dto/product-id.dto';
 import { RestockDto } from '../dto/restock.dto';
 import { Product } from '../entities/product.entity';
 import { StockMove } from '../entities/stock-move.entity';
-import { ProductRestocked } from '../module';
+import { ProductRestocked } from '../events/product-restocked.event';
 
 /**
  * Two writes that must land together — this is what `db.transaction()` is for.

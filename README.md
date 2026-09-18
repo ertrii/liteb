@@ -62,7 +62,6 @@ export default defineModule({
   requires: ['identity'],
 
   permissions: [{ key: 'billing.view', label: 'View billing' }],
-  provides: [{ token: BillingService, factory: ({ db }) => new Billing(db) }],
   consumes: [UserDirectory],
 });
 ```
@@ -75,6 +74,7 @@ billing/
 ├── module.ts
 ├── entities/*.entity.ts        migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts   listeners/*.listener.ts
+├── contracts/*.contract.ts     providers/*.provider.ts
 ```
 
 Name a field — `routes: './apis/*.api.ts'` — only to say something else; it
@@ -141,6 +141,8 @@ npx liteb create module billing              # manifest, first endpoint, migrati
 npx liteb create endpoint billing/issue --method post
 npx liteb create entity billing/charge       # registered in the manifest
 npx liteb create migration billing/create-charges
+npx liteb create contract billing/service
+npx liteb create provider billing/service
 npx liteb create routine billing/nightly --cron "0 7 * * *"
 npx liteb create listener billing/audit
 

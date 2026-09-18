@@ -165,12 +165,12 @@ describe('buildContainer', () => {
     provides: [{ token: Clock, value: { now: () => 'desde billing' } }],
   });
 
-  it('registra lo que proveen los módulos activos', () => {
-    const container = buildContainer([proveedor], fakeDb);
+  it('registra lo que proveen los módulos activos', async () => {
+    const container = await buildContainer([proveedor], fakeDb);
     expect(container.get(Clock).now()).toBe('desde billing');
   });
 
-  it('acepta un consumidor cuyo contrato existe', () => {
+  it('acepta un consumidor cuyo contrato existe', async () => {
     const consumidor = defineModule({
       id: 'inventory',
       version: '1.0.0',
@@ -178,22 +178,22 @@ describe('buildContainer', () => {
       consumes: [Clock],
     });
 
-    expect(() => buildContainer([proveedor, consumidor], fakeDb)).not.toThrow();
+    await expect(buildContainer([proveedor, consumidor], fakeDb)).resolves.toBeDefined();
   });
 
-  it('no arranca si nadie provee lo que un módulo consume', () => {
+  it('no arranca si nadie provee lo que un módulo consume', async () => {
     const solitario = defineModule({
       id: 'inventory',
       version: '1.0.0',
       consumes: [Greeter],
     });
 
-    expect(() => buildContainer([solitario], fakeDb)).toThrow(
+    await expect(buildContainer([solitario], fakeDb)).rejects.toThrow(
       /consumes the contract "demo.greeter", which no enabled module provides/,
     );
   });
 
-  it('el orden de registro no importa para validar el consumo', () => {
+  it('el orden de registro no importa para validar el consumo', async () => {
     // El consumidor va primero: igual encuentra lo que provee el otro.
     const consumidor = defineModule({
       id: 'inventory',
@@ -201,10 +201,10 @@ describe('buildContainer', () => {
       consumes: [Clock],
     });
 
-    expect(() => buildContainer([consumidor, proveedor], fakeDb)).not.toThrow();
+    await expect(buildContainer([consumidor, proveedor], fakeDb)).resolves.toBeDefined();
   });
 
-  it('sin módulos queda vacío', () => {
-    expect(buildContainer([], fakeDb).ids()).toEqual([]);
+  it('sin módulos queda vacío', async () => {
+    expect((await buildContainer([], fakeDb)).ids()).toEqual([]);
   });
 });

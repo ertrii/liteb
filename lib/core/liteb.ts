@@ -436,7 +436,7 @@ export default class Liteb extends Server {
 
     // Built before anything is mounted: a module consuming a contract nobody
     // provides must stop the boot, not the first request that needs it.
-    this.container = buildContainer(active, this.dbSource);
+    this.container = await buildContainer(active, this.dbSource);
     const contracts = this.container.ids();
     if (contracts.length > 0) {
       Logger.info(`Contracts registered: ${contracts.join(', ')}`);

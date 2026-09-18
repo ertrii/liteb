@@ -373,6 +373,7 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
   // keeps an existing manifest working.
   const routines = globs('routines', manifest.routines ?? manifest.tasks);
   const listeners = globs('listeners', manifest.listeners);
+  const providers = globs('providers', manifest.providers);
 
   return {
     id,
@@ -387,6 +388,7 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     routes: routes.patterns,
     routines: routines.patterns,
     listeners: listeners.patterns,
+    providers: providers.patterns,
     implicit,
     contributes: manifest.contributes ?? [],
     permissions,

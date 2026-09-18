@@ -10,6 +10,8 @@ import {
   createListener,
   createMigration,
   createModule,
+  createContract,
+  createProvider,
   createRoutine,
 } from './generators';
 import { CliError } from './names';
@@ -185,6 +187,34 @@ export function buildProgram(): Command {
         modulesDir: flags.dir,
         from: flags.from,
         cron: flags.cron,
+      }),
+      flags,
+    );
+  });
+
+  common(
+    create
+      .command('contract <module/name>')
+      .description('A capability this module publishes: the token and the shape'),
+  ).action((target, flags) => {
+    report(
+      createContract({ target, modulesDir: flags.dir, from: flags.from }),
+      flags,
+    );
+  });
+
+  common(
+    create
+      .command('provider <module/name>')
+      .description('The class that answers a contract, found by its folder')
+      .option('--slot <name>', 'fill an extension point instead of answering a contract'),
+  ).action((target, flags) => {
+    report(
+      createProvider({
+        target,
+        modulesDir: flags.dir,
+        from: flags.from,
+        slot: flags.slot,
       }),
       flags,
     );

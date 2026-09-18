@@ -109,6 +109,7 @@ import { permissions } from './permissions';
  *
  *     entities/*.entity.ts      migrations/*.ts      endpoints/*.endpoint.ts
  *     routines/*.routine.ts     listeners/*.listener.ts
+ *     providers/*.provider.ts   (contracts/ and slots/ hold the tokens)
  *
  * Name a field — \`routes: './apis/*.api.ts'\` — only to say something else.
  */
@@ -449,6 +450,106 @@ export default class ${className} extends Listener<{ id: number }> {
   );
 }
 
+export interface ContractOptions extends CommonOptions {
+  target: string;
+}
+
+/**
+ * A contract: the token and the shape, and nothing else.
+ *
+ * It goes in `contracts/` because it is the module's public face — the one
+ * file another module imports. liteb does NOT glob that folder: a token is
+ * imported by name, so there is nothing to discover. The folder is for people.
+ */
+export function createContract(options: ContractOptions): Plan {
+  const target = parseTarget(options.target, 'contract');
+  const dir = moduleDir(options, target.module);
+  const name = toPascal(target.name);
+  const from = relativeFrom(options.from, 3);
+
+  const content = `import { contract } from '${from}';
+
+/**
+ * What other modules may ask "${target.module}" for — WITHOUT importing
+ * anything else from it. They import this file; the implementation stays
+ * private, in ./providers.
+ *
+ * The interface and the token share a name on purpose: TypeScript keeps types
+ * and values in separate namespaces, so one import gives you both the shape
+ * the compiler checks and the identity the container resolves.
+ */
+export interface ${name} {
+  /** Rename this: it is the promise the rest of the application relies on. */
+  describe(): Promise<string>;
+}
+
+export const ${name} = contract<${name}>('${target.module}.${target.name}');
+`;
+
+  return plan(
+    [{ path: `${dir}/contracts/${target.name}.contract.ts`, content }],
+    [],
+    [
+      `Answer it: liteb create provider ${target.module}/${target.name}`,
+      `A module that CALLS it should list it in \`consumes\`, so a missing provider stops the boot instead of the first request that needs it.`,
+    ],
+  );
+}
+
+export interface ProviderOptions extends CommonOptions {
+  target: string;
+  /** Fills an extension point instead of answering a contract. */
+  slot?: string;
+}
+
+export function createProvider(options: ProviderOptions): Plan {
+  const target = parseTarget(options.target, 'provider');
+  const dir = moduleDir(options, target.module);
+  const name = toPascal(target.name);
+  const from = relativeFrom(options.from, 3);
+
+  const fillsSlot = options.slot !== undefined;
+  const token = fillsSlot ? toPascal(options.slot as string) : name;
+  const decorator = fillsSlot ? 'Contributes' : 'Provides';
+  const tokenImport = fillsSlot
+    ? `// The slot belongs to the module that OPENED it: import ${token} from there
+// and delete this line.
+import { ${token} } from '../../<module>/slots/${toKebab(options.slot as string)}.slot';`
+    : `import { ${token} } from '../contracts/${target.name}.contract';`;
+
+  const content = `import { ${decorator}, Provider } from '${from}';
+${tokenImport}
+
+/**
+ * The half the consumer never sees. Change how this works and nothing outside
+ * this file moves.
+ *
+ * \`this.db\`, \`this.get(Contract)\`, \`this.all(Slot)\` and
+ * \`this.emit(Event)\` are injected BEFORE the instance is built, so a field
+ * initializer can already reach for a repository. Built the first time someone
+ * asks for it, then reused.
+ */
+@${decorator}(${token})
+export class ${name}Provider extends Provider implements ${token} {
+  // private readonly things = this.db.getRepository(Thing);
+
+  public async describe(): Promise<string> {
+    return '${target.module}';
+  }
+}
+`;
+
+  return plan(
+    [{ path: `${dir}/providers/${target.name}.provider.ts`, content }],
+    [],
+    [
+      fillsSlot
+        ? 'Point the import at the module that opened the slot: an extension imports the token, never the other way round.'
+        : 'Nothing lists it: the folder is what registers it, and the decorator says which contract it answers.',
+    ],
+  );
+}
+
 export interface EntityOptions extends CommonOptions {
   target: string;
   table?: string;
@@ -529,6 +630,8 @@ export const GENERATORS = {
   module: createModule,
   endpoint: createEndpoint,
   routine: createRoutine,
+  contract: createContract,
+  provider: createProvider,
   listener: createListener,
   entity: createEntity,
   migration: createMigration,

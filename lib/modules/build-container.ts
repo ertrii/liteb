@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { Container, ContractError } from './container';
+import { loadModuleProviders } from './module-loader';
 import { ResolvedModule } from './module-manifest';
 
 /**
@@ -14,13 +15,33 @@ import { ResolvedModule } from './module-manifest';
  * Registration follows dependency order, so the error names the module that
  * asked before any of its dependents complicate the picture.
  */
-export function buildContainer(
+export async function buildContainer(
   modules: ResolvedModule[],
   db: DataSource,
-): Container {
+): Promise<Container> {
   const container = new Container(db);
 
   for (const mod of modules) {
+    // What the module's `providers/` folder holds: a class per contract it
+    // answers, or per extension point it fills. The token comes from the
+    // class's own decorator, so nothing lists them.
+    for (const { target, ProviderClass } of await loadModuleProviders(mod)) {
+      if (target.kind === 'contract') {
+        container.register(mod.id, {
+          token: target,
+          use: ProviderClass as never,
+        });
+      } else {
+        container.contribute(
+          { slot: target, use: ProviderClass as never },
+          mod.id,
+        );
+      }
+    }
+
+    // The manifest's own entries, which are the deprecated way to say the same
+    // thing. Registered after the folder, so a contract answered twice is
+    // reported against the module that did it.
     for (const provider of mod.provides) {
       container.register(mod.id, provider);
     }

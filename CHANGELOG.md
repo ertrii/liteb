@@ -8,6 +8,60 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **A contract's implementation is a class in `providers/`, not a factory in
+  the manifest.** `module.ts` is where a module's pieces are wired; it had
+  become where a module's real work lived, because a `factory` inside
+  `provides:` is code, and code grows.
+
+  ```typescript
+  // billing/contracts/billing-service.contract.ts — the promise
+  export interface BillingService { issueCharge(i: Input): Promise<Charge> }
+  export const BillingService = contract<BillingService>('billing.service');
+
+  // billing/providers/billing-service.provider.ts — how it is kept
+  @Provides(BillingService)
+  export class BillingServiceProvider extends Provider implements BillingService {
+    private readonly charges = this.db.getRepository(Charge);
+    async issueCharge(input: Input) { ... }
+  }
+
+  // billing/module.ts — only the wiring
+  export default defineModule({ id: 'billing', version: '1.0.0', dir: __dirname });
+  ```
+
+  A class and **one** way to provide, where there used to be three (`value`,
+  `use`, `factory`). That is not taste: a decorator cannot go on an object
+  literal or an arrow function, so the class is what makes the folder work at
+  all — and `prototype instanceof Provider` is what lets the loader ignore
+  everything else the file exports. The same shape as an endpoint, a routine
+  and a listener: base class for what is injected, decorator for where it
+  plugs in.
+
+  `Provider` gets `this.db`, `this.get()`, `this.all()` and `this.emit()`
+  BEFORE the instance is built, so `private readonly charges =
+  this.db.getRepository(Charge)` works in a field initializer. Construction is
+  still lazy and cached: a contract nobody calls costs nothing.
+
+  `@Contributes(slot)` is the same thing for an extension point. Passing a slot
+  to `@Provides` — or a contract to `@Contributes` — fails at the decorator
+  with the difference spelled out, because the two are exactly what should not
+  be confused: one provider versus many.
+
+  New folders, and the reason they differ:
+
+  | Folder | Globbed |
+  | --- | --- |
+  | `providers/*.provider.ts` | yes — the decorator has to be read |
+  | `contracts/*.contract.ts`, `events/*.event.ts`, `slots/*.slot.ts` | no — a token is imported by name, there is nothing to discover |
+
+  The second row is convention for people, and `liteb create contract` writes
+  there. Inventing a glob so the table looked symmetrical would have been
+  decoration.
+
+  `provides:` and `contributes:` in the manifest still work, deprecated, and go
+  away in 2.0 final. The type `Provider<T>` (the three-shape union) is now
+  `ProviderEntry<T>`; the name belongs to the base class.
+
 - **`Task` is now `Routine`, and `@Schedule` is now `@Cron`.** "Task" is the
   most common noun in business software — a work order, a case, a to-do — and
   a framework has no business taking the word: an application with its own

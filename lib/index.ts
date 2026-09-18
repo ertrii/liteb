@@ -80,7 +80,7 @@ export * from './templates/listener';
 export type {
   Contract,
   Contribution,
-  Provider,
+  ProviderEntry,
   ContainerContext,
 } from './modules/container';
 export { buildContainer } from './modules/build-container';
@@ -115,6 +115,9 @@ export type {
 } from './core/auth';
 export * from './templates/endpoint';
 export * from './templates/routine';
+export * from './templates/provider';
+export { Provides, Contributes } from './decorators/provides.decorator';
+export type { ProvidesMetadata } from './decorators/provides.decorator';
 export * from './templates/task';
 export * from './utilities/logger';
 export type { LoggerOptions } from './services/log4js';

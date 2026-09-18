@@ -1,7 +1,6 @@
 import { defineModule } from '../../../lib';
-import { UserDirectory } from '../identity/module';
-import { ProductBadges, ProductCatalog } from '../catalog/module';
-import { lowStockBadge } from './badges';
+import { UserDirectory } from '../identity/contracts/user-directory.contract';
+import { ProductCatalog } from '../catalog/contracts/product-catalog.contract';
 import { permissions } from './permissions';
 
 /**
@@ -19,13 +18,10 @@ export default defineModule({
   requires: ['identity', 'catalog'],
 
   // Declaring what it calls turns a missing provider into a refusal to start,
-  // instead of a 500 on whichever request happened to need it first.
+  // instead of a 500 on whichever request happened to need it first. This is a
+  // declaration, not logic, which is why it belongs here — what FILLS catalog's
+  // extension point is a class in ./providers.
   consumes: [UserDirectory, ProductCatalog],
 
-  // Fills an extension point catalog opened. Nothing in catalog changes.
-  contributes: [{ slot: ProductBadges, value: lowStockBadge }],
-
-  // Its endpoints, its routine and its listener are in `./endpoints`,
-  // `./routines` and `./listeners`. Nothing to declare.
   permissions,
 });

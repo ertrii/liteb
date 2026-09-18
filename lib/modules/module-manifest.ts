@@ -1,5 +1,5 @@
 import type { DataSource, EntitySchema } from 'typeorm';
-import type { Contract, Contribution, Provider } from './container';
+import type { Contract, Contribution, ProviderEntry } from './container';
 import type { AnyPermissionSet } from './declare-permissions';
 
 /**
@@ -29,7 +29,8 @@ export type ModuleGlobField =
   | 'migrations'
   | 'routes'
   | 'routines'
-  | 'listeners';
+  | 'listeners'
+  | 'providers';
 
 /**
  * Where liteb looks when the manifest says nothing.
@@ -52,6 +53,7 @@ export const MODULE_LAYOUT: Readonly<Record<ModuleGlobField, string>> = {
   routes: './endpoints/*.endpoint.ts',
   routines: './routines/*.routine.ts',
   listeners: './listeners/*.listener.ts',
+  providers: './providers/*.provider.ts',
 };
 
 /**
@@ -149,6 +151,18 @@ export interface ModuleManifest {
   routines?: ModulePattern;
   listeners?: ModulePattern;
 
+  /**
+   * Glob for this module's `Provider` classes — what it answers for a contract
+   * and what it contributes to someone else's extension point. Defaults to
+   * `./providers/*.provider.ts`.
+   *
+   * There is no folder for the CONTRACTS themselves: a token is imported by
+   * name, so there is nothing to discover. `contracts/` is still where they
+   * go, and `liteb create contract` writes them there — it is a convention for
+   * people, not a glob.
+   */
+  providers?: ModulePattern;
+
   /** @deprecated Renamed to `routines`, for the folder `./routines`. */
   tasks?: ModulePattern;
 
@@ -159,14 +173,18 @@ export interface ModuleManifest {
    */
   permissions?: ModulePermission[] | AnyPermissionSet;
 
-  /** Contracts this module implements for the rest of the application. */
-  provides?: Provider<any>[];
+  /**
+   * @deprecated Contracts this module implements, declared here. The
+   * implementation is now a `Provider` class in `providers/`, marked with
+   * `@Provides(token)`. Still honoured, and goes away in 2.0 final.
+   */
+  provides?: ProviderEntry<any>[];
 
   /**
-   * What this module contributes to OTHER modules' extension points.
-   *
-   * This is the third-party seam: an extension does not change the module it
-   * extends, it fills a slot that module opened.
+   * @deprecated What this module contributes to OTHER modules' extension
+   * points, declared here. It is now a `Provider` class in `providers/`,
+   * marked with `@Contributes(slot)`. Still honoured, and goes away in 2.0
+   * final.
    */
   contributes?: Contribution<any>[];
 
@@ -201,8 +219,9 @@ export interface ResolvedModule {
   routes: string[];
   routines: string[];
   listeners: string[];
+  providers: string[];
   permissions: ModulePermission[];
-  provides: Provider<any>[];
+  provides: ProviderEntry<any>[];
   contributes: Contribution<any>[];
   consumes: Contract<any>[];
   onInstall: ModuleHook | null;

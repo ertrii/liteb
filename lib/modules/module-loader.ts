@@ -2,6 +2,10 @@ import EndpointReader from '../core/endpoint-reader';
 import { Endpoint } from '../templates/endpoint';
 import { Listener } from '../templates/listener';
 import { ON, OnMetadata } from '../decorators/on.decorator';
+import { PROVIDES, ProvidesMetadata } from '../decorators/provides.decorator';
+import { Provider } from '../templates/provider';
+import type { Contract } from './container';
+import type { Slot } from './slots';
 import type { EventToken } from './events';
 import { Routine } from '../templates/routine';
 import { ResolvedModule } from './module-manifest';
@@ -118,6 +122,47 @@ export async function loadModuleRoutines(
 
 /** @deprecated Renamed to {@link loadModuleRoutines}. */
 export const loadModuleTasks = loadModuleRoutines;
+
+/** A provider class together with the contract or slot it declared. */
+export interface LoadedProvider {
+  target: Contract<unknown> | Slot<unknown>;
+  ProviderClass: new () => Provider;
+}
+
+/**
+ * Reads the `Provider` classes a module contributes.
+ *
+ * A `Provider` without `@Provides` or `@Contributes` is skipped rather than
+ * fatal, the same way an endpoint without a verb is: it reads as a file being
+ * written, not as a broken installation.
+ */
+export async function loadModuleProviders(
+  mod: ResolvedModule,
+): Promise<LoadedProvider[]> {
+  if (mod.providers.length === 0) return [];
+
+  const { exported } = await readExports(mod.providers, mod.dir);
+
+  return exported
+    .filter(
+      (value): value is new () => Provider =>
+        typeof value === 'function' && value.prototype instanceof Provider,
+    )
+    .map((ProviderClass) => {
+      const metadata = Reflect.getMetadata(
+        PROVIDES,
+        ProviderClass,
+      ) as ProvidesMetadata;
+      if (!metadata) {
+        Logger.warn(
+          `Provider ${ProviderClass.name} in module "${mod.id}" has no @Provides(contract) or @Contributes(slot) and was skipped.`,
+        );
+        return null;
+      }
+      return { target: metadata.target, ProviderClass };
+    })
+    .filter((loaded): loaded is LoadedProvider => loaded !== null);
+}
 
 /**
  * Says why a module mounted nothing, or stays quiet when there is nothing to
