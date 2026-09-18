@@ -1,13 +1,19 @@
 import semver from 'semver';
+import { EntitySchema, getMetadataArgsStorage } from 'typeorm';
 import {
+  MODULE_LAYOUT,
   ModuleDefinitionError,
+  ModuleEntity,
+  ModuleGlobField,
   ModuleManifest,
   ModuleMigrations,
   ModulePattern,
   ModulePermission,
   ResolvedModule,
 } from './module-manifest';
+import { readExportsSync } from './module-files';
 import { isPermissionSet, PERMISSION_SET } from './declare-permissions';
+import { Logger } from '../utilities/logger';
 
 /** Lowercase, starting with a letter: `billing`, `customer-portal`. */
 const ID_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
@@ -34,6 +40,96 @@ const toMigrations = (migrations: ModuleMigrations | undefined): Function[] => {
     ? migrations
     : Object.values(migrations);
   return values.filter((value): value is Function => typeof value === 'function');
+};
+
+/**
+ * Tells a glob from the thing itself.
+ *
+ * `entities` and `migrations` take either, and an array of strings is the only
+ * ambiguous case. An EMPTY array is not a glob: it is an author saying this
+ * module has none, which is exactly what stops the default from applying.
+ */
+const isGlob = (value: unknown): value is ModulePattern =>
+  typeof value === 'string' ||
+  (Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => typeof entry === 'string'));
+
+/** What a field resolves to, and whether the author asked for it. */
+interface Globs {
+  patterns: string[];
+  implicit: boolean;
+}
+
+/**
+ * A field's globs: the manifest's, or the layout's.
+ *
+ * No `dir`, no default. A glob without one resolves against whatever the
+ * process's working directory happens to be, and a framework scanning a folder
+ * nobody pointed it at is worse than a module that mounts nothing.
+ */
+const globsFor = (
+  field: ModuleGlobField,
+  declared: ModulePattern | undefined,
+  dir: string | null,
+): Globs => {
+  if (declared !== undefined) {
+    return { patterns: toArray(declared), implicit: false };
+  }
+  if (!dir) return { patterns: [], implicit: false };
+  return { patterns: [MODULE_LAYOUT[field]], implicit: true };
+};
+
+/** A decorated entity class or an `EntitySchema`, told apart from a helper. */
+const isEntity = (value: unknown): value is ModuleEntity => {
+  if (value instanceof EntitySchema) return true;
+  if (typeof value !== 'function') return false;
+  // TypeORM's decorators register here the moment the file is required, which
+  // has just happened. An enum, a DTO or a plain class exported from the same
+  // folder is not in this list.
+  return getMetadataArgsStorage().tables.some((table) => table.target === value);
+};
+
+/**
+ * A migration class.
+ *
+ * Only applied to what a GLOB found. With an explicit array or namespace the
+ * author already said what these are, and second-guessing that would silently
+ * drop a migration written in some way liteb did not foresee.
+ */
+const isMigration = (value: unknown): value is Function =>
+  typeof value === 'function' &&
+  typeof (value.prototype as { up?: unknown } | undefined)?.up === 'function';
+
+/**
+ * Loads what a glob points at, and says so when it points at nothing.
+ *
+ * The warning is only for a glob the AUTHOR wrote: a default finding nothing
+ * means the module has no entities, which is an ordinary module.
+ */
+const loadFromGlobs = <T>(
+  field: 'entities' | 'migrations',
+  globs: Globs,
+  dir: string | null,
+  id: string,
+  keep: (value: unknown) => value is T,
+): T[] => {
+  if (globs.patterns.length === 0) return [];
+
+  const { files, exported } = readExportsSync(globs.patterns, dir);
+  // A namespace index re-exporting the same classes is common and harmless:
+  // the same class found twice is one class.
+  const found = [...new Set(exported.filter(keep))];
+
+  if (found.length === 0 && !globs.implicit) {
+    Logger.warn(
+      files.length === 0
+        ? `Module "${id}": "${field}" (${globs.patterns.join(', ')}) matched no files. Check the glob and "dir".`
+        : `Module "${id}": "${field}" matched ${files.length} file(s), none of which exports a${field === 'entities' ? 'n entity' : ' migration'}.`,
+    );
+  }
+
+  return found;
 };
 
 const duplicates = (values: string[]): string[] => {
@@ -96,13 +192,27 @@ const validatePermissions = (
  * pointing at the module that wrote it, instead of surfacing later as a
  * confusing startup error.
  *
+ * Paths are the exception: with `dir`, the standard layout
+ * ({@link MODULE_LAYOUT}) is where entities, migrations, endpoints, tasks and
+ * listeners are found. A manifest names one of those fields only to put it
+ * somewhere else, so what is left is what is particular to the module.
+ *
  * @example
  * export default defineModule({
  *   id: 'billing',
  *   version: '2.1.0',
+ *   dir: __dirname,
  *   requires: ['identity'],
- *   entities: [Charge, Invoice],
  *   permissions: [{ key: 'billing.view', label: 'View billing' }],
+ * });
+ *
+ * @example
+ * // Same module, with its endpoints somewhere else.
+ * export default defineModule({
+ *   id: 'billing',
+ *   version: '2.1.0',
+ *   dir: __dirname,
+ *   routes: './presentation/controllers/*.controller.ts',
  * });
  */
 export function defineModule(manifest: ModuleManifest): ResolvedModule {
@@ -204,13 +314,63 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     }
   }
 
-  const entities = manifest.entities ?? [];
-  if (!Array.isArray(entities)) {
-    fail(`Module "${id}": "entities" must be an array.`, id);
+  const dir = manifest.dir ?? null;
+
+  const implicit: ModuleGlobField[] = [];
+  const globs = (field: ModuleGlobField, declared?: ModulePattern): Globs => {
+    const resolved = globsFor(field, declared, dir);
+    if (resolved.implicit) implicit.push(field);
+    return resolved;
+  };
+
+  const declaredEntities = manifest.entities;
+  const entityGlobs = isGlob(declaredEntities) ? declaredEntities : undefined;
+  let entities: ModuleEntity[];
+  if (declaredEntities === undefined || entityGlobs !== undefined) {
+    entities = loadFromGlobs(
+      'entities',
+      globs('entities', entityGlobs),
+      dir,
+      id,
+      isEntity,
+    );
+  } else {
+    // Not a glob, so it is the list itself — `isGlob` already ruled out the
+    // string forms.
+    const listed = declaredEntities as ModuleEntity[];
+    if (!Array.isArray(listed)) {
+      fail(`Module "${id}": "entities" must be an array, or a glob.`, id);
+    }
+    if (listed.some((entry) => typeof entry === 'string')) {
+      fail(
+        `Module "${id}": "entities" mixes globs with classes. It is one or the other.`,
+        id,
+      );
+    }
+    if (new Set(listed).size !== listed.length) {
+      fail(`Module "${id}": the same entity is listed twice.`, id);
+    }
+    entities = listed;
   }
-  if (new Set(entities).size !== entities.length) {
-    fail(`Module "${id}": the same entity is listed twice.`, id);
-  }
+
+  const declaredMigrations = manifest.migrations;
+  const migrationGlobs = isGlob(declaredMigrations)
+    ? declaredMigrations
+    : undefined;
+  const migrations =
+    declaredMigrations === undefined || migrationGlobs !== undefined
+      ? loadFromGlobs(
+          'migrations',
+          globs('migrations', migrationGlobs),
+          dir,
+          id,
+          isMigration,
+        )
+      : toMigrations(declaredMigrations as ModuleMigrations);
+
+  const routes = globs('routes', manifest.routes);
+  const tasks = globs('tasks', manifest.tasks);
+  const listeners = globs('listeners', manifest.listeners);
 
   return {
     id,
@@ -219,12 +379,13 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     core: manifest.core ?? false,
     engine: manifest.engine ?? null,
     requires,
-    dir: manifest.dir ?? null,
+    dir,
     entities,
-    migrations: toMigrations(manifest.migrations),
-    routes: toArray(manifest.routes),
-    tasks: toArray(manifest.tasks),
-    listeners: toArray(manifest.listeners),
+    migrations,
+    routes: routes.patterns,
+    tasks: tasks.patterns,
+    listeners: listeners.patterns,
+    implicit,
     contributes: manifest.contributes ?? [],
     permissions,
     provides,

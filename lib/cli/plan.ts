@@ -16,17 +16,14 @@ export interface GeneratedFile {
  * A change to a file the generator did not write.
  *
  * Only the edits that can be made without parsing TypeScript: appending a line,
- * uncommenting one the module template itself left there, adding an entry to an
- * array literal. Anything less certain than that is a hint instead — a
- * scaffolder that silently mangles a file people already wrote is worse than
- * one that tells them what to add.
+ * adding an entry to an object or an array literal. Anything less certain than
+ * that is a hint instead — a scaffolder that silently mangles a file people
+ * already wrote is worse than one that tells them what to add.
  */
 export interface FileEdit {
   path: string;
   /** Adds the line at the end, unless it is already there. */
   append?: string;
-  /** Uncomments the line containing this fragment (`// tasks: ...`). */
-  uncomment?: string;
   /**
    * Adds a line to an object literal, right after the line that opens it.
    *

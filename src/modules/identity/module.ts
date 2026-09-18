@@ -1,7 +1,6 @@
 import { contract, defineModule } from '../../../lib';
 import { permissions } from './permissions';
 import { User } from './entities/user.entity';
-import * as migrations from './migrations';
 
 /**
  * What other modules may ask about users — WITHOUT importing anything from
@@ -21,13 +20,10 @@ export default defineModule({
   // Core: it cannot be turned off. Nothing else would have anyone to serve.
   core: true,
   engine: '^2.0.0',
-  // Without `dir` the globs below would resolve against the process's working
-  // directory, and the module would break the moment it is moved.
+  // Where this module lives. Its entities, migrations and endpoints are found
+  // from here by the standard layout, so nothing below repeats a path. Without
+  // `dir` there is nothing to resolve against and liteb looks for none of it.
   dir: __dirname,
-
-  entities: [User],
-  migrations,
-  routes: './endpoints/*.endpoint.ts',
 
   // The vocabulary this module can gate, declared in ./permissions.ts.
   permissions,

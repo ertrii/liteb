@@ -68,7 +68,6 @@ export default defineModule({
   version: '1.0.0',
   core: true,
   dir: __dirname,
-  routes: './endpoints/*.endpoint.ts',
 
   permissions,
 });

@@ -69,12 +69,12 @@ writes the shape; you write the code.
 | Command | What it writes |
 | --- | --- |
 | `init [name]` | A project that runs: `package.json`, `tsconfig.json`, `.env`, entry point — and `npm install` (`--skip-install` to stop before it) |
-| `create module <name>` | `module.ts`, a first endpoint, the migrations index |
+| `create module <name>` | `module.ts`, its permissions file and a first endpoint |
 | `create endpoint <module>/<name>` | An endpoint (`--method`, `--path`, `--group`, `--public`) |
-| `create task <module>/<name>` | A scheduled task (`--cron`), and turns on the `tasks` glob |
-| `create listener <module>/<name>` | A listener, and turns on the `listeners` glob |
-| `create entity <module>/<name>` | An entity, **registered in the manifest** (`--table`) |
-| `create migration <module>/<name>` | A timestamped migration, added to the module's ledger |
+| `create task <module>/<name>` | A scheduled task (`--cron`) |
+| `create listener <module>/<name>` | A listener |
+| `create entity <module>/<name>` | An entity (`--table`) |
+| `create migration <module>/<name>` | A timestamped migration |
 | `migrate` | Runs pending migrations without starting the server (`--dry-run`, `--entry`) |
 | `migrate:status` | What each module declares, and what of it already ran |
 | `build` | `tsc` + the files that were never TypeScript (`--bytecode`, `--out`, `--project`) |
@@ -86,11 +86,15 @@ Two things it does **not** do, on purpose:
 
 - It does not know your application: no database, no config file, no registry of
   what exists. It reads arguments and writes files.
-- It edits files it did not write **only** where the shape is certain —
-  appending to the migrations index, uncommenting a glob its own template left
-  there, adding an entity to `entities: []`. Anything less certain prints as an
+- It edits files it did not write **only** where the shape is certain — adding
+  the module to `modules: []` in the entry point, adding a key to the
+  `declarePermissions({ ... })` literal. Anything less certain prints as an
   instruction instead. A scaffolder that silently mangles a file you wrote is
   worse than one that tells you what to add.
+
+Note how few of those there are. Most generators write a file and edit nothing
+at all, because the [standard layout](#the-standard-layout) is what registers
+it — there is no list to keep in sync.
 
 > The 1.x CLI was deleted because its templates were loose assets nobody
 > compiled, and they drifted until they generated decorators the framework no
@@ -239,8 +243,6 @@ module off removes its routes and stops its tasks **without touching its data**.
 ```typescript
 // modules/billing/module.ts
 import { contract, defineModule } from 'liteb';
-import { Charge } from './entities/charge.entity';
-import * as migrations from './migrations';
 
 export interface BillingService {
   issueCharge(input: IssueChargeInput): Promise<Charge>;
@@ -253,17 +255,59 @@ export default defineModule({
   core: true,                 // a core module cannot be disabled
   engine: '^2.0.0',           // host range it supports
   requires: ['identity'],     // checked at startup
-  dir: __dirname,             // globs resolve against this folder
+  dir: __dirname,             // the folder everything is found from
 
-  entities: [Charge],
-  migrations,
-  routes: './controllers/**/*.controller.ts',
-  tasks: './tasks/*.task.ts',
   permissions: [{ key: 'billing.view', label: 'View billing' }],
-
   provides: [{ token: BillingService, use: BillingServiceImpl }],
 });
 ```
+
+### The standard layout
+
+The manifest above lists no paths, and that is the point: what it says is what
+is particular to **this** module. The folders are found from `dir`:
+
+| Folder | What liteb loads from it |
+| --- | --- |
+| `entities/*.entity.ts` | the decorated classes, for the DataSource |
+| `migrations/*.ts` | the migration classes |
+| `endpoints/*.endpoint.ts` | the endpoints, mounted under the module id |
+| `tasks/*.task.ts` | the scheduled tasks |
+| `listeners/*.listener.ts` | the event listeners |
+
+Writing the file is all there is to do. `liteb create entity billing/charge`
+writes `entities/charge.entity.ts` and edits **nothing**: the folder is what
+declares it.
+
+Only decorated entities and migration classes are taken. An enum, a DTO or a
+helper exported from the same file is ignored, so a folder can hold what
+belongs with it.
+
+**Naming a field says something else**, and only for that field:
+
+```typescript
+export default defineModule({
+  id: 'billing',
+  version: '1.0.0',
+  dir: __dirname,
+
+  // A DDD layout: the endpoints are elsewhere. Entities, migrations, tasks and
+  // listeners keep coming from the standard folders.
+  routes: './presentation/controllers/**/*.controller.ts',
+});
+```
+
+Two rules are worth knowing:
+
+- **Everything hangs off `dir`.** Without it there is nothing to resolve
+  against — a glob would land on whatever the process's working directory
+  happens to be — so liteb applies no default at all, and the module has to
+  list its entities by hand. Always `dir: __dirname`.
+- **An explicit `[]` means "none".** `entities: []` is an author saying this
+  module has no entities, so no default applies.
+
+A glob you WROTE that finds nothing is reported at startup; a default that
+finds nothing is not, because a module with no tasks is an ordinary module.
 
 Start the application from its modules. `Liteb.create` owns the DataSource,
 because TypeORM needs every module's entities when the connection is built:

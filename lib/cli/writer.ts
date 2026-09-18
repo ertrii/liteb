@@ -90,22 +90,6 @@ export function applyEdit(source: string, edit: FileEdit): string | null {
     return `${cleaned}${separator}${edit.append}\n`;
   }
 
-  if (edit.uncomment !== undefined) {
-    const lines = source.split('\n');
-    const index = lines.findIndex(
-      (line) => line.trim() === `// ${edit.uncomment}` || line.trim() === `//${edit.uncomment}`,
-    );
-    if (index === -1) {
-      // Already uncommented is a success, not a failure.
-      return lines.some((line) => line.includes(edit.uncomment as string))
-        ? source
-        : null;
-    }
-    const indent = lines[index].match(/^\s*/)?.[0] ?? '';
-    lines[index] = `${indent}${edit.uncomment}`;
-    return lines.join('\n');
-  }
-
   if (edit.objectEntry) {
     const { after, value, unless } = edit.objectEntry;
     if (source.includes(unless)) return source;
@@ -163,7 +147,6 @@ function withImport(source: string, importLine: string): string {
 
 function describe(edit: FileEdit): string {
   if (edit.append) return `Add to ${edit.path}: ${edit.append}`;
-  if (edit.uncomment) return `Add to ${edit.path}: ${edit.uncomment}`;
   if (edit.objectEntry) {
     return `Add ${edit.objectEntry.value.trim()} to ${edit.path}.`;
   }

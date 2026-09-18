@@ -1,8 +1,6 @@
 import { contract, defineModule, event, slot } from '../../../lib';
 import { permissions } from './permissions';
 import { Product } from './entities/product.entity';
-import { StockMove } from './entities/stock-move.entity';
-import * as migrations from './migrations';
 
 export interface ProductCatalog {
   count(): Promise<number>;
@@ -50,14 +48,14 @@ export default defineModule({
   label: 'Catalog',
   core: true,
   engine: '^2.0.0',
+  // Entities, migrations and endpoints are found by the standard layout —
+  // `./entities`, `./migrations`, `./endpoints` — which is why none of them is
+  // listed here. `Product` is imported below because the provider USES it, not
+  // to declare it.
   dir: __dirname,
 
   // Declared, and checked at boot: catalog refuses to start without identity.
   requires: ['identity'],
-
-  entities: [Product, StockMove],
-  migrations,
-  routes: './endpoints/*.endpoint.ts',
 
   // Declared in ./permissions.ts, so the keys have one home.
   permissions,

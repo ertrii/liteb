@@ -40,6 +40,18 @@ const litebVersion = '^2.0.0-alpha.1';
 const read = (file: string) =>
   fs.readFileSync(path.join(workspace, file), 'utf8');
 
+/**
+ * Un archivo sin sus comentarios: lo que DECLARA, no lo que explica.
+ *
+ * La plantilla del manifiesto documenta la disposición estándar — y nombra
+ * `routes:` para mostrar cómo cambiarla — así que buscar el texto pelado
+ * confundiría la explicación con una declaración.
+ */
+const declared = (file: string) =>
+  read(file)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
 describe('nombres', () => {
   it('normaliza venga como venga', () => {
     expect(toKebab('MyModule')).toBe('my-module');
@@ -60,17 +72,9 @@ describe('nombres', () => {
 });
 
 describe('ediciones sobre archivos que el generador no escribió', () => {
-  it('descomenta la línea que la propia plantilla dejó puesta', () => {
-    const source = "  routes: './apis/*.api.ts',\n  // tasks: './tasks/*.task.ts',\n";
-    expect(applyEdit(source, { path: 'x', uncomment: "tasks: './tasks/*.task.ts'," })).toContain(
-      "\n  tasks: './tasks/*.task.ts',",
-    );
-  });
-
   it('ante un archivo que no reconoce NO adivina', () => {
     // Devolver null es lo que convierte la edición en una instrucción escrita,
     // en vez de dejar un manifiesto hecho a mano a medio editar.
-    expect(applyEdit('nada que ver', { path: 'x', uncomment: 'tasks' })).toBeNull();
     expect(
       applyEdit('export default {}', {
         path: 'x',
@@ -158,6 +162,8 @@ describe('un módulo generado y puesto a andar', () => {
         }
       : null;
 
+  let inventory: ResolvedModule;
+
   beforeAll(async () => {
     fs.rmSync(workspace, { recursive: true, force: true });
 
@@ -196,7 +202,7 @@ describe('un módulo generado y puesto a andar', () => {
     // cargador — `instanceof` falla y no se monta ninguna ruta.
     const manifest = path.join(workspace, modulesDir, 'inventory/module.ts');
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const inventory = require(manifest).default as ResolvedModule;
+    inventory = require(manifest).default as ResolvedModule;
 
     db = await createTestDb(collectModuleEntities([inventory]));
     app = await Liteb.create({
@@ -235,9 +241,12 @@ describe('un módulo generado y puesto a andar', () => {
 
     expect(fs.existsSync(path.join(workspace, file))).toBe(true);
     expect(read(file)).toContain('class InventoryEndpoint extends Endpoint');
-    expect(read(`${modulesDir}/inventory/module.ts`)).toContain(
-      "routes: './endpoints/*.endpoint.ts',",
+
+    // Y la carpeta es lo único que lo dice: el manifiesto no repite el camino.
+    expect(declared(`${modulesDir}/inventory/module.ts`)).not.toContain(
+      'routes:',
     );
+    expect(inventory.implicit).toContain('routes');
   });
 
   it('el endpoint que vino con el módulo responde, sin declarar grupo', async () => {
@@ -341,12 +350,15 @@ describe('un módulo generado y puesto a andar', () => {
     }
   });
 
-  it('la entidad quedó registrada en el manifiesto, no sólo escrita', () => {
-    const manifest = read(`${modulesDir}/inventory/module.ts`);
+  it('la entidad la encuentra la carpeta: el manifiesto no la lista', () => {
+    // Escribir la clase es todo lo que hay que hacer. Que el manifiesto no la
+    // nombre no es un olvido: `./entities/*.entity.ts` es donde liteb mira.
+    const manifest = declared(`${modulesDir}/inventory/module.ts`);
 
-    expect(manifest).toContain('entities: [Item]');
-    expect(manifest).toContain(
-      "import { Item } from './entities/item.entity';",
+    expect(manifest).not.toContain('entities:');
+    expect(manifest).not.toContain('item.entity');
+    expect(inventory.entities.map((entity) => (entity as Function).name)).toEqual(
+      ['Item'],
     );
   });
 
@@ -376,11 +388,27 @@ describe('un módulo generado y puesto a andar', () => {
     expect(typeof entry.createApp).toBe('function');
   });
 
-  it('tarea y oyente encendieron sus globs en el manifiesto', () => {
-    const manifest = read(`${modulesDir}/inventory/module.ts`);
+  it('tarea, oyente y migración no tocan el manifiesto', () => {
+    // Cuatro generadores escribieron archivos y NINGUNO editó module.ts. Eso
+    // es lo que hace que un módulo se pueda leer de un vistazo: lo que dice es
+    // lo particular de este módulo, no la lista de carpetas que tienen todos.
+    const manifest = declared(`${modulesDir}/inventory/module.ts`);
 
-    expect(manifest).toContain("tasks: './tasks/*.task.ts',");
-    expect(manifest).toContain("listeners: './listeners/*.listener.ts',");
-    expect(manifest).not.toContain("// tasks:");
+    expect(manifest).not.toContain('tasks:');
+    expect(manifest).not.toContain('listeners:');
+    expect(manifest).not.toContain('migrations');
+
+    expect(inventory.tasks).toEqual(['./tasks/*.task.ts']);
+    expect(inventory.listeners).toEqual(['./listeners/*.listener.ts']);
+    expect(inventory.migrations.map((migration) => migration.name)).toEqual([
+      expect.stringMatching(/^CreateItems\d+$/),
+    ]);
+
+    // Y ya no hay un índice de migraciones que mantener a mano.
+    expect(
+      fs.existsSync(
+        path.join(workspace, modulesDir, 'inventory/migrations/index.ts'),
+      ),
+    ).toBe(false);
   });
 });

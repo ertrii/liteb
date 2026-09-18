@@ -95,7 +95,6 @@ export const permissions = declarePermissions('${id}', {
 
   const manifest = `import { defineModule } from '${from}';
 import { permissions } from './permissions';
-import * as migrations from './migrations';
 
 /**
  * ${label}.
@@ -104,6 +103,14 @@ import * as migrations from './migrations';
  * it owns (entities, migrations), what it exposes (routes, tasks, listeners),
  * what it needs (\`requires\`, \`consumes\`) and what it lets others do
  * (\`permissions\`, \`provides\`).
+ *
+ * What it does NOT have is paths. The folders below are the standard layout
+ * and liteb finds them from \`dir\`:
+ *
+ *     entities/*.entity.ts      migrations/*.ts      endpoints/*.endpoint.ts
+ *     tasks/*.task.ts           listeners/*.listener.ts
+ *
+ * Name a field — \`routes: './apis/*.api.ts'\` — only to say something else.
  */
 export default defineModule({
   id: '${id}',
@@ -115,31 +122,16 @@ export default defineModule({
   // Which versions of the HOST APPLICATION this module plugs into — the
   // \`version\` passed to Liteb.create(). Not liteb's own version.
   engine: '^1.0.0',
-  // Always __dirname: every glob below resolves against it, so the module
+  // Always __dirname: this is what the layout resolves against, so the module
   // keeps working from a build, from node_modules or from bytecode.
   dir: __dirname,
 
   // Other modules this one refuses to start without.
   requires: [],
 
-  entities: [],
-  migrations,
-  routes: './endpoints/*.endpoint.ts',
-  // tasks: './tasks/*.task.ts',
-  // listeners: './listeners/*.listener.ts',
-
   // Declared in ./permissions.ts, so the keys have one home.
   permissions,
 });
-`;
-
-  const migrationsIndex = `/**
- * Every migration this module owns.
- *
- * \`liteb create migration ${id}/<name>\` adds its line here; the order in this
- * file is the order they run in.
- */
-export {};
 `;
 
   const endpoint = endpointSource({
@@ -166,7 +158,6 @@ export {};
     [
       { path: `${dir}/permissions.ts`, content: permissionsFile },
       { path: `${dir}/module.ts`, content: manifest },
-      { path: `${dir}/migrations/index.ts`, content: migrationsIndex },
       { path: `${dir}/endpoints/${id}.endpoint.ts`, content: endpoint },
     ],
     [
@@ -408,12 +399,7 @@ export default class ${className} extends Task {
 
   return plan(
     [{ path: `${dir}/tasks/${target.name}.task.ts`, content }],
-    [
-      {
-        path: `${dir}/module.ts`,
-        uncomment: "tasks: './tasks/*.task.ts',",
-      },
-    ],
+    [],
     [`Cron expression: '${cron}' — change it in the @Schedule decorator.`],
   );
 }
@@ -453,12 +439,7 @@ export default class ${className} extends Listener<{ id: number }> {
 
   return plan(
     [{ path: `${dir}/listeners/${target.name}.listener.ts`, content }],
-    [
-      {
-        path: `${dir}/module.ts`,
-        uncomment: "listeners: './listeners/*.listener.ts',",
-      },
-    ],
+    [],
     [
       'Listeners read on their own connection: emit AFTER the transaction commits, or they cannot see the rows.',
     ],
@@ -490,16 +471,7 @@ export class ${className} {
 
   return plan(
     [{ path: `${dir}/entities/${target.name}.entity.ts`, content }],
-    [
-      {
-        path: `${dir}/module.ts`,
-        arrayEntry: {
-          field: 'entities',
-          value: className,
-          importLine: `import { ${className} } from './entities/${target.name}.entity';`,
-        },
-      },
-    ],
+    [],
     [
       `The table is not created by declaring it: add a migration — liteb create migration ${target.module}/create-${target.name}.`,
     ],
@@ -542,14 +514,9 @@ export class ${className} implements MigrationInterface {
 
   return plan(
     [{ path: `${dir}/migrations/${file}.ts`, content }],
+    [],
     [
-      {
-        path: `${dir}/migrations/index.ts`,
-        append: `export * from './${file}';`,
-      },
-    ],
-    [
-      'Migrations run per module, in this order, before any route is mounted.',
+      'Migrations run per module, before any route is mounted. Inside a module the trailing timestamp is the order — nothing lists them.',
     ],
   );
 }

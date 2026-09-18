@@ -38,7 +38,7 @@ export type {
   OpenAPIDocument,
 } from './services/openapi-generator';
 export { defineModule } from './modules/define-module';
-export { ModuleDefinitionError } from './modules/module-manifest';
+export { MODULE_LAYOUT, ModuleDefinitionError } from './modules/module-manifest';
 export { resolveModules, ModuleResolutionError } from './modules/resolve-modules';
 export { reconcileModules } from './modules/reconcile-modules';
 export { ModuleStore } from './modules/module-store';
@@ -97,6 +97,7 @@ export type {
   ModuleEntity,
   ModuleMigrations,
   ModulePattern,
+  ModuleGlobField,
 } from './modules/module-manifest';
 export { Auth } from './core/auth';
 export { CorsConfigError } from './core/cors';

@@ -58,20 +58,29 @@ export default defineModule({
   version: '1.0.0',
   core: true,              // false = installs disabled, enabled on purpose
   engine: '^1.0.0',
-  dir: __dirname,
+  dir: __dirname,          // the folder everything below is found from
   requires: ['identity'],
-
-  entities: [Charge],
-  migrations,
-  routes: './endpoints/*.endpoint.ts',   // extension-agnostic: .ts, .js, .jsc
-  tasks: './tasks/*.task.ts',
-  listeners: './listeners/*.listener.ts',
 
   permissions: [{ key: 'billing.view', label: 'View billing' }],
   provides: [{ token: BillingService, factory: ({ db }) => new Billing(db) }],
   consumes: [UserDirectory],
 });
 ```
+
+No paths, because a module keeps the standard layout and liteb finds it from
+`dir`:
+
+```
+billing/
+├── module.ts
+├── entities/*.entity.ts        migrations/*.ts
+├── endpoints/*.endpoint.ts     tasks/*.task.ts       listeners/*.listener.ts
+```
+
+Name a field — `routes: './apis/*.api.ts'` — only to say something else; it
+replaces that one and the rest keep working. The globs are
+**extension-agnostic**, so the same manifest runs from source, from a build,
+from `node_modules` and from bytecode.
 
 ## An endpoint
 

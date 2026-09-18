@@ -25,9 +25,7 @@ export default defineModule({
   // Fills an extension point catalog opened. Nothing in catalog changes.
   contributes: [{ slot: ProductBadges, value: lowStockBadge }],
 
-  routes: './endpoints/*.endpoint.ts',
-  tasks: './tasks/*.task.ts',
-  listeners: './listeners/*.listener.ts',
-
+  // Its endpoints, its task and its listener are in `./endpoints`, `./tasks`
+  // and `./listeners`. Nothing to declare.
   permissions,
 });

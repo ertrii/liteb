@@ -8,6 +8,63 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **A module's folders are a convention, not a declaration.** `entities`,
+  `migrations`, `routes`, `tasks` and `listeners` now default to the standard
+  layout, resolved from `dir`:
+
+  ```
+  entities/*.entity.ts     migrations/*.ts     endpoints/*.endpoint.ts
+  tasks/*.task.ts          listeners/*.listener.ts
+  ```
+
+  ```typescript
+  export default defineModule({
+    id: 'billing',
+    version: '1.0.0',
+    engine: '^2.0.0',
+    dir: __dirname,
+    requires: ['identity'],
+    permissions,
+  });
+  ```
+
+  What a manifest says is now only what is particular to the module. The five
+  fields it used to carry were the same five lines in every module ever
+  written, and every one of them was a way to get it wrong: a path that says
+  `./endpoint/` mounts nothing, an entity missing from `entities: []` is a
+  table TypeORM does not know about.
+
+  `entities` and `migrations` take a glob as well as a list, which is what
+  makes them work the same way as the other three. A glob is read while the
+  manifest is — the same moment an `import` at the top of that file would have
+  been — so the DataSource still gets the full entity list before it is built.
+  Only decorated entities and migration classes are kept, so an enum or a
+  helper in the same folder is ignored, and a class found twice (a
+  `migrations/index.ts` that re-exports) is one class.
+
+  **Naming a field still works and replaces that field only** —
+  `routes: './presentation/controllers/**/*.controller.ts'` leaves the other
+  four alone. Everything hangs off `dir`: without it liteb applies no default,
+  because a glob with nothing to resolve against lands on whatever the
+  process's working directory happens to be. An explicit `entities: []` means
+  the module has none, so no default applies.
+
+  Nothing had to change in an existing manifest: a declared field wins over the
+  convention.
+
+  The CLI shrank with it. `create entity`, `create task`, `create listener` and
+  `create migration` now write their file and edit **nothing** — there is no
+  manifest list to keep in sync and no `migrations/index.ts` to append to, so
+  the barrel file is gone from the scaffold. `create module` writes a manifest
+  with no paths in it. The `uncomment` edit, which existed only to switch on the
+  `tasks` and `listeners` globs, was removed with its last caller.
+
+  Reporting follows the same split: a glob you WROTE that finds nothing is a
+  mistake and says so at startup; a default that finds nothing just means the
+  module has no tasks. Files that match and yield no endpoint are reported
+  either way — that is a class missing `extends Endpoint` or its HTTP
+  decorator, and it is invisible from the outside.
+
 - **`@Module` is now `@Group`, and it is optional.** The decorator never
   declared a module: it declares a URL prefix. In 1.x "module" only ever meant
   that, so the name was fine; 2.x gave the word a second, central meaning — the

@@ -280,9 +280,9 @@ ${mod.module}  (${state})`);
 
           if (mod.migrations.length === 0) {
             // The one failure that looks identical from the database: the
-            // file is written, but nothing exports it.
+            // file is written, but liteb is not looking where it landed.
             console.log(
-              '  none declared  (wrote one? check that migrations/index.ts exports it)',
+              "  none declared  (wrote one? it goes in the module's migrations/ folder)",
             );
             continue;
           }
