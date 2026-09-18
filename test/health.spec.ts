@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import { buildHealth, Liteb } from '../lib';
+import type { HealthConfig } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 
 /**
@@ -14,7 +15,7 @@ describe('/health', () => {
   let db: DataSource;
   let app: Liteb;
 
-  const build = async (health: { path?: string; details?: boolean } = {}) => {
+  const build = async (health: HealthConfig = {}) => {
     db = await createTestDb();
     app = await Liteb.create({
       db,
@@ -92,6 +93,78 @@ describe('/health', () => {
     // Sin prefijo debajo: /healthz/loquesea es un typo en la URL del probe,
     // no un 200.
     expect((await request(server).get('/healthz/nada')).status).toBe(404);
+  });
+
+  it('un check propio que falla baja todo, y se dice cuál', async () => {
+    // liteb sólo sabe lo suyo: el proceso y la base. Qué MÁS tiene que estar
+    // arriba para que esta aplicación atienda lo sabe la aplicación.
+    const server = await build({ checks: { cola: () => false } });
+
+    const res = await request(server).get('/health');
+
+    expect(res.status).toBe(503);
+    expect(res.body.checks).toEqual({ database: 'pass', cola: 'fail' });
+  });
+
+  it('un check que lanza es fail, no un 500', async () => {
+    // Una dependencia caída se anuncia lanzando; acá la excepción es una
+    // RESPUESTA, no una falla del endpoint.
+    const server = await build({
+      checks: {
+        pagos: () => {
+          throw new Error('ECONNREFUSED');
+        },
+      },
+    });
+
+    const res = await request(server).get('/health');
+
+    expect(res.status).toBe(503);
+    expect(res.body.checks.pagos).toBe('fail');
+  });
+
+  it('un check colgado se corta: un probe que no contesta es peor', async () => {
+    const server = await build({
+      timeout: 30,
+      checks: { lento: () => new Promise<boolean>(() => undefined) },
+    });
+
+    const res = await request(server).get('/health');
+
+    expect(res.status).toBe(503);
+    expect(res.body.checks.lento).toBe('fail');
+  });
+
+  it('con todo arriba, los checks propios pasan', async () => {
+    const server = await build({
+      details: true,
+      checks: { cola: () => true, cache: async () => true },
+    });
+
+    const res = await request(server).get('/health');
+
+    expect(res.status).toBe(200);
+    expect(res.body.checks).toEqual({
+      database: 'pass',
+      cola: 'pass',
+      cache: 'pass',
+    });
+  });
+
+  it('rechaza un nombre reservado al arrancar, no en el primer probe', async () => {
+    // Si se dejara pasar, la respuesta de la aplicación reemplazaría en
+    // silencio a la de la base y el endpoint diría pass sin haberla mirado.
+    db = await createTestDb();
+
+    await expect(
+      Liteb.create({
+        db,
+        modules: [],
+        health: { checks: { database: () => true } },
+      }),
+    ).rejects.toThrow(/reserves/);
+
+    app = undefined as never;
   });
 
   it('sin la opción no hay endpoint', async () => {

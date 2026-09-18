@@ -132,6 +132,10 @@ export async function createApp() {
     // process stops accepting it. Outside \`basePath\`, and kept out of the
     // access log so a probe every few seconds does not bury every real
     // request.
+    // \`checks\` is where YOUR dependencies go: liteb only knows the process
+    // and the database, and whether a queue, a provider or a warm cache has
+    // to be up for this application to serve is something it cannot guess.
+    //   checks: { queue: () => bridge.isConnected() },
     health: { path: '/health' },
 
     // Interactive docs at /docs, the raw OpenAPI 3 at /docs.json — generated

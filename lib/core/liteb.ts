@@ -122,10 +122,18 @@ export interface LitebOptions {
   logs?: LoggerOptions;
 }
 
-/** Where the generated OpenAPI documentation is served. */
+/**
+ * Where the generated OpenAPI documentation is served.
+ *
+ * The spec comes from the same `@Group`/`@HttpGet`/`@Body`/`@Params`/`@Query`
+ * decorators that mount the routes — there is nothing to annotate twice, and
+ * nothing that can drift. `@ApiTag`, `@ApiSummary`, `@ApiDescription`,
+ * `@ApiResponse` and `@ApiHidden` add detail or hold a route back.
+ */
 export interface DocsConfig {
   /** The UI. The raw OpenAPI 3 JSON is served at `<path>.json`. */
   path?: string;
+  /** Title, version and Markdown description shown at the top of the UI. */
   info?: OpenAPIInfo;
 }
 
@@ -281,7 +289,10 @@ export default class Liteb extends Server {
     }
 
     if (options.docs) {
-      app.swagger(options.docs.path ?? '/docs', options.docs.info);
+      app.swaggerConfig = {
+        path: options.docs.path ?? '/docs',
+        info: options.docs.info,
+      };
     }
 
     app.authResolver = options.auth;
@@ -329,25 +340,6 @@ export default class Liteb extends Server {
       .flat();
 
     this.templatesAsync = modules;
-  };
-
-  /**
-   * Enable Swagger / OpenAPI docs. The spec is generated automatically from
-   * the same `@Module`/`@Get`/`@Post`/`@Body`/`@Params`/`@Query` decorators
-   * already used for routing. Optional `@ApiTag`, `@ApiSummary`,
-   * `@ApiDescription`, `@ApiResponse` decorators add detail.
-   *
-   * Mounts:
-   * - `<docsPath>` -> Swagger UI
-   * - `<docsPath>.json` -> raw OpenAPI 3 JSON
-   *
-   * Must be called before `start()`.
-   *
-   * @param docsPath Path under which the UI is served (e.g. `/docs`).
-   * @param info Optional title/version/description for the spec.
-   */
-  public swagger = (docsPath: string, info?: OpenAPIInfo) => {
-    this.swaggerConfig = { path: docsPath, info };
   };
 
   /**

@@ -448,6 +448,40 @@ Thin on purpose: a probe cannot authenticate, so versions and module counts
 would be a map of your installation for whoever finds it. `details: true` adds
 them, for when it sits behind a gate.
 
+#### Your own checks
+
+liteb only knows what it owns: the process is up and the database answers.
+Whether a queue has to be connected, a payments provider reachable or a cache
+warm is knowledge the framework cannot guess — so it takes it:
+
+```typescript
+health: {
+  path: '/health',
+  checks: {
+    queue: () => bridge.isConnected(),
+    payments: async () => (await gateway.ping()).ok,
+  },
+}
+```
+
+`true` passes. **Throwing counts as `fail`**, because a dependency that is down
+usually announces itself by throwing, and this is the one place where an
+exception is an answer rather than a failure. One `fail` makes the whole
+endpoint 503 and names the culprit in `checks`.
+
+They all run in parallel on every request, so the probe waits for the slowest
+one rather than for their sum — keep them cheap anyway. A check that hangs is
+cut off at `timeout` (2s by default) and counted as `fail`: a probe that never
+answers reads to a balancer as a network problem instead of as an unwell
+instance. `server` and `database` are liteb's own names and are refused at
+startup, so an application check can never quietly replace the database's
+answer.
+
+This is the seam `/readyz` would have been. It is not split into `/livez` and
+`/readyz` because the split only pays off once a platform treats the two
+differently — restart vs. take out of rotation — and liteb has one honest
+answer to give either way.
+
 On boot it reads `_modules`, resolves the dependency graph, runs each module's
 pending migrations **in dependency order**, registers the contracts, and mounts
 only what is enabled. Any failure there stops the boot: serving half-mounted is
@@ -898,13 +932,17 @@ There is no version decorator. Version by **module**: a `billing-v2` module with
 Liteb generates an OpenAPI 3.0.3 spec straight from the decorators you already use for routing — no separate annotations, no extra build step. Enable it with a single call:
 
 ```typescript
-liteb.swagger('/docs', {
-  title: 'My API',
-  version: '1.0.0',
-  description: 'Optional Markdown description',
+const app = await Liteb.create({
+  // ...
+  docs: {
+    path: '/docs',
+    info: {
+      title: 'My API',
+      version: '1.0.0',
+      description: 'Optional Markdown description',
+    },
+  },
 });
-
-liteb.start(5000);
 ```
 
 This mounts:
@@ -912,7 +950,10 @@ This mounts:
 - `GET /docs` → interactive Swagger UI
 - `GET /docs.json` → raw OpenAPI 3 JSON
 
-> Call `liteb.swagger(...)` **before** `liteb.start()`.
+Left out, nothing is exposed — the full shape of an API is a map for whoever
+finds it, and `liteb init` leaves it off in production for that reason. There is
+no second way to turn it on: it is an option of the application, decided where
+every other one is.
 
 ### What gets documented automatically
 

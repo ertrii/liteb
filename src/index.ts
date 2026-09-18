@@ -1,4 +1,5 @@
 import path from 'path';
+import { existsSync } from 'fs';
 import { ConfigService, Liteb } from '../lib';
 import enableSession from './config/enable-session';
 import sessionAuth from './config/session-auth';
@@ -54,12 +55,29 @@ export async function createApp() {
     // balancer, a container runtime or an uptime check. Outside `basePath`,
     // and kept out of the access log so a probe every few seconds does not
     // bury every real request.
-    health: { path: '/health' },
+    health: {
+      path: '/health',
+      // liteb only knows what it owns — the process and the database. What
+      // ELSE has to be true for THIS application to serve is knowledge it
+      // cannot guess, so it goes here. A check that throws counts as `fail`;
+      // one that hangs is cut off, because a probe that never answers reads to
+      // a balancer as a network problem instead of as an unwell instance.
+      checks: {
+        uploads: () => existsSync(path.join(__dirname, 'public')),
+      },
+    },
 
     // Generated from the same decorators that mount the routes, so it cannot
     // drift from what the API does. `liteb init` leaves this off in
     // production, where the full shape of an API is a map for whoever finds it.
-    docs: { path: '/docs', info: { title: 'Liteb Demo API', version: '2.0.0' } },
+    docs: {
+      path: '/docs',
+      info: {
+        title: 'Liteb Demo API',
+        version: '2.0.0',
+        description: 'Modules, contracts, migrations, auth and permissions.',
+      },
+    },
 
     // How a request becomes an actor.
     auth: sessionAuth,
@@ -70,12 +88,6 @@ export async function createApp() {
 
   // Views live inside the module that owns them.
   await app.setTemplates('pug', path.join(__dirname, 'modules/*/views'));
-
-  app.swagger('/docs', {
-    title: 'Liteb Demo API',
-    version: '2.0.0',
-    description: 'Modules, contracts, migrations, auth and permissions.',
-  });
 
   return app;
 }

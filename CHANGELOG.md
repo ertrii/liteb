@@ -70,10 +70,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   when it sits behind a gate. It is also kept out of the access log, because a
   probe every few seconds otherwise buries every real request.
 
+  `health.checks` takes the part liteb cannot know. The framework can only
+  answer for the process and the database; whether a queue must be connected, a
+  provider reachable or a cache warm is the application's knowledge:
+
+  ```typescript
+  health: { path: '/health', checks: { queue: () => bridge.isConnected() } }
+  ```
+
+  Throwing counts as `fail` — a dependency that is down usually announces
+  itself by throwing, and this is the one place where an exception is an answer
+  rather than a failure. They run in parallel, a hung check is cut off at
+  `timeout` (2s), and `server`/`database` are refused as names at startup so an
+  application check can never quietly replace the database's own answer.
+
+  This is the seam `/readyz` would have been. liteb does not split `/livez`
+  from `/readyz`: the split only pays off once a platform treats the two
+  differently, and there is one honest answer to give either way.
+
 - **`docs` and `logs` as `Liteb.create` options**, next to `cors`, so the
   application declares them in one place instead of calling methods after the
-  fact. `docs` mounts the generated OpenAPI UI (`app.swagger()` still works and
-  is what it calls); `logs` configures the log destination.
+  fact. `docs` mounts the generated OpenAPI UI; `logs` configures the log
+  destination. `app.swagger()` is **gone**: it did the same thing from a second
+  place, and an application that called both — as this repo's own demo did —
+  was declaring its documentation twice and could contradict itself.
 
 - **`liteb init` wires all three**, because every backend ends up needing them:
   `/health` always, `/docs` off in production (the full shape of an API is a

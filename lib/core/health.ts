@@ -15,6 +15,19 @@ import type { DataSource } from 'typeorm';
  * so the default body says whether it can serve and stops there. Versions,
  * module names and counts are a map of your installation for whoever finds it.
  */
+
+/**
+ * One application-owned answer to "can I serve?". `true` passes.
+ *
+ * Throwing and returning `false` are the same thing on purpose: a dependency
+ * that is down usually announces itself by throwing, and a health check is the
+ * one place where an exception is an ANSWER rather than a failure.
+ */
+export type HealthCheck = () => boolean | Promise<boolean>;
+
+/** liteb's own names. An application check may not take one of these. */
+const RESERVED = ['server', 'database'];
+
 export interface HealthConfig {
   /** Where it answers. Outside `basePath` on purpose. Defaults to `/health`. */
   path?: string;
@@ -25,6 +38,39 @@ export interface HealthConfig {
    * disclosure in front of one.
    */
   details?: boolean;
+
+  /**
+   * What ELSE has to be true for this application to serve.
+   *
+   * liteb can only check what it owns — the process is up and the database
+   * answers. Whether a queue must be connected, a payments provider must be
+   * reachable or a cache must be warm is the application's knowledge, and no
+   * framework can guess it. This is where that knowledge goes; liteb keeps
+   * owning the 200/503, the shape and the timeout.
+   *
+   * Every check runs on every request, in parallel, so keep them cheap: a
+   * probe hitting this every few seconds is the normal case.
+   *
+   * @example
+   * health: {
+   *   path: '/health',
+   *   checks: {
+   *     queue: () => bridge.isConnected(),
+   *     payments: async () => (await gateway.ping()).ok,
+   *   },
+   * }
+   */
+  checks?: Record<string, HealthCheck>;
+
+  /**
+   * How long a check may take before it counts as failed, in milliseconds.
+   * Defaults to 2000.
+   *
+   * A probe that never answers is worse than one that answers `fail`: the
+   * caller is a balancer with its own timeout, and a hung request reads to it
+   * as a network problem rather than as this instance being unwell.
+   */
+  timeout?: number;
 }
 
 /** `pass` while it can serve, `fail` while it cannot. */
@@ -64,11 +110,37 @@ async function databaseAnswers(db: DataSource): Promise<boolean> {
   }
 }
 
+/** Runs one application check without letting it throw or hang. */
+async function settle(check: HealthCheck, timeout: number): Promise<boolean> {
+  try {
+    const expired = new Promise<false>((resolve) => {
+      // Unref'd: a pending health timer must not be the reason the process
+      // refuses to exit.
+      setTimeout(() => resolve(false), timeout).unref?.();
+    });
+    return (await Promise.race([Promise.resolve(check()), expired])) === true;
+  } catch {
+    return false;
+  }
+}
+
 export function buildHealth(
   config: HealthConfig,
   sources: HealthSources,
 ): RequestHandler {
   const startedAt = Date.now();
+  const custom = Object.entries(config.checks ?? {});
+  const timeout = config.timeout ?? 2000;
+
+  // At build time, not on the first probe: a name collision would silently
+  // replace liteb's own answer with the application's, and the endpoint would
+  // keep reporting `pass` for a database nobody looked at.
+  const taken = custom.find(([name]) => RESERVED.includes(name));
+  if (taken) {
+    throw new Error(
+      `Health check "${taken[0]}" uses a name liteb reserves (${RESERVED.join(', ')}). Rename it.`,
+    );
+  }
 
   return (_request, response, next) => {
     void (async () => {
@@ -82,10 +154,20 @@ export function buildHealth(
         const draining = sources.isShuttingDown();
         if (draining) checks.server = 'shutting-down';
 
-        const database = await databaseAnswers(sources.db());
-        checks.database = database ? 'pass' : 'fail';
+        // All at once: the probe waits for the slowest check, not for their
+        // sum, and one slow dependency does not decide the endpoint's latency.
+        const [database, ...answers] = await Promise.all([
+          databaseAnswers(sources.db()),
+          ...custom.map(([, check]) => settle(check, timeout)),
+        ]);
 
-        const status: HealthStatus = !draining && database ? 'pass' : 'fail';
+        checks.database = database ? 'pass' : 'fail';
+        custom.forEach(([name], index) => {
+          checks[name] = answers[index] ? 'pass' : 'fail';
+        });
+
+        const healthy = database && answers.every(Boolean);
+        const status: HealthStatus = !draining && healthy ? 'pass' : 'fail';
 
         const report: HealthReport = { status, uptime };
         if (config.details) report.version = sources.version;

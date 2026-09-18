@@ -100,6 +100,7 @@ export { buildHealth } from './core/health';
 export { buildRequestId, currentRequestId } from './core/request-id';
 export type { RequestIdConfig } from './core/request-id';
 export type {
+  HealthCheck,
   HealthConfig,
   HealthReport,
   HealthStatus,

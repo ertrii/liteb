@@ -152,6 +152,14 @@ The body is deliberately thin: `{ status, uptime }`, plus `checks` naming what
 failed. Versions and module counts are a map of your installation for whoever
 finds it; `details: true` adds them, for when it is behind a gate.
 
+liteb can only answer for the process and the database. Anything else this
+application needs to serve goes in `health.checks` — the generated `index.ts`
+shows where:
+
+```typescript
+health: { path: '/health', checks: { queue: () => bridge.isConnected() } }
+```
+
 **`/docs`** is generated from the same decorators that mount the routes, so it
 cannot drift from what the API does. `init` leaves it off in production for the
 same reason as the thin health body.
