@@ -130,11 +130,15 @@ application without listening on a port.
 It also wires three things every backend ends up needing, so they are not a
 task for later:
 
-| | Where | In production |
-| --- | --- | --- |
-| **Health check** | `/health` | on |
-| **API docs** | `/docs`, spec at `/docs.json` | off |
-| **Log files** | `logs/` — `app`, `info`, `warn`, `error`, `router` | console only |
+| | Where |
+| --- | --- |
+| **Health check** | `/health` |
+| **API docs** | `/docs`, spec at `/docs.json` |
+| **Log files** | `logs/` — `app`, `info`, `warn`, `error`, `router` |
+
+All three are **on**, in every environment. Turning one off is a decision you
+make looking at `src/index.ts`, not one that comes made from the factory and
+surprises you the first time you deploy.
 
 **`/health`** answers 200 while the application can serve and 503 while it
 cannot — which is what a load balancer, a container runtime or an uptime check
@@ -161,8 +165,9 @@ health: { path: '/health', checks: { queue: () => bridge.isConnected() } }
 ```
 
 **`/docs`** is generated from the same decorators that mount the routes, so it
-cannot drift from what the API does. `init` leaves it off in production for the
-same reason as the thin health body.
+cannot drift from what the API does. Worth knowing before you deploy: it
+publishes the full shape of your API to anyone who finds the URL. Put it behind
+your own gate, or drop the option, if that is not what you want.
 
 Every line in those logs — and every failed response — carries the id of the
 request it belongs to, read from `x-request-id` or generated. Nothing to
@@ -188,9 +193,8 @@ thing.
 
 This is on by default, so the option is only for moving it (`dir`), renaming or
 dropping a file (`files: { error: 'errores' }`, `files: { info: false }`) or
-writing none at all. In production `init` writes `dir: null`: inside a
-container the disk is not where anyone reads logs, and the files go with the
-container.
+writing none at all with `dir: null` — which is what a container wants, where
+the disk is not where anyone reads logs and the files go with the container.
 
 ### The `@/` alias
 

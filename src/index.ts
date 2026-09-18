@@ -68,8 +68,9 @@ export async function createApp() {
     },
 
     // Generated from the same decorators that mount the routes, so it cannot
-    // drift from what the API does. `liteb init` leaves this off in
-    // production, where the full shape of an API is a map for whoever finds it.
+    // drift from what the API does. It does publish the full shape of the API
+    // to whoever finds the URL, so an application that minds puts it behind
+    // its own gate or drops the option.
     docs: {
       path: '/docs',
       info: {
@@ -78,6 +79,13 @@ export async function createApp() {
         description: 'Modules, contracts, migrations, auth and permissions.',
       },
     },
+
+    // Rotating files in `logs/`: `app.log` with everything in one stream,
+    // `info`/`warn`/`error` split out for grepping, and `router.log` — the map
+    // of what answers where, in registration order. Declared even though it is
+    // the default, because this is the file where you look for the knob:
+    // `dir: null` for a container, `files` to rename or drop one.
+    logs: { dir: 'logs' },
 
     // How a request becomes an actor.
     auth: sessionAuth,

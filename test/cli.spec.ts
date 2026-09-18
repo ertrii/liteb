@@ -152,17 +152,19 @@ describe('liteb init', () => {
       (file) => file.path === 'src/index.ts',
     )!.content;
 
+    // Los tres quedan encendidos: un proyecto recién creado tiene que poder
+    // contestar un probe, mostrar su API y dejar el mapa de rutas sin que
+    // nadie descubra una opción antes.
+    //
     // Salud: un 200/503 sin credenciales, que es lo que lee un balanceador.
     expect(index).toContain("health: { path: '/health' }");
-    // Documentación viva, apagada en producción: el mapa de la API no se
-    // regala.
-    expect(index).toContain("{ path: '/docs' }");
-    expect(index).toContain("ConfigService.mode() === 'production' ? undefined");
-    // Archivos de log en desarrollo, consola en producción: dentro de un
-    // contenedor el disco no es donde nadie lee.
-    expect(index).toContain(
-      "logs: { dir: ConfigService.mode() === 'production' ? null : 'logs' }",
-    );
+    // Documentación viva, generada de los mismos decoradores que montan.
+    expect(index).toContain("path: '/docs'");
+    // Archivos de log en `logs/`, con `router.log` adentro.
+    expect(index).toContain("logs: { dir: 'logs' }");
+    // Nada condicionado al entorno: apagarlos es una decisión que se toma
+    // mirando el archivo, no una que venga tomada de fábrica.
+    expect(index).not.toContain("=== 'production'");
 
     const env = createProject({ name: 'mi-app', litebVersion }).files.find(
       (file) => file.path === '.env',

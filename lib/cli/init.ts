@@ -142,21 +142,30 @@ export async function createApp() {
     // from the same decorators that mount the routes, so they cannot drift
     // from what the API does.
     //
-    // Off in production: the full shape of an API is a map for whoever finds
-    // it. Put it behind your own gate if you want it there.
-    docs:
-      ConfigService.mode() === 'production' ? undefined : { path: '/docs' },
+    // Worth knowing: this publishes the full shape of your API to anyone who
+    // finds the URL. Put it behind your own gate, or drop the option in
+    // production, if that is not what you want.
+    docs: {
+      path: '/docs',
+      info: { title: 'API', version: '1.0.0' },
+    },
 
     // Rotating files in \`logs/\`: \`app.log\` with everything in one stream,
     // \`info\`/\`warn\`/\`error\` split out for grepping, and \`router.log\` — the
     // map of what answers where, in registration order, which is the fastest
     // answer to "why is my route a 404".
     //
-    // \`dir: null\` in production: inside a container the disk is not where
-    // anyone reads logs, and the files go with the container. Beyond that this
-    // is only for moving the directory or renaming a file
-    // (\`files: { error: 'errores' }\`, \`files: { info: false }\`).
-    logs: { dir: ConfigService.mode() === 'production' ? null : 'logs' },
+    // This is only for moving the directory, renaming a file
+    // (\`files: { error: 'errores' }\`) or dropping one
+    // (\`files: { info: false }\`). \`dir: null\` writes none at all, which is
+    // what a container wants: there the disk is not where anyone reads logs,
+    // and the files go with the container.
+    logs: { dir: 'logs' },
+
+    // No option for the request id: it is always on. Every log line written
+    // while serving a request carries it, and so does the error body and the
+    // \`x-request-id\` response header. \`requestId: { header: '...' }\` only
+    // changes which header carries it, for a gateway that sends its own.
 
     // Who may call this API from a browser. \`credentials\` sends and accepts
     // cookies, which a session needs — and which forces an explicit list: a

@@ -358,7 +358,7 @@ await app.start(4000);
 Four more options, all of them policy the application owns and liteb only
 mounts: `cors`, `auth`, `docs` (the generated OpenAPI UI) and `health`. See
 [the CLI guide](./cli.md#liteb-init-name) for what `liteb init` wires by
-default and why each one differs in production.
+default.
 
 ### Failures
 
@@ -950,10 +950,11 @@ This mounts:
 - `GET /docs` → interactive Swagger UI
 - `GET /docs.json` → raw OpenAPI 3 JSON
 
-Left out, nothing is exposed — the full shape of an API is a map for whoever
-finds it, and `liteb init` leaves it off in production for that reason. There is
-no second way to turn it on: it is an option of the application, decided where
-every other one is.
+Left out, nothing is exposed. `liteb init` turns it on, and it stays on in
+every environment — but it does publish the full shape of your API to anyone
+who finds the URL, so put it behind your own gate, or drop the option, if that
+is not what you want. There is no second way to turn it on: it is an option of
+the application, decided where every other one is.
 
 ### What gets documented automatically
 
@@ -1079,8 +1080,7 @@ Dropping `info`, `warn` or `error` loses nothing — those lines are still in
 map, and it falls back to the console.
 
 `dir: null` is the container answer: inside one the disk is not where anyone
-reads logs, and the files go with the container. `liteb init` writes exactly
-that for production.
+reads logs, and the files go with the container.
 
 Environment variables override nothing the application passed, and are there
 for the same container case:

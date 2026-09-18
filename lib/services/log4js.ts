@@ -126,6 +126,11 @@ export function configureLogger(options: LoggerOptions = {}) {
   if (level === 'off') dir = null;
 
   if (dir) {
+    // Resolved ONCE, here. A relative `logs/` means "next to wherever the
+    // process happens to be standing", and the appender opens its file when it
+    // writes, not when it is configured: a process that chdirs afterwards
+    // silently starts a second log directory somewhere else.
+    dir = path.resolve(dir);
     try {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     } catch {

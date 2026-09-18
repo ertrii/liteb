@@ -126,7 +126,7 @@ describe('archivos de log', () => {
     expect(neutral).not.toContain('the first match answers');
   });
 
-  it('sin decir dónde, es `logs/` al lado del proceso', async () => {
+  it('sin decir dónde, es `logs/` al lado del proceso, resuelto una vez', async () => {
     // Es el punto de la decisión: quien tiene que descubrir una opción antes
     // de poder leer lo que hizo su aplicación, no la lee nunca. Se prueba
     // parándose en un temporal, no tocando variables de entorno: el nombre
@@ -137,6 +137,13 @@ describe('archivos de log', () => {
 
     try {
       await levantar({ level: 'trace' });
+
+      // Y la ruta queda absoluta desde el arranque: el appender abre el
+      // archivo cuando ESCRIBE, no cuando se configura, así que un `logs/`
+      // relativo empezaría a escribir en otro lado apenas el proceso cambie
+      // de directorio.
+      process.chdir(previo);
+      Logger.info('después de cambiar de directorio');
       await vaciar();
 
       expect(fs.readdirSync(path.join(casa, 'logs')).sort()).toEqual([
@@ -146,6 +153,10 @@ describe('archivos de log', () => {
         'router.log',
         'warn.log',
       ]);
+      expect(
+        fs.readFileSync(path.join(casa, 'logs', 'app.log'), 'utf8'),
+      ).toContain('después de cambiar de directorio');
+      expect(fs.existsSync(path.join(previo, 'logs'))).toBe(false);
     } finally {
       process.chdir(previo);
       fs.rmSync(casa, { recursive: true, force: true });

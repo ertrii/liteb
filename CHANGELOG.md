@@ -134,11 +134,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   files at all, which is what keeps a test run from leaving a directory of
   empty files behind it.
 
-- **`liteb init` wires all three**, because every backend ends up needing them:
-  `/health` always, `/docs` off in production (the full shape of an API is a
-  map for whoever finds it), and `logs/` in development but console-only in
-  production — inside a container the disk is not where anyone reads logs, and
-  the files go with the container. `.env` now carries `NODE_ENV`.
+  The directory is also **resolved to an absolute path once**, when it is
+  configured. A relative `logs/` means "next to wherever the process happens to
+  be standing", and the appender opens its file when it WRITES, not when it is
+  configured — so a process that changed directory afterwards quietly started a
+  second log directory somewhere else. Found while chasing a `logs/` that kept
+  reappearing in this repo's root during the test run.
+
+- **`liteb init` wires all three ON**, in every environment, because every
+  backend ends up needing them: `/health`, `/docs` and `logs/`. Nothing is
+  conditioned on `NODE_ENV` — turning one off is a decision you make looking at
+  `src/index.ts`, not one that comes made from the factory and surprises you
+  the first time you deploy. The comment beside each one says what to know
+  before you keep it: `/docs` publishes the shape of your API to whoever finds
+  the URL, and `dir: null` is the right answer for logs inside a container.
+  `.env` now carries `NODE_ENV` all the same.
 
 - **`liteb create event` and `liteb create slot`**, so every kind of token a
   module publishes has a command and a folder: `contracts/`, `events/` and
