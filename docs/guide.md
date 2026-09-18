@@ -545,19 +545,42 @@ resolver turns a request into an **actor**, and every endpoint reads it as
 const app = await Liteb.create({
   db,
   modules: [identity, billing],
-  auth: async (req, { db, get }) => {
-    const userId = req.session?.userId;      // or a bearer token, or an API key
+  auth: async (request, { db }) => {
+    const userId = request.session?.userId;  // or a bearer token, or an API key
     if (!userId) return null;                // anonymous
 
-    // `get` resolves a contract, so who-may-do-what stays inside the module
-    // that owns it. `db` is there too, for a resolver that queries directly.
-    const permissions = await get(UserDirectory).permissionsOf(userId);
-    if (!permissions) return null;           // user deleted mid-session
+    const user = await db.getRepository(User).findOneBy({ id: userId });
+    if (!user) return null;                  // deleted mid-session
 
-    return { actor: { userId }, permissions };
+    return {
+      actor: { userId },
+      permissions: user.role === 'owner' ? ['*'] : ['billing.view'],
+    };
   },
 });
 ```
+
+That is the whole feature. liteb stores no roles and no users: it receives a
+list of keys per request and compares strings. Which keys somebody holds is
+**your** application's rule, wherever you keep it.
+
+The resolver also gets `get`, to resolve a contract instead of querying:
+
+```typescript
+  auth: async (request, { get }) => {
+    const userId = request.session?.userId;
+    if (!userId) return null;
+    const permissions = await get(UserDirectory).permissionsOf(userId);
+    return permissions ? { actor: { userId }, permissions } : null;
+  },
+```
+
+Worth it for ONE reason, and only when it applies: the resolver usually lives
+outside the modules, so querying directly means importing an entity from a
+module's internals. Fine while you own every module; not fine once one of them
+is installed from somewhere else, or is meant to be swapped. The demo under
+`src/` uses the contract to show this, which makes the simple case look harder
+than it is — start with `db`.
 
 Declare the actor's shape **once**, anywhere in your app, and it is typed
 everywhere:
