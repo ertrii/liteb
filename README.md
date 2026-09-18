@@ -74,7 +74,7 @@ No paths, because a module keeps the standard layout and liteb finds it from
 billing/
 ├── module.ts
 ├── entities/*.entity.ts        migrations/*.ts
-├── endpoints/*.endpoint.ts     tasks/*.task.ts       listeners/*.listener.ts
+├── endpoints/*.endpoint.ts     routines/*.routine.ts   listeners/*.listener.ts
 ```
 
 Name a field — `routes: './apis/*.api.ts'` — only to say something else; it
@@ -141,7 +141,7 @@ npx liteb create module billing              # manifest, first endpoint, migrati
 npx liteb create endpoint billing/issue --method post
 npx liteb create entity billing/charge       # registered in the manifest
 npx liteb create migration billing/create-charges
-npx liteb create task billing/nightly --cron "0 7 * * *"
+npx liteb create routine billing/nightly --cron "0 7 * * *"
 npx liteb create listener billing/audit
 
 npx liteb migrate                            # run pending migrations, no server
@@ -159,7 +159,7 @@ start a server.
 
 ## Also in the box
 
-Swagger from the same decorators, scheduled tasks, per-module migrations with
+Swagger from the same decorators, scheduled routines, per-module migrations with
 their own ledger, template rendering, a route map in `router.log`, configurable
 logging, graceful shutdown.
 

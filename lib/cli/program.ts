@@ -10,7 +10,7 @@ import {
   createListener,
   createMigration,
   createModule,
-  createTask,
+  createRoutine,
 } from './generators';
 import { CliError } from './names';
 import { Plan } from './plan';
@@ -173,12 +173,14 @@ export function buildProgram(): Command {
 
   common(
     create
-      .command('task <module/name>')
-      .description('A scheduled task, started only while the module is enabled')
+      .command('routine <module/name>')
+      .description(
+        'Work on a schedule, started only while the module is enabled',
+      )
       .option('--cron <expression>', 'node-cron expression', '0 7 * * *'),
   ).action((target, flags) => {
     report(
-      createTask({
+      createRoutine({
         target,
         modulesDir: flags.dir,
         from: flags.from,

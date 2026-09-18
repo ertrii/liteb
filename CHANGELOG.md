@@ -8,6 +8,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **`Task` is now `Routine`, and `@Schedule` is now `@Cron`.** "Task" is the
+  most common noun in business software — a work order, a case, a to-do — and
+  a framework has no business taking the word: an application with its own
+  `Task` entity had to alias one of the two in every file that used both.
+
+  ```typescript
+  @Cron('0 7 * * *', { timezone: 'America/Lima' })
+  export default class DailySummary extends Routine {
+    public async start(now: Date | 'manual' | 'init') { ... }
+  }
+  ```
+
+  `Routine` names the work without claiming a domain word. `Job` would have
+  read just as well and was rejected for a different reason: everywhere else
+  (Sidekiq, BullMQ, Quartz, Kubernetes) it means a QUEUE — enqueue, payload,
+  retries, workers — and liteb has none of that. If liteb ever grows one, that
+  is the real `Job`.
+
+  `@Schedule` described the effect; the argument it takes is a cron
+  expression, so `@Cron` says what it takes.
+
+  The folder and the manifest field move with it:
+  `routines/*.routine.ts`, `routines:`, `liteb create routine <module>/<name>`.
+  `Task`, `@Schedule`, `loadModuleTasks` and the manifest's `tasks:` still
+  work, deprecated, and go away in 2.0 final — an existing manifest needs no
+  change.
+
 - **A module's folders are a convention, not a declaration.** `entities`,
   `migrations`, `routes`, `tasks` and `listeners` now default to the standard
   layout, resolved from `dir`:
@@ -158,6 +185,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   line to it.
 
 ### Fixed
+
+- **A routine's `this.emit()` reached nobody.** The event bus was never passed
+  to the scheduled routine, and `emit` returns quietly when there is none — so
+  a routine that announced something worked, logged nothing, and no listener
+  ever ran. Found while renaming `Task`, and covered by a test that fails
+  without the fix.
 
 - **An error thrown by a middleware answers the error contract.** There was a
   404 fallback and no error handler, so anything a middleware passed to

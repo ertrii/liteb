@@ -9,7 +9,7 @@ import {
 import {
   loadModuleEndpoints,
   loadModuleListeners,
-  loadModuleTasks,
+  loadModuleRoutines,
 } from '../lib/modules/module-loader';
 
 /**
@@ -36,7 +36,7 @@ describe('disposición estándar', () => {
       'CreateThings1700000000000',
     ]);
     expect(mod.routes).toEqual([MODULE_LAYOUT.routes]);
-    expect(mod.tasks).toEqual([MODULE_LAYOUT.tasks]);
+    expect(mod.routines).toEqual([MODULE_LAYOUT.routines]);
     expect(mod.listeners).toEqual([MODULE_LAYOUT.listeners]);
   });
 
@@ -44,13 +44,13 @@ describe('disposición estándar', () => {
     const mod = defineModule({ ...base, dir });
 
     const endpoints = await loadModuleEndpoints(mod);
-    const tasks = await loadModuleTasks(mod);
+    const routines = await loadModuleRoutines(mod);
     const listeners = await loadModuleListeners(mod);
 
     expect(endpoints).toHaveLength(1);
     // Sin `@Group`: el prefijo sale del id del módulo.
     expect(endpoints[0].group).toBe('layout');
-    expect(tasks).toHaveLength(1);
+    expect(routines).toHaveLength(1);
     expect(listeners).toHaveLength(1);
   });
 
@@ -77,7 +77,7 @@ describe('disposición estándar', () => {
       'entities',
       'migrations',
       'routes',
-      'tasks',
+      'routines',
       'listeners',
     ]);
   });
@@ -96,7 +96,7 @@ describe('cuando el módulo está en otro lado', () => {
     expect(mod.implicit).toEqual([
       'entities',
       'migrations',
-      'tasks',
+      'routines',
       'listeners',
     ]);
   });
@@ -136,6 +136,14 @@ describe('cuando el módulo está en otro lado', () => {
     expect(mod.migrations).toEqual([]);
     expect(mod.routes).toEqual([]);
     expect(mod.implicit).toEqual([]);
+  });
+
+  it('el nombre viejo `tasks` sigue apuntando a las rutinas', () => {
+    // Un manifiesto escrito antes del rename no tiene por qué cambiar.
+    const mod = defineModule({ ...base, dir, tasks: './routines/*.routine.ts' });
+
+    expect(mod.routines).toEqual(['./routines/*.routine.ts']);
+    expect(mod.implicit).not.toContain('routines');
   });
 
   it('mezclar globs con clases no pasa de defineModule', () => {

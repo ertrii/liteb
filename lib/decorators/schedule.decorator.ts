@@ -1,22 +1,16 @@
-import cron from 'node-cron';
-import { Task } from '../templates/task';
+import { Cron, CRON, CronMetadata } from './cron.decorator';
 
-export const SCHEDULE = Symbol('__schedule__');
+/**
+ * `@Schedule` described the effect; `@Cron` describes what it takes, which is
+ * a cron expression. Kept working while applications move to {@link Cron}, and
+ * goes away in 2.0 final.
+ */
 
-export interface ScheduleMetadata {
-  expression: string;
-  options: cron.ScheduleOptions;
-}
+/** @deprecated Renamed to `CRON`. */
+export const SCHEDULE = CRON;
 
-export function Schedule(
-  expression: string,
-  options: cron.ScheduleOptions = {},
-) {
-  return function (target: new () => Task) {
-    Reflect.defineMetadata(
-      SCHEDULE,
-      { expression, options } as ScheduleMetadata,
-      target,
-    );
-  };
-}
+/** @deprecated Renamed to {@link CronMetadata}. */
+export type ScheduleMetadata = CronMetadata;
+
+/** @deprecated Renamed to {@link Cron}. */
+export const Schedule = Cron;

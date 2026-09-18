@@ -10,7 +10,7 @@ import {
   createListener,
   createMigration,
   createModule,
-  createTask,
+  createRoutine,
 } from '../lib/cli/generators';
 import { applyEdit } from '../lib/cli/writer';
 import { apply } from '../lib/cli/writer';
@@ -184,7 +184,9 @@ describe('un módulo generado y puesto a andar', () => {
       }),
     );
     scaffold(createEntity({ target: 'inventory/item', modulesDir, from: 'liteb' }));
-    scaffold(createTask({ target: 'inventory/nightly', modulesDir, from: 'liteb' }));
+    scaffold(
+      createRoutine({ target: 'inventory/nightly', modulesDir, from: 'liteb' }),
+    );
     scaffold(createListener({ target: 'inventory/audit', modulesDir, from: 'liteb' }));
     scaffold(
       createMigration({ target: 'inventory/create-items', modulesDir, from: 'liteb' }),
@@ -388,17 +390,17 @@ describe('un módulo generado y puesto a andar', () => {
     expect(typeof entry.createApp).toBe('function');
   });
 
-  it('tarea, oyente y migración no tocan el manifiesto', () => {
+  it('rutina, oyente y migración no tocan el manifiesto', () => {
     // Cuatro generadores escribieron archivos y NINGUNO editó module.ts. Eso
     // es lo que hace que un módulo se pueda leer de un vistazo: lo que dice es
     // lo particular de este módulo, no la lista de carpetas que tienen todos.
     const manifest = declared(`${modulesDir}/inventory/module.ts`);
 
-    expect(manifest).not.toContain('tasks:');
+    expect(manifest).not.toContain('routines:');
     expect(manifest).not.toContain('listeners:');
     expect(manifest).not.toContain('migrations');
 
-    expect(inventory.tasks).toEqual(['./tasks/*.task.ts']);
+    expect(inventory.routines).toEqual(['./routines/*.routine.ts']);
     expect(inventory.listeners).toEqual(['./listeners/*.listener.ts']);
     expect(inventory.migrations.map((migration) => migration.name)).toEqual([
       expect.stringMatching(/^CreateItems\d+$/),

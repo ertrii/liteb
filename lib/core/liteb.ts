@@ -10,8 +10,8 @@ import { Logger } from '../utilities/logger';
 import ErrorControl from '../utilities/error-control';
 import { NotFoundError } from '../utilities/errors';
 import { ErrorType } from '../interfaces/type-error';
-import { Task } from '../templates/task';
-import InterpreterTask from './interpreter-task';
+import { Routine } from '../templates/routine';
+import InterpreterRoutine from './interpreter-routine';
 import path from 'path';
 import {
   OpenAPIGenerator,
@@ -26,7 +26,7 @@ import {
   LoadedModule,
   loadModules,
   loadModuleListeners,
-  loadModuleTasks,
+  loadModuleRoutines,
 } from '../modules/module-loader';
 import { collectModuleEntities } from '../modules/collect-entities';
 import { buildContainer } from '../modules/build-container';
@@ -57,7 +57,7 @@ export interface LitebOptions {
 
   /**
    * Manifests built with `defineModule()`. Required, and the ONLY way to mount
-   * routes or tasks: an application is its modules.
+   * routes or routines: an application is its modules.
    */
   modules: ResolvedModule[];
 
@@ -84,8 +84,8 @@ export interface LitebOptions {
 }
 
 /**
- * This framework allows you to configure API and task patterns based on modules,
- * resolving their routes and dynamically loading the defined controllers and tasks.
+ * This framework allows you to configure API and routine patterns based on
+ * modules, resolving their routes and dynamically loading what they declare.
  */
 export default class Liteb extends Server {
   private modules: ResolvedModule[] = [];
@@ -96,10 +96,10 @@ export default class Liteb extends Server {
   private events?: EventBus;
   private permissionRegistry = new PermissionRegistry();
   private authResolver?: AuthResolver;
-  private moduleTasks: Array<new () => Task> = [];
+  private moduleRoutines: Array<new () => Routine> = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
-  private scheduledTasks: cron.ScheduledTask[] = [];
+  private scheduled: cron.ScheduledTask[] = [];
   private shuttingDown = false;
   private swaggerConfig: {
     path: string;
@@ -159,7 +159,7 @@ export default class Liteb extends Server {
    * Private on purpose: {@link Liteb.create} is the only way in.
    *
    * A hand-built instance could only ever be an application with no modules —
-   * and therefore no routes and no tasks — or one whose DataSource never
+   * and therefore no routes and no routines — or one whose DataSource never
    * learned about its modules' entities, which fails later, at the first query.
    *
    * @param dbSource TypeORM DataSource instance for database access.
@@ -475,11 +475,11 @@ export default class Liteb extends Server {
 
     this.loadedModules = await loadModules(active);
 
-    // Scheduled tasks follow the same rule as routes: only enabled modules get
-    // theirs started. A disabled module must not keep a cron running.
-    this.moduleTasks = [];
+    // Scheduled routines follow the same rule as routes: only enabled modules
+    // get theirs started. A disabled module must not keep a cron running.
+    this.moduleRoutines = [];
     for (const mod of active) {
-      this.moduleTasks.push(...(await loadModuleTasks(mod)));
+      this.moduleRoutines.push(...(await loadModuleRoutines(mod)));
     }
     Logger.info(
       `Modules enabled: ${active.map((mod) => mod.id).join(', ') || 'none'}`,
@@ -488,7 +488,7 @@ export default class Liteb extends Server {
 
   /**
    * Starts the main framework flow: connects to the database,
-   * resolves APIs and tasks, creates routes, and starts the HTTP server.
+   * resolves APIs and routines, creates routes, and starts the HTTP server.
    *
    * @param port Port where the HTTP server will be started.
    */
@@ -621,17 +621,20 @@ export default class Liteb extends Server {
     Logger.info('Loading server...');
     await this.listen(port);
 
-    if (this.moduleTasks.length > 0) {
-      Logger.info('Starting module tasks...');
-      this.moduleTasks.forEach((taskMod) => {
-        const interpreterTask = new InterpreterTask(
-          taskMod,
+    if (this.moduleRoutines.length > 0) {
+      Logger.info('Starting module routines...');
+      this.moduleRoutines.forEach((RoutineClass) => {
+        const interpreter = new InterpreterRoutine(
+          RoutineClass,
           this.dbSource,
           this.container,
+          // Without this a routine's `this.emit()` did nothing at all: the bus
+          // never reached it, and `emit` returns quietly when there is none.
+          this.events,
         );
-        if (interpreterTask.isInvalid()) return;
-        const scheduled = interpreterTask.start();
-        if (scheduled) this.scheduledTasks.push(scheduled);
+        if (interpreter.isInvalid()) return;
+        const scheduled = interpreter.start();
+        if (scheduled) this.scheduled.push(scheduled);
       });
     }
 
@@ -693,14 +696,14 @@ export default class Liteb extends Server {
   };
 
   /**
-   * Ordered shutdown: stops the cron tasks, stops accepting new requests and
+   * Ordered shutdown: stops the routines, stops accepting new requests and
    * waits for in-flight ones, closes the database connection and ends the
    * process. Safe against multiple calls.
    *
    * @param signal Signal or reason that triggered the shutdown (informational).
    */
   /**
-   * Stops the application without ending the process: cron tasks first, then
+   * Stops the application without ending the process: routines first, then
    * the HTTP server, then the database connection.
    *
    * `shutdown()` is the signal handler and exits the process, which makes it
@@ -713,9 +716,9 @@ export default class Liteb extends Server {
   public close = async (options: { database?: boolean } = {}) => {
     const { database = true } = options;
 
-    // Stop scheduled tasks so nothing new starts.
-    this.scheduledTasks.forEach((task) => task.stop());
-    this.scheduledTasks = [];
+    // Stop the schedules so nothing new starts.
+    this.scheduled.forEach((schedule) => schedule.stop());
+    this.scheduled = [];
 
     try {
       await this.closeServer();

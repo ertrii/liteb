@@ -28,7 +28,7 @@ export type ModuleGlobField =
   | 'entities'
   | 'migrations'
   | 'routes'
-  | 'tasks'
+  | 'routines'
   | 'listeners';
 
 /**
@@ -50,7 +50,7 @@ export const MODULE_LAYOUT: Readonly<Record<ModuleGlobField, string>> = {
   entities: './entities/*.entity.ts',
   migrations: './migrations/*.ts',
   routes: './endpoints/*.endpoint.ts',
-  tasks: './tasks/*.task.ts',
+  routines: './routines/*.routine.ts',
   listeners: './listeners/*.listener.ts',
 };
 
@@ -141,13 +141,16 @@ export interface ModuleManifest {
   migrations?: ModuleMigrations | ModulePattern;
 
   /**
-   * Globs for this module's endpoints, scheduled tasks and event listeners.
-   * Default to `./endpoints/*.endpoint.ts`, `./tasks/*.task.ts` and
+   * Globs for this module's endpoints, scheduled routines and event listeners.
+   * Default to `./endpoints/*.endpoint.ts`, `./routines/*.routine.ts` and
    * `./listeners/*.listener.ts`.
    */
   routes?: ModulePattern;
-  tasks?: ModulePattern;
+  routines?: ModulePattern;
   listeners?: ModulePattern;
+
+  /** @deprecated Renamed to `routines`, for the folder `./routines`. */
+  tasks?: ModulePattern;
 
   /**
    * What this module can gate. Either the entries, or a set built with
@@ -196,7 +199,7 @@ export interface ResolvedModule {
   entities: ModuleEntity[];
   migrations: Function[];
   routes: string[];
-  tasks: string[];
+  routines: string[];
   listeners: string[];
   permissions: ModulePermission[];
   provides: Provider<any>[];
@@ -212,7 +215,7 @@ export interface ResolvedModule {
    *
    * What it is for: a glob the author wrote and that finds nothing is a
    * mistake worth reporting; a default that finds nothing just means the
-   * module has no endpoints, or no tasks, and reporting it would be noise on
+   * module has no endpoints, or no routines, and reporting it would be noise on
    * every boot.
    */
   implicit: ModuleGlobField[];

@@ -14,6 +14,9 @@ export type { GroupOptions, GroupMetadata } from './decorators/group.decorator';
 /** @deprecated Renamed to `Group`. */
 export { Module } from './decorators/module.decorator';
 export { Priority } from './decorators/priority.decorator';
+export { Cron } from './decorators/cron.decorator';
+export type { CronMetadata } from './decorators/cron.decorator';
+/** @deprecated Renamed to `Cron`. */
 export { Schedule } from './decorators/schedule.decorator';
 export { Use } from './decorators/use.decorator';
 export type { MiddlewareFn, UseMetadata } from './decorators/use.decorator';
@@ -52,6 +55,7 @@ export {
   loadModules,
   loadModuleEndpoints,
   loadModuleListeners,
+  loadModuleRoutines,
   loadModuleTasks,
   toEndpointReaders,
   resolveModulePattern,
@@ -110,6 +114,7 @@ export type {
   PermissionKey,
 } from './core/auth';
 export * from './templates/endpoint';
+export * from './templates/routine';
 export * from './templates/task';
 export * from './utilities/logger';
 export type { LoggerOptions } from './services/log4js';

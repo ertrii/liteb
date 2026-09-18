@@ -30,7 +30,7 @@ npm install liteb
 | --------------------------- | ------ |
 | Routing                     | ✔      |
 | Schema validation           | ✔      |
-| Scheduler / Tasks           | ✔      |
+| Scheduler / Routines        | ✔      |
 | API docs (Swagger / OpenAPI)| ✔      |
 | Non-JSON answers (view/PDF/CSV) | ✔  |
 | Static files                | ✔      |
@@ -71,7 +71,7 @@ writes the shape; you write the code.
 | `init [name]` | A project that runs: `package.json`, `tsconfig.json`, `.env`, entry point — and `npm install` (`--skip-install` to stop before it) |
 | `create module <name>` | `module.ts`, its permissions file and a first endpoint |
 | `create endpoint <module>/<name>` | An endpoint (`--method`, `--path`, `--group`, `--public`) |
-| `create task <module>/<name>` | A scheduled task (`--cron`) |
+| `create routine <module>/<name>` | Work on a schedule (`--cron`) |
 | `create listener <module>/<name>` | A listener |
 | `create entity <module>/<name>` | An entity (`--table`) |
 | `create migration <module>/<name>` | A timestamped migration |
@@ -236,9 +236,9 @@ export class CreateUserApi extends Endpoint<null, CreateUserDto> {
 ## Modules
 
 A module is a unit that can be installed, enabled and disabled: it declares its
-own entities, migrations, routes, tasks, permissions and the contracts it
+own entities, migrations, routes, routines, permissions and the contracts it
 publishes. `_modules` records what is installed and what is on, so turning a
-module off removes its routes and stops its tasks **without touching its data**.
+module off removes its routes and stops its routines **without touching its data**.
 
 ```typescript
 // modules/billing/module.ts
@@ -272,7 +272,7 @@ is particular to **this** module. The folders are found from `dir`:
 | `entities/*.entity.ts` | the decorated classes, for the DataSource |
 | `migrations/*.ts` | the migration classes |
 | `endpoints/*.endpoint.ts` | the endpoints, mounted under the module id |
-| `tasks/*.task.ts` | the scheduled tasks |
+| `routines/*.routine.ts` | the scheduled routines |
 | `listeners/*.listener.ts` | the event listeners |
 
 Writing the file is all there is to do. `liteb create entity billing/charge`
@@ -291,8 +291,8 @@ export default defineModule({
   version: '1.0.0',
   dir: __dirname,
 
-  // A DDD layout: the endpoints are elsewhere. Entities, migrations, tasks and
-  // listeners keep coming from the standard folders.
+  // A DDD layout: the endpoints are elsewhere. Entities, migrations, routines
+  // and listeners keep coming from the standard folders.
   routes: './presentation/controllers/**/*.controller.ts',
 });
 ```
@@ -307,7 +307,7 @@ Two rules are worth knowing:
   module has no entities, so no default applies.
 
 A glob you WROTE that finds nothing is reported at startup; a default that
-finds nothing is not, because a module with no tasks is an ordinary module.
+finds nothing is not, because a module with no routines is an ordinary module.
 
 Start the application from its modules. `Liteb.create` owns the DataSource,
 because TypeORM needs every module's entities when the connection is built:
@@ -330,7 +330,7 @@ worse than not starting.
 
 ### Shipping a module compiled, or as a package
 
-The `routes` and `tasks` globs are **extension-agnostic**. Write them however
+The `routes` and `routines` globs are **extension-agnostic**. Write them however
 you like — `'./endpoints/*.endpoint.ts'`, `'./endpoints/*.endpoint.js'` or
 `'./endpoints/*.endpoint'` — and
 liteb looks for `.ts`, `.js`, `.cjs`, `.mjs` and `.jsc`. You declare *which*
@@ -407,7 +407,7 @@ failing on whichever request needed it first:
 consumes: [BillingService],
 ```
 
-Scheduled tasks get the same `this.get()`.
+Routines get the same `this.get()`.
 
 ### Extension points
 
@@ -510,7 +510,7 @@ export const ProductRestocked = event<ProductRestocked>('catalog.product.restock
 ```
 
 ```typescript
-// in an endpoint or a task of `catalog`
+// in an endpoint or a routine of `catalog`
 await this.emit(ProductRestocked, { productId, quantity });
 ```
 
@@ -524,11 +524,8 @@ export class RestockLog extends Listener<ProductRestocked> {
 }
 ```
 
-Declare where they live, and they are loaded like routes and tasks:
-
-```typescript
-listeners: './listeners/*.listener.ts',
-```
+The file goes in the module's `listeners/` folder, the same way a routine goes
+in `routines/`. Nothing to declare.
 
 The rules that keep an event from turning into a call with extra steps:
 
@@ -677,7 +674,7 @@ Notes:
 
 ## Bootstrapping
 
-`Liteb.create()` is the only way to build an application, and **modules are the only way to mount anything**. There is no glob-mounting API: a route or a task belongs to a module or it does not exist.
+`Liteb.create()` is the only way to build an application, and **modules are the only way to mount anything**. There is no glob-mounting API: a route or a routine belongs to a module or it does not exist.
 
 ```typescript
 import { Liteb } from 'liteb';
@@ -698,7 +695,7 @@ await app.start(5000);
 
 - fails fast if the database can't be reached (throws, so the process exits non-zero and your orchestrator restarts it);
 - aborts if the module graph is broken or a migration fails — serving half-mounted is worse than not starting;
-- registers `SIGTERM`/`SIGINT` handlers for a **graceful shutdown** (stops scheduled tasks, drains in-flight requests, closes the database). You can also trigger it with `app.shutdown()`, or `app.close()` to stop without ending the process.
+- registers `SIGTERM`/`SIGINT` handlers for a **graceful shutdown** (stops the routines, drains in-flight requests, closes the database). You can also trigger it with `app.shutdown()`, or `app.close()` to stop without ending the process.
 
 An empty `modules` array is allowed but warns on start: the app will serve nothing beyond what you mounted by hand through `getApp()`.
 
@@ -925,20 +922,40 @@ await liteb.setTemplates('pug', './views');   // or 'ejs'
 Pages are usually worth marking `@ApiHidden()` so they stay out of the OpenAPI
 spec.
 
-## Scheduled tasks
+## Routines
+
+Work the application does on its own, on a clock. The third way in, next to an
+endpoint (answers a request) and a listener (reacts to an event): nobody calls
+a routine, the schedule does.
 
 ```typescript
-import { Task, Schedule } from 'liteb';
+import { Cron, Routine } from 'liteb';
 
-@Schedule('0 * * * *') // every hour (node-cron expression)
-export class HourlyTask extends Task {
+@Cron('0 * * * *', { timezone: 'America/Lima' })  // every hour
+export class HourlyReport extends Routine {
   start(now: Date | 'manual' | 'init') {
-    // this.db is available
+    // this.db, this.get(Contract) and this.emit(Event) all work here
   }
 }
 ```
 
-Point the module's `tasks` glob at them. Only **enabled** modules get their tasks started, and everything is stopped on graceful shutdown.
+The file goes in the module's `routines/` folder and that is all it takes.
+Only **enabled** modules get their routines started, and everything is stopped
+on graceful shutdown.
+
+Two things worth knowing:
+
+- **Set the `timezone`.** Without it the expression is read in the timezone of
+  whatever machine the process ended up on, which is how a "7am" routine runs
+  at 2am on a server abroad.
+- **`now` is not always a `Date`.** It is `'init'` when the routine was
+  declared with `{ runOnInit: true }` and ran at startup, and `'manual'` for a
+  tick nothing scheduled. Branch on it when the first run should differ.
+
+> Renamed from `Task` / `@Schedule`. "Task" is the most common
+> noun in business software — a work order, a case, a to-do — and an
+> application with its own `Task` entity had to alias one of the two in every
+> file that used both. The old names still work, deprecated.
 
 ## Environment configuration
 
@@ -966,7 +983,7 @@ Three modules, on purpose:
 | --- | --- | --- |
 | `identity` | core | Entity + migration with seed data, login/logout/me, a contract other modules consume, permissions |
 | `catalog` | core | `requires`, validation DTOs, `@Priority` done right, a page with `view()`, an export with `csv()`, `db.transaction()` for two writes that must land together |
-| `reports` | optional | Installs **disabled**; consumes two contracts without importing either module; a scheduled task that only runs while enabled |
+| `reports` | optional | Installs **disabled**; consumes two contracts without importing either module; a routine that only runs while enabled |
 
 ```bash
 cp .env.template .env      # fill in DB_* and SECRET_KEY

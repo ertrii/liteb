@@ -100,7 +100,7 @@ import { permissions } from './permissions';
  * ${label}.
  *
  * The manifest is the contract between this module and the application: what
- * it owns (entities, migrations), what it exposes (routes, tasks, listeners),
+ * it owns (entities, migrations), what it exposes (routes, routines, listeners),
  * what it needs (\`requires\`, \`consumes\`) and what it lets others do
  * (\`permissions\`, \`provides\`).
  *
@@ -108,7 +108,7 @@ import { permissions } from './permissions';
  * and liteb finds them from \`dir\`:
  *
  *     entities/*.entity.ts      migrations/*.ts      endpoints/*.endpoint.ts
- *     tasks/*.task.ts           listeners/*.listener.ts
+ *     routines/*.routine.ts     listeners/*.listener.ts
  *
  * Name a field — \`routes: './apis/*.api.ts'\` — only to say something else.
  */
@@ -370,37 +370,40 @@ function permissionLabel(key: string): string {
   return `${action.charAt(0).toUpperCase()}${action.slice(1)} ${subject}`;
 }
 
-export interface TaskOptions extends CommonOptions {
+export interface RoutineOptions extends CommonOptions {
   target: string;
   cron?: string;
 }
 
-export function createTask(options: TaskOptions): Plan {
-  const target = parseTarget(options.target, 'task');
+export function createRoutine(options: RoutineOptions): Plan {
+  const target = parseTarget(options.target, 'routine');
   const dir = moduleDir(options, target.module);
-  const className = `${toPascal(target.name)}Task`;
+  const className = `${toPascal(target.name)}Routine`;
   const cron = options.cron ?? '0 7 * * *';
   const from = relativeFrom(options.from, 3);
 
-  const content = `import { Schedule, Task } from '${from}';
+  const content = `import { Cron, Routine } from '${from}';
 
 /**
  * Runs only while the module is ENABLED: turning "${target.module}" off stops
- * this cron without touching any data.
+ * this schedule without touching any data.
  */
-@Schedule('${cron}')
-export default class ${className} extends Task {
+@Cron('${cron}')
+export default class ${className} extends Routine {
   public async start(now: Date | 'manual' | 'init'): Promise<void> {
-    // this.db and this.get(Contract) work here exactly as in an endpoint.
+    // this.db, this.get(Contract) and this.emit(Event) work here exactly as in
+    // an endpoint. \`now\` is a Date, or 'init' when @Cron got runOnInit.
     console.log('[${target.module}] ${target.name} ran', now);
   }
 }
 `;
 
   return plan(
-    [{ path: `${dir}/tasks/${target.name}.task.ts`, content }],
+    [{ path: `${dir}/routines/${target.name}.routine.ts`, content }],
     [],
-    [`Cron expression: '${cron}' — change it in the @Schedule decorator.`],
+    [
+      `Cron expression: '${cron}' — change it in the @Cron decorator. Set a timezone there too, or it follows the server's.`,
+    ],
   );
 }
 
@@ -525,7 +528,7 @@ export class ${className} implements MigrationInterface {
 export const GENERATORS = {
   module: createModule,
   endpoint: createEndpoint,
-  task: createTask,
+  routine: createRoutine,
   listener: createListener,
   entity: createEntity,
   migration: createMigration,

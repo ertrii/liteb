@@ -1,22 +1,22 @@
 import { DataSource } from 'typeorm';
-import { SCHEDULE, ScheduleMetadata } from '../decorators/schedule.decorator';
+import { CRON, CronMetadata } from '../decorators/cron.decorator';
 import cron from 'node-cron';
-import { Task } from '../templates/task';
+import { Routine } from '../templates/routine';
 import type { Container } from '../modules/container';
 import type { EventBus } from '../modules/events';
 
-export default class InterpreterTask {
+export default class InterpreterRoutine {
   private options: cron.ScheduleOptions;
   private expression: string;
   private valid: boolean = false;
   private started = false;
 
-  private readSchedule() {
-    if (typeof this.TaskClass !== 'function') return;
+  private readCron() {
+    if (typeof this.RoutineClass !== 'function') return;
     const metadata = Reflect.getMetadata(
-      SCHEDULE,
-      this.TaskClass,
-    ) as ScheduleMetadata;
+      CRON,
+      this.RoutineClass,
+    ) as CronMetadata;
     if (metadata) {
       this.options = metadata.options;
       this.expression = metadata.expression;
@@ -25,24 +25,24 @@ export default class InterpreterTask {
   }
 
   constructor(
-    private TaskClass: new () => Task,
+    private RoutineClass: new () => Routine,
     private dbSource: DataSource,
     private container?: Container,
     private eventBus?: EventBus,
   ) {
-    this.readSchedule();
+    this.readCron();
   }
 
   public start = (): cron.ScheduledTask | undefined => {
     if (this.started) return;
     this.started = true;
-    this.TaskClass.prototype.db = this.dbSource;
-    this.TaskClass.prototype.container = this.container;
-    this.TaskClass.prototype.events = this.eventBus;
-    const task = new this.TaskClass();
+    this.RoutineClass.prototype.db = this.dbSource;
+    this.RoutineClass.prototype.container = this.container;
+    this.RoutineClass.prototype.events = this.eventBus;
+    const routine = new this.RoutineClass();
     return cron.schedule(
       this.expression,
-      (now) => task.start(now),
+      (now) => routine.start(now),
       this.options,
     );
   };

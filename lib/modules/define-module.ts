@@ -369,7 +369,9 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
       : toMigrations(declaredMigrations as ModuleMigrations);
 
   const routes = globs('routes', manifest.routes);
-  const tasks = globs('tasks', manifest.tasks);
+  // `tasks` is the old name for the same field, and honouring it here is what
+  // keeps an existing manifest working.
+  const routines = globs('routines', manifest.routines ?? manifest.tasks);
   const listeners = globs('listeners', manifest.listeners);
 
   return {
@@ -383,7 +385,7 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     entities,
     migrations,
     routes: routes.patterns,
-    tasks: tasks.patterns,
+    routines: routines.patterns,
     listeners: listeners.patterns,
     implicit,
     contributes: manifest.contributes ?? [],

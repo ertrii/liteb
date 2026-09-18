@@ -3,7 +3,7 @@ import { Endpoint } from '../templates/endpoint';
 import { Listener } from '../templates/listener';
 import { ON, OnMetadata } from '../decorators/on.decorator';
 import type { EventToken } from './events';
-import { Task } from '../templates/task';
+import { Routine } from '../templates/routine';
 import { ResolvedModule } from './module-manifest';
 import { readExports, readFiles } from './module-files';
 import { Logger } from '../utilities/logger';
@@ -103,18 +103,21 @@ export async function loadModuleListeners(
     .filter((loaded): loaded is LoadedListener => loaded !== null);
 }
 
-/** Reads the scheduled tasks a module contributes. */
-export async function loadModuleTasks(
+/** Reads the scheduled routines a module contributes. */
+export async function loadModuleRoutines(
   mod: ResolvedModule,
-): Promise<Array<new () => Task>> {
-  if (mod.tasks.length === 0) return [];
+): Promise<Array<new () => Routine>> {
+  if (mod.routines.length === 0) return [];
 
-  const { exported } = await readExports(mod.tasks, mod.dir);
+  const { exported } = await readExports(mod.routines, mod.dir);
   return exported.filter(
-    (value): value is new () => Task =>
-      typeof value === 'function' && value.prototype instanceof Task,
+    (value): value is new () => Routine =>
+      typeof value === 'function' && value.prototype instanceof Routine,
   );
 }
+
+/** @deprecated Renamed to {@link loadModuleRoutines}. */
+export const loadModuleTasks = loadModuleRoutines;
 
 /**
  * Says why a module mounted nothing, or stays quiet when there is nothing to

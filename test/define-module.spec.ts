@@ -164,8 +164,8 @@ describe('defineModule — aportes', () => {
   });
 
   it('acepta varios globs', () => {
-    const mod = defineModule({ ...base, tasks: ['./a/*.ts', './b/*.ts'] });
-    expect(mod.tasks).toEqual(['./a/*.ts', './b/*.ts']);
+    const mod = defineModule({ ...base, routines: ['./a/*.ts', './b/*.ts'] });
+    expect(mod.routines).toEqual(['./a/*.ts', './b/*.ts']);
   });
 
   it('aplana el objeto de "import * as migrations" a un arreglo', () => {
