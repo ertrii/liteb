@@ -170,6 +170,7 @@ logging, graceful shutdown.
 
 - [The long guide](https://github.com/ertrii/liteb/blob/main/docs/guide.md) — every feature, and why each one is the way it is
 - [Authorization](https://github.com/ertrii/liteb/blob/main/docs/authorization.md) — permissions and the session user, step by step
+- [The CLI](https://github.com/ertrii/liteb/blob/main/docs/cli.md) — every command, every flag, and what each one writes
 - [`src/`](https://github.com/ertrii/liteb/tree/main/src) — a small, complete application (three modules), covered by `test/demo-app.spec.ts`
 - [`http/demo.http`](https://github.com/ertrii/liteb/blob/main/http/demo.http) — the whole flow, request by request
 - [CHANGELOG](https://github.com/ertrii/liteb/blob/main/CHANGELOG.md)

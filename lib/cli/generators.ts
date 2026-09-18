@@ -422,9 +422,13 @@ export function createListener(options: ListenerOptions): Plan {
   const content = `import { event, Listener, On } from '${from}';
 
 /**
- * The token belongs to the module that ANNOUNCES the event, not to this one:
- * import it from there and delete this declaration. It is here so the file
- * compiles on its own.
+ * The token belongs to the module that ANNOUNCES the event, not to this one.
+ * Replace this with the real import — \`@/\` is the alias for your modules
+ * folder, so it reads:
+ *
+ *     import { ${tokenName} } from '@/<module>/events/${target.name}.event';
+ *
+ * It is declared here only so the file compiles on its own.
  */
 export const ${tokenName} = event<{ id: number }>('${target.module}.${target.name}');
 
@@ -509,13 +513,35 @@ export function createProvider(options: ProviderOptions): Plan {
   const from = relativeFrom(options.from, 3);
 
   const fillsSlot = options.slot !== undefined;
-  const token = fillsSlot ? toPascal(options.slot as string) : name;
-  const decorator = fillsSlot ? 'Contributes' : 'Provides';
-  const tokenImport = fillsSlot
-    ? `// The slot belongs to the module that OPENED it: point this at that
-// module. \`@/\` is the alias for your modules folder.
-import { ${token} } from '@/<module>/slots/${toKebab(options.slot as string)}.slot';`
-    : `import { ${token} } from '../contracts/${target.name}.contract';`;
+
+  let tokenImport: string;
+  let decorator: string;
+  let token: string;
+  let implemented: string;
+  let body: string;
+
+  if (fillsSlot) {
+    // A slot has TWO names: the token is the collection, the interface is one
+    // contribution. A contributor implements the interface and is registered
+    // under the token — mixing them up does not compile, so the template must
+    // not.
+    const slotFile = toKebab(options.slot as string);
+    token = toPascal(options.slot as string);
+    implemented = token.endsWith('s') ? token.slice(0, -1) : `${token}Entry`;
+    decorator = 'Contributes';
+    tokenImport = `// The slot belongs to the module that OPENED it: replace <module> with the one
+// that declared it. \`@/\` is the alias for your modules folder.
+import { ${implemented}, ${token} } from '@/<module>/slots/${slotFile}.slot';`;
+    body = `  public readonly id = '${target.name}';`;
+  } else {
+    token = name;
+    implemented = name;
+    decorator = 'Provides';
+    tokenImport = `import { ${token} } from '../contracts/${target.name}.contract';`;
+    body = `  public async describe(): Promise<string> {
+    return '${target.module}';
+  }`;
+  }
 
   const content = `import { ${decorator}, Provider } from '${from}';
 ${tokenImport}
@@ -530,12 +556,10 @@ ${tokenImport}
  * asks for it, then reused.
  */
 @${decorator}(${token})
-export class ${name}Provider extends Provider implements ${token} {
+export class ${name}Provider extends Provider implements ${implemented} {
   // private readonly things = this.db.getRepository(Thing);
 
-  public async describe(): Promise<string> {
-    return '${target.module}';
-  }
+${body}
 }
 `;
 
@@ -546,6 +570,99 @@ export class ${name}Provider extends Provider implements ${token} {
       fillsSlot
         ? 'Point the import at the module that opened the slot: an extension imports the token, never the other way round.'
         : 'Nothing lists it: the folder is what registers it, and the decorator says which contract it answers.',
+    ],
+  );
+}
+
+export interface EventOptions extends CommonOptions {
+  target: string;
+}
+
+/**
+ * An event this module announces.
+ *
+ * It goes in `events/` next to `contracts/` and `slots/`: the three are the
+ * module's public face, the only files another module imports. liteb does not
+ * glob them — a token is imported by name, so there is nothing to discover.
+ */
+export function createEvent(options: EventOptions): Plan {
+  const target = parseTarget(options.target, 'event');
+  const dir = moduleDir(options, target.module);
+  const name = toPascal(target.name);
+  const from = relativeFrom(options.from, 3);
+
+  const content = `import { event } from '${from}';
+
+/**
+ * Announced after it happened. "${target.module}" does not know or care who
+ * reacts — that is the difference with a contract, where it would be asking
+ * someone in particular to do something and waiting for the answer.
+ *
+ * The payload has to carry what a listener needs: listeners read on their own
+ * connection, so they cannot see rows a transaction has not committed yet.
+ */
+export interface ${name} {
+  id: number;
+}
+
+export const ${name} = event<${name}>('${target.module}.${target.name}');
+`;
+
+  return plan(
+    [{ path: `${dir}/events/${target.name}.event.ts`, content }],
+    [],
+    [
+      `Announce it: await this.emit(${name}, { id }) from an endpoint, a routine or a provider.`,
+      `React to it from any module: liteb create listener <module>/<name>, then import this token.`,
+    ],
+  );
+}
+
+export interface SlotOptions extends CommonOptions {
+  target: string;
+}
+
+/**
+ * An extension point this module opens for others to fill.
+ *
+ * Note the direction: the module that OPENS the slot is the one extensions
+ * depend on. It knows nothing about who fills it, which is what lets it be
+ * core while every contributor stays removable.
+ */
+export function createSlot(options: SlotOptions): Plan {
+  const target = parseTarget(options.target, 'slot');
+  const dir = moduleDir(options, target.module);
+  const collection = toPascal(target.name);
+  // The token names the collection, the interface names ONE contribution.
+  // A trailing "s" is the usual difference; rename if it guessed wrong.
+  const item = collection.endsWith('s')
+    ? collection.slice(0, -1)
+    : `${collection}Entry`;
+  const from = relativeFrom(options.from, 3);
+
+  const content = `import { slot } from '${from}';
+
+/**
+ * The shape of ONE contribution.
+ */
+export interface ${item} {
+  id: string;
+}
+
+/**
+ * The point itself: "${target.module}" reads whoever is installed with
+ * \`this.all(${collection})\`, and an empty array is a normal answer — a slot
+ * nobody filled is a feature nobody installed.
+ */
+export const ${collection} = slot<${item}>('${target.module}.${target.name}');
+`;
+
+  return plan(
+    [{ path: `${dir}/slots/${target.name}.slot.ts`, content }],
+    [],
+    [
+      `Read it: const filled = this.all(${collection});`,
+      `Fill it from another module: liteb create provider <module>/<name> --slot ${target.name}`,
     ],
   );
 }
@@ -632,6 +749,8 @@ export const GENERATORS = {
   routine: createRoutine,
   contract: createContract,
   provider: createProvider,
+  event: createEvent,
+  slot: createSlot,
   listener: createListener,
   entity: createEntity,
   migration: createMigration,

@@ -11,7 +11,9 @@ import {
   createMigration,
   createModule,
   createContract,
+  createEvent,
   createProvider,
+  createSlot,
   createRoutine,
 } from './generators';
 import { CliError } from './names';
@@ -121,7 +123,7 @@ export function buildProgram(): Command {
   common(
     create
       .command('module <name>')
-      .description('A module: manifest, first endpoint and migrations index')
+      .description('A module: its manifest, its permissions and a first endpoint')
       .option('--label <text>', 'human name, for a "modules" screen')
       .option(
         '--entry <file>',
@@ -222,8 +224,30 @@ export function buildProgram(): Command {
 
   common(
     create
+      .command('event <module/name>')
+      .description('Something this module announces, for whoever is listening'),
+  ).action((target, flags) => {
+    report(
+      createEvent({ target, modulesDir: flags.dir, from: flags.from }),
+      flags,
+    );
+  });
+
+  common(
+    create
+      .command('slot <module/name>')
+      .description('An extension point this module opens for others to fill'),
+  ).action((target, flags) => {
+    report(
+      createSlot({ target, modulesDir: flags.dir, from: flags.from }),
+      flags,
+    );
+  });
+
+  common(
+    create
       .command('listener <module/name>')
-      .description('A listener for an event another module announces'),
+      .description('Reacts to an event, without answering whoever emitted'),
   ).action((target, flags) => {
     report(
       createListener({ target, modulesDir: flags.dir, from: flags.from }),
@@ -234,7 +258,7 @@ export function buildProgram(): Command {
   common(
     create
       .command('entity <module/name>')
-      .description('A TypeORM entity, registered in the manifest')
+      .description('A TypeORM entity, found by its folder')
       .option('--table <name>', 'table name'),
   ).action((target, flags) => {
     report(

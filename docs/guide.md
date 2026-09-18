@@ -74,6 +74,8 @@ writes the shape; you write the code.
 | `create routine <module>/<name>` | Work on a schedule (`--cron`) |
 | `create contract <module>/<name>` | A capability this module publishes: token and shape |
 | `create provider <module>/<name>` | The class that answers it (`--slot` to fill an extension point) |
+| `create event <module>/<name>` | Something this module announces |
+| `create slot <module>/<name>` | An extension point others may fill |
 | `create listener <module>/<name>` | A listener |
 | `create entity <module>/<name>` | An entity (`--table`) |
 | `create migration <module>/<name>` | A timestamped migration |
@@ -83,6 +85,9 @@ writes the shape; you write the code.
 
 Shared flags: `--dir <path>` (where modules live, `src/modules` by default),
 `--from <specifier>` (what generated code imports liteb from) and `--force`.
+
+> Every command and every flag, with what each one writes and why:
+> [docs/cli.md](./cli.md).
 
 Two things it does **not** do, on purpose:
 

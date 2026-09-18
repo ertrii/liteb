@@ -32,7 +32,7 @@ export function createProject(options: InitOptions): Plan {
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "nodemon --watch src --ext ts --exec \\"ts-node -r tsconfig-paths/register src/index.ts\\"",
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "build": "liteb build",
     "start": "node build/index.js"
   },
@@ -85,6 +85,11 @@ export function createProject(options: InitOptions): Plan {
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true
   },
+  // ts-node reads this. Without it the alias above type-checks and
+  // \`npm run dev\` dies on the first import: \`paths\` is the compiler's
+  // business and Node has never heard of \`@/\`. \`liteb build\` rewrites
+  // them in the output, so the built app needs nothing.
+  "ts-node": { "require": ["tsconfig-paths/register"] },
   "include": ["src"]
 }
 `;

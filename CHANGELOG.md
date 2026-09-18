@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0-alpha.2] - 2026-09-17
+## [2.0.0-alpha.2] - 2026-09-18
 
 ### Removed
 
@@ -30,6 +30,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`liteb create event` and `liteb create slot`**, so every kind of token a
+  module publishes has a command and a folder: `contracts/`, `events/` and
+  `slots/`. Neither is globbed by liteb — a token is imported by name — which
+  is exactly why the CLI is what keeps those folders consistent.
+
+- **[docs/cli.md](docs/cli.md)**: every command, every flag, what each one
+  writes, and the handful of things that cost an evening if you get them wrong.
+
 - **A path alias for module imports.** `liteb init` writes
   `"paths": { "@/*": ["src/modules/*"] }`, so the one import that crosses
   modules stops being a staircase:
@@ -41,8 +49,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A `paths` alias is compile-time only — `tsc` checks it and emits
   `require("@/…")` verbatim, which Node does not understand, and a build that
   type-checks then dies on its first require. So `liteb build` rewrites aliased
-  specifiers to relative paths in the output, and the generated `dev` script
-  resolves them with `tsconfig-paths`. Doing it at build time is deliberate:
+  specifiers to relative paths in the output, and the generated `tsconfig.json`
+  carries `"ts-node": { "require": ["tsconfig-paths/register"] }` so `npm run
+  dev` resolves them without a flag anywhere. Doing it at build time is
+  deliberate:
   the alternative is a loader hook the deployed process has to remember to
   install, and a build that only runs under a wrapper is not a build.
 
