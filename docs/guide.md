@@ -530,6 +530,9 @@ resolves through symlinks and can hide a missing file or a bad `files` entry.
 
 ## Authentication
 
+> Step by step, with recipes and a troubleshooting table:
+> [docs/authorization.md](./authorization.md).
+
 `auth` is **optional**. An endpoint that never reads `this.auth` needs no
 resolver, and an API of plain endpoints stands up without deciding who your
 users are first. The scaffold reflects that: `liteb create` writes the
