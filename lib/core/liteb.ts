@@ -1,5 +1,5 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import cron from 'node-cron';
 import swaggerUi from 'swagger-ui-express';
 import EndpointHandler from './endpoint-handler';
@@ -9,6 +9,7 @@ import Server, { RouterOption } from './server';
 import { Logger } from '../utilities/logger';
 import ErrorControl from '../utilities/error-control';
 import { NotFoundError } from '../utilities/errors';
+import { ErrorType } from '../interfaces/type-error';
 import { Task } from '../templates/task';
 import InterpreterTask from './interpreter-task';
 import path from 'path';
@@ -596,8 +597,10 @@ export default class Liteb extends Server {
     }
 
     // 404 fallback: goes AFTER every router so it only catches what none of
-    // them handled.
+    // them handled, and the error handler after that — Express only recognizes
+    // one registered last.
     this.registerNotFoundHandler();
+    this.registerErrorHandler();
 
     // Start the HTTP server
     Logger.info('Loading server...');
@@ -631,6 +634,31 @@ export default class Liteb extends Server {
    * `getApp()` AFTER `start()` would sit behind this fallback and never be
    * reached: add those before starting.
    */
+  /**
+   * Maps anything a MIDDLEWARE throws to the same contract an endpoint answers.
+   *
+   * Without it Express falls back to its own handler, which replies with an
+   * HTML stack page: a client that only knows liteb's error shape gets
+   * something it cannot parse, and the stack goes out with it. A rejected CORS
+   * origin is the usual way to meet this, which is why it looked like liteb was
+   * missing CORS support rather than missing this.
+   *
+   * Four arguments and registered LAST — that is how Express tells an error
+   * handler from an ordinary one.
+   */
+  private registerErrorHandler = () => {
+    this.app.use(
+      (error: unknown, _req: Request, res: Response, next: NextFunction) => {
+        // Bytes are already on the wire (a file mid-transfer): only Express can
+        // close that connection properly.
+        if (res.headersSent) return next(error);
+
+        const errResult = new ErrorControl(error as ErrorType);
+        res.status(errResult.getStatus()).json(errResult.toJson());
+      },
+    );
+  };
+
   private registerNotFoundHandler = () => {
     this.app.use((req: Request, res: Response) => {
       const errResult = new ErrorControl(

@@ -660,7 +660,7 @@ An empty `modules` array is allowed but warns on start: the app will serve nothi
 
 ### CORS
 
-Liteb does **not** manage CORS — allowed origins are a deployment decision. Mount the `cors` middleware yourself before `start()`:
+Liteb does **not** manage CORS — which origins may call you is a deployment decision, the same way `auth` is. Mount the `cors` middleware yourself before `start()`:
 
 ```typescript
 import cors from 'cors';

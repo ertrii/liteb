@@ -73,6 +73,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An error thrown by a middleware answers the error contract.** There was a
+  404 fallback and no error handler, so anything a middleware passed to
+  `next(error)` fell through to Express's own — an HTML stack page, status 500,
+  with the stack in the body. A client that only knows liteb's error shape got
+  something it could not parse, and internals went out with it.
+
+  The usual way to meet this is a rejected CORS origin, which is why it looked
+  like CORS was missing rather than this.
+
+  ```json
+  { "message": "Not allowed by CORS", "response": null, "errorFields": {}, "identifier": "internal" }
+  ```
+
+  Framework errors keep their status (a `NotFoundError` from a middleware is
+  still a 404). Once bytes are on the wire the connection is cut instead, so a
+  half-sent file ends up broken rather than corrupt with JSON appended.
+
 - **The scaffold no longer answers 500 to the first request.** `liteb init`
   writes `auth` commented out, while `liteb create module/endpoint` wrote
   `this.auth.assert(...)` live — so a freshly generated project failed with
