@@ -109,6 +109,17 @@ export async function createApp() {
 
     basePath: '/api',
 
+    // Who may call this API from a browser. \`credentials\` sends and accepts
+    // cookies, which a session needs — and which forces an explicit list: a
+    // browser refuses \`*\` on a request that carries them.
+    cors: {
+      origin: (ConfigService.get('CORS_ORIGIN') ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+      credentials: true,
+    },
+
     // How a request becomes an actor. OPTIONAL: an endpoint that never reads
     // \`this.auth\` needs no resolver, and a plain API works without this.
     //
@@ -135,6 +146,10 @@ if (require.main === module) void main();
 `;
 
   const env = `SERVER_PORT=3000
+
+# Origins allowed to call this API from a browser, comma separated. Exact,
+# with scheme and port. Empty means no browser may.
+CORS_ORIGIN=http://localhost:5173
 
 DB_HOST=localhost
 DB_PORT=5432

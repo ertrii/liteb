@@ -37,6 +37,7 @@ import {
   RegisteredPermission,
 } from '../modules/permissions';
 import { AuthResolver } from './auth';
+import { buildCors, CorsConfig } from './cors';
 
 /** One module's migrations, and which of them already ran. */
 export interface ModuleMigrationStatus {
@@ -71,6 +72,15 @@ export interface LitebOptions {
    * endpoint stays anonymous and reading `this.auth.actor` is an error.
    */
   auth?: AuthResolver;
+
+  /**
+   * Who may call this API from a browser. Left out, no CORS headers are sent,
+   * which is right for an API no browser calls cross-origin.
+   *
+   * It is mounted before anything else so a preflight is answered without
+   * reaching a route, and so the headers are present on an error too.
+   */
+  cors?: CorsConfig;
 }
 
 /**
@@ -196,6 +206,11 @@ export default class Liteb extends Server {
           } as DataSourceOptions);
 
     const app = new Liteb(dataSource);
+
+    // First, and before any `app.use()` the caller adds: a preflight has no
+    // business reaching a route, and a response that fails still needs the
+    // headers or the browser hides the reason.
+    if (options.cors) app.use(buildCors(options.cors));
 
     app.authResolver = options.auth;
     app.useModules(modules, {

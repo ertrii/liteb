@@ -660,13 +660,22 @@ An empty `modules` array is allowed but warns on start: the app will serve nothi
 
 ### CORS
 
-Liteb does **not** manage CORS — which origins may call you is a deployment decision, the same way `auth` is. Mount the `cors` middleware yourself before `start()`:
+liteb owns the CORS mechanism — the headers, the preflight, the order — and you own the policy, the same split as `auth`:
 
 ```typescript
-import cors from 'cors';
-
-liteb.use(cors({ origin: ['https://app.example.com'], credentials: true }));
+Liteb.create({
+  cors: {
+    origin: ['https://app.example.com'],   // exact, scheme and port included
+    credentials: true,                     // cookies; forces an explicit list
+  },
+});
 ```
+
+Left out, no CORS headers are sent at all, which is right for an API no browser calls cross-origin.
+
+`origin: true` allows anyone and is only valid WITHOUT credentials — a browser refuses `Access-Control-Allow-Origin: *` on a request carrying cookies, so liteb refuses that combination at startup rather than letting you meet it in a console.
+
+An origin that is not on the list simply does not get the header, and the request goes through: that is what the standard says, and it keeps server-to-server callers working. The browser is what blocks it, and liteb logs the refusal so there is a trace on this side too. It is mounted before everything else, so a preflight never reaches a route and the headers are present on an error response as well.
 
 ### API versioning
 

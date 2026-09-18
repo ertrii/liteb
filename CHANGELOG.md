@@ -37,6 +37,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **CORS is a `Liteb.create` option.** Every backend with a browser in front of
+  it needs it, and leaving it out meant each application wired the same
+  middleware by hand — including the demo, whose version leaked a stack trace
+  when it refused an origin.
+
+  ```typescript
+  Liteb.create({
+    cors: { origin: ['https://app.example.com'], credentials: true },
+  });
+  ```
+
+  liteb owns the mechanism, the application owns the policy — the same split as
+  `auth`. Left out, no headers are sent.
+
+  What it buys over mounting `cors` yourself: **`origin: true` with
+  `credentials: true` refuses to start**, because a browser rejects
+  `Access-Control-Allow-Origin: *` on a request carrying cookies and that is the
+  mistake everybody makes once; an empty origin list warns instead of silently
+  blocking every request; a refused origin is logged, so the block has a trace
+  on the server and not only in somebody's console; and it is mounted before
+  everything else, so a preflight never reaches a route and the headers survive
+  an error response.
+
+  A refused origin does NOT fail the request — the header is omitted and the
+  browser decides, which is what the standard says and what keeps
+  server-to-server callers working.
+
+  `liteb init` writes the option wired to a `CORS_ORIGIN` env var.
+
 - **`declarePermissions()`: one home for a module's permission keys.** A key was
   a bare string written three times over — in the manifest, in the resolver that
   grants it and in every endpoint that demands it — with nothing tying the three

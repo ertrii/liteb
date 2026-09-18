@@ -99,6 +99,8 @@ export type {
   ModulePattern,
 } from './modules/module-manifest';
 export { Auth } from './core/auth';
+export { CorsConfigError } from './core/cors';
+export type { CorsConfig } from './core/cors';
 export type {
   Actor,
   AuthResult,

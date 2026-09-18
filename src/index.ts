@@ -1,6 +1,5 @@
 import path from 'path';
 import { ConfigService, Liteb } from '../lib';
-import enableCors from './config/enable-cors';
 import enableSession from './config/enable-session';
 import sessionAuth from './config/session-auth';
 import identity from './modules/identity/module';
@@ -37,11 +36,24 @@ export async function createApp() {
     // Checked against each module's `engine` range.
     version: '2.0.0',
     basePath: '/api',
+
+    // Who may call this API from a browser. liteb owns the mechanism — headers,
+    // preflight, order — and the application owns the policy, the same split as
+    // `auth`. With `credentials` the list has to be explicit: a browser refuses
+    // `*` on a request that carries cookies, and liteb refuses to start rather
+    // than let you find that out in a console.
+    cors: {
+      origin: (ConfigService.get('CORS_ORIGIN') ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+      credentials: true,
+    },
+
     // How a request becomes an actor.
     auth: sessionAuth,
   });
 
-  app.use(enableCors());
   app.use(enableSession(app.getApp()));
   app.static('/public', './src/public');
 
