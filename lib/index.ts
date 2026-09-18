@@ -118,7 +118,7 @@ export * from './templates/provider';
 export { Provides, Contributes } from './decorators/provides.decorator';
 export type { ProvidesMetadata } from './decorators/provides.decorator';
 export * from './utilities/logger';
-export type { LoggerOptions } from './services/log4js';
+export type { LogFiles, LoggerOptions } from './services/log4js';
 export * from './utilities/errors';
 export * from './utilities/config-service';
 export { HttpStatus } from './interfaces/http-status';

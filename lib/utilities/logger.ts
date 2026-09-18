@@ -6,7 +6,8 @@ import { currentRequestId } from '../core/request-id';
 import log4js, {
   configureLogger,
   flushLogger,
-  getLogDir,
+  getLogFile,
+  LogFiles,
   LoggerOptions,
 } from '../services/log4js';
 
@@ -25,14 +26,17 @@ const tagged = (message: any) => {
 
 export class Logger {
   /**
-   * Configures the log destination. By default liteb writes to the console
-   * ONLY; passing `dir` also enables rotating files.
+   * Configures the log destination. By default liteb writes rotating files to
+   * `logs/` AND the console; `dir: null` leaves the console alone.
    *
-   * Call before `start()` so startup is logged.
+   * Call before `start()` so startup is logged — `Liteb.create()` already
+   * does.
    *
    * @example
-   * Logger.configure({ dir: './logs' });   // enables files
-   * Logger.configure({ level: 'off' });    // silence everything (tests)
+   * Logger.configure({ dir: '/var/log/app' });        // somewhere else
+   * Logger.configure({ dir: null });                  // console only
+   * Logger.configure({ files: { error: 'errores' } }); // rename one
+   * Logger.configure({ level: 'off' });               // silence everything
    */
   static configure(options: LoggerOptions = {}) {
     return configureLogger(options);
@@ -124,16 +128,19 @@ export class Logger {
   }
 
   /**
-   * Clears the contents of the log file for a given category. If file logging
-   * is disabled (the default), it does nothing.
-   * @param category Category/log name (e.g. 'info', 'warn', 'error', 'router').
-   * @returns true on success, false if there was nothing to clear or an error occurred.
+   * Empties one log file. Does nothing when that file is not being written.
+   *
+   * It asks for the path rather than building `<category>.log`, because the
+   * names are the application's to change.
+   *
+   * @param category `app`, `info`, `warn`, `error` or `router`.
+   * @returns true when the file was emptied.
    */
-  static clear(category: string) {
-    const dir = getLogDir();
-    if (!dir) return false;
+  static clear(category: keyof LogFiles) {
+    const file = getLogFile(category);
+    if (!file) return false;
     try {
-      fs.writeFileSync(path.join(dir, `${category}.log`), '');
+      fs.writeFileSync(file, '');
       return true;
     } catch (err) {
       return false;

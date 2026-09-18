@@ -147,10 +147,15 @@ export async function createApp() {
     docs:
       ConfigService.mode() === 'production' ? undefined : { path: '/docs' },
 
-    // Rotating files, including \`router.log\`: the map of what answers where,
-    // in registration order, which is the fastest answer to "why is my route
-    // a 404". Console only in production — inside a container the disk is not
-    // where anyone reads logs, and the files go with the container.
+    // Rotating files in \`logs/\`: \`app.log\` with everything in one stream,
+    // \`info\`/\`warn\`/\`error\` split out for grepping, and \`router.log\` — the
+    // map of what answers where, in registration order, which is the fastest
+    // answer to "why is my route a 404".
+    //
+    // \`dir: null\` in production: inside a container the disk is not where
+    // anyone reads logs, and the files go with the container. Beyond that this
+    // is only for moving the directory or renaming a file
+    // (\`files: { error: 'errores' }\`, \`files: { info: false }\`).
     logs: { dir: ConfigService.mode() === 'production' ? null : 'logs' },
 
     // Who may call this API from a browser. \`credentials\` sends and accepts

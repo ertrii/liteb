@@ -1,5 +1,12 @@
 import 'reflect-metadata';
-import { afterEach, describe, expect, it } from '@jest/globals';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from '@jest/globals';
 import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import { buildHealth, Liteb } from '../lib';
@@ -15,8 +22,19 @@ describe('/health', () => {
   let db: DataSource;
   let app: Liteb;
 
-  const build = async (health: HealthConfig = {}) => {
+  /**
+   * Una sola base para todo el archivo. Levantar PGlite cuesta segundos;
+   * crearla por caso fue exactamente lo que una vez hizo que la suite entera
+   * empezara a dar timeouts. Los dos casos que la tiran a propósito la vuelven
+   * a dejar viva para el siguiente.
+   */
+  beforeAll(async () => {
     db = await createTestDb();
+  });
+
+  afterAll(closeTestDb);
+
+  const build = async (health: HealthConfig = {}) => {
     app = await Liteb.create({
       db,
       modules: [],
@@ -29,7 +47,7 @@ describe('/health', () => {
 
   afterEach(async () => {
     await app?.close({ database: false }).catch(() => undefined);
-    await closeTestDb();
+    app = undefined as never;
   });
 
   it('con la base contestando, es 200 y dice pass', async () => {
@@ -154,8 +172,6 @@ describe('/health', () => {
   it('rechaza un nombre reservado al arrancar, no en el primer probe', async () => {
     // Si se dejara pasar, la respuesta de la aplicación reemplazaría en
     // silencio a la de la base y el endpoint diría pass sin haberla mirado.
-    db = await createTestDb();
-
     await expect(
       Liteb.create({
         db,
@@ -163,12 +179,9 @@ describe('/health', () => {
         health: { checks: { database: () => true } },
       }),
     ).rejects.toThrow(/reserves/);
-
-    app = undefined as never;
   });
 
   it('sin la opción no hay endpoint', async () => {
-    db = await createTestDb();
     app = await Liteb.create({ db, modules: [], version: '3.1.0' });
     await app.start(0);
 

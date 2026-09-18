@@ -1040,23 +1040,60 @@ export class CreateUserApi extends Endpoint<null, CreateUserDto> {
 
 ## Logging
 
-By default liteb logs **to the console only** — it does not touch the filesystem, so it starts cleanly in containers and read-only environments. Opt into rotating log files when you want them:
+`Liteb.create()` writes `logs/` next to the process, and the console gets
+everything either way. Nothing to turn on: a developer who has to discover an
+option before they can read what their application did is a developer who never
+reads it.
 
-```typescript
-import { Logger } from 'liteb';
-
-Logger.configure({ dir: './logs' });   // enables info/warn/error/router files
-Logger.configure({ level: 'off' });    // silence everything (e.g. in tests)
+```
+logs/
+├─ app.log        every level, in one chronological stream
+├─ info.log
+├─ warn.log
+├─ error.log
+└─ router.log     the route map — the only one with something in it on boot
 ```
 
-You can also configure it via environment variables — handy for containers:
+All five exist from the first boot, empty. **An empty `error.log` says nothing
+went wrong; a missing one says nothing at all**, and sends you looking for the
+reason it was never created.
+
+`app.log` is the neutral one and is where you read what happened — the split
+files are for grepping one kind of thing. The route map stays out of it: it is
+a map, not a chronology, and it would be fifty lines of boot noise in front of
+the first thing that matters.
+
+The option exists to move it, rename a file, or drop one:
+
+```typescript
+logs: { dir: '/var/log/app' }              // somewhere else
+logs: { dir: null }                        // console only — what a container wants
+logs: { files: { error: 'errores' } }      // errores.log
+logs: { files: { info: false } }           // no info.log
+logs: { level: 'off' }                     // silence everything, write no files
+```
+
+Dropping `info`, `warn` or `error` loses nothing — those lines are still in
+`app.log` and on the console — so it is about what you want to grep on its own.
+`router` is the exception: it is in no other file, so `false` means there is no
+map, and it falls back to the console.
+
+`dir: null` is the container answer: inside one the disk is not where anyone
+reads logs, and the files go with the container. `liteb init` writes exactly
+that for production.
+
+Environment variables override nothing the application passed, and are there
+for the same container case:
 
 | Variable          | Description |
 | ----------------- | ----------- |
-| `LITEB_LOG_DIR`   | Directory for rotating log files. Unset = console only. |
+| `LITEB_LOG_DIR`   | Directory for the files, when the application does not name one. |
 | `LITEB_LOG_LEVEL` | `trace` \| `debug` \| `info` \| `warn` \| `error` \| `off` (default `trace`). |
 
-If the directory can't be created (permissions, read-only FS), liteb degrades to console logging instead of failing to start.
+`off` writes no files at all — creating them for a logger that says nothing
+would leave a directory of empty files behind every test run. And if the
+directory cannot be created (permissions, read-only FS), liteb degrades to the
+console instead of failing to start.
 
 ### The route map (`router.log`)
 
@@ -1076,8 +1113,9 @@ order, so `/products/:id` mounted before `/products/page` swallows the page and
 the handler receives the literal string `"page"` — a bug that looks like a data
 problem. `#nn` is the position across the whole mount, and `p1`/`auto` is the
 `@Priority` that put it there (`auto` = none declared, which is the normal
-case). With `dir` set it lands in `router.log`; without it, it goes to the
-console.
+case). It lands in `router.log`; with `dir: null` — or `files: { router: false }`
+— it goes to the console instead, because losing the map silently is worse than
+printing it.
 
 ## Answers that are not JSON
 

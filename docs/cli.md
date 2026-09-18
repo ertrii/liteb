@@ -134,7 +134,7 @@ task for later:
 | --- | --- | --- |
 | **Health check** | `/health` | on |
 | **API docs** | `/docs`, spec at `/docs.json` | off |
-| **Log files** | `logs/`, including `router.log` | console only |
+| **Log files** | `logs/` — `app`, `info`, `warn`, `error`, `router` | console only |
 
 **`/health`** answers 200 while the application can serve and 503 while it
 cannot — which is what a load balancer, a container runtime or an uptime check
@@ -168,11 +168,29 @@ Every line in those logs — and every failed response — carries the id of the
 request it belongs to, read from `x-request-id` or generated. Nothing to
 configure; it is what ties a user saying "it failed" to the lines that say why.
 
-**`logs/`** holds the rotating files, and `router.log` is the one worth knowing
-about: the map of what answers where, in registration order — the fastest
-answer to "why is my route a 404". In production `init` switches to console
-only: inside a container the disk is not where anyone reads logs, and the files
-go with the container.
+**`logs/`** holds the rotating files, and they all exist from the first boot,
+empty — an empty `error.log` says nothing went wrong, while a missing one says
+nothing at all:
+
+```
+logs/
+├─ app.log        every level, in one chronological stream
+├─ info.log
+├─ warn.log
+├─ error.log
+└─ router.log     the route map — the only one with something in it on boot
+```
+
+`router.log` is the one worth knowing about: the map of what answers where, in
+registration order — the fastest answer to "why is my route a 404". `app.log`
+is where you read what happened; the split files are for grepping one kind of
+thing.
+
+This is on by default, so the option is only for moving it (`dir`), renaming or
+dropping a file (`files: { error: 'errores' }`, `files: { info: false }`) or
+writing none at all. In production `init` writes `dir: null`: inside a
+container the disk is not where anyone reads logs, and the files go with the
+container.
 
 ### The `@/` alias
 

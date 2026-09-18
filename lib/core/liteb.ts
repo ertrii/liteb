@@ -112,12 +112,18 @@ export interface LitebOptions {
   health?: HealthConfig;
 
   /**
-   * Where the logs go. Left out, everything goes to the console only, which
-   * is what a container wants.
+   * Where the logs go, and under what names.
    *
-   * With a `dir`, liteb also writes rotating files — including `router.log`,
-   * the map of what answers where in registration order, which is the fastest
-   * answer to "why is my route a 404".
+   * Left out, liteb writes `logs/` next to the process — `app.log` with
+   * everything in one stream, `info`/`warn`/`error` split out for grepping,
+   * and `router.log`, the map of what answers where in registration order,
+   * which is the fastest answer to "why is my route a 404". The console gets
+   * everything either way.
+   *
+   * There is nothing to turn ON here: it is for moving the directory
+   * (`dir`), renaming or dropping a file (`files`), or writing none at all
+   * (`dir: null`), which is what a container wants — inside one the disk is
+   * not where anyone reads logs, and the files go with the container.
    */
   logs?: LoggerOptions;
 }
@@ -261,9 +267,11 @@ export default class Liteb extends Server {
 
     const app = new Liteb(dataSource);
 
-    // Before anything else, so a route can never shadow it and a failure
-    // during boot is still visible through it.
-    if (options.logs) Logger.configure(options.logs);
+    // Before anything else, so a failure during boot is still visible through
+    // it. Always, not only when `logs` is passed: the files are the default,
+    // and a developer who has to find an option before they can read what
+    // their application did is a developer who never reads it.
+    Logger.configure(options.logs ?? {});
 
     // First, and before any `app.use()` the caller adds: a preflight has no
     // business reaching a route, and a response that fails still needs the

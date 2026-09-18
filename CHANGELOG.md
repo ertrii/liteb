@@ -95,6 +95,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   place, and an application that called both — as this repo's own demo did —
   was declaring its documentation twice and could contradict itself.
 
+- **The log files are the default now**, and all of them exist from the first
+  boot:
+
+  ```
+  logs/
+  ├─ app.log        every level, in one chronological stream
+  ├─ info.log
+  ├─ warn.log
+  ├─ error.log
+  └─ router.log     the route map — the only one with anything in it on boot
+  ```
+
+  Empty, and created anyway: an empty `error.log` says nothing went wrong,
+  while a missing one says nothing at all and sends you looking for the reason
+  it was never written. Same reasoning for the directory itself — a developer
+  who has to discover an option before they can read what their application did
+  is a developer who never reads it.
+
+  `app.log` is the neutral one and is where you read what happened; the split
+  files are for grepping one kind of thing. The route map stays out of it: it
+  is a map, not a chronology, and it would be fifty lines of boot noise in
+  front of the first thing that matters.
+
+  So `logs` no longer turns anything ON. It moves the directory, renames a file
+  or drops one:
+
+  ```typescript
+  logs: { dir: null }                   // console only — what a container wants
+  logs: { files: { error: 'errores' } } // errores.log
+  logs: { files: { info: false } }      // no info.log
+  ```
+
+  Dropping `info`, `warn` or `error` loses nothing — those lines are in
+  `app.log` and on the console too — so it is about what you want to grep on
+  its own. `router` is the exception, being in no other file, so `false` sends
+  the map to the console rather than nowhere. And `level: 'off'` writes no
+  files at all, which is what keeps a test run from leaving a directory of
+  empty files behind it.
+
 - **`liteb init` wires all three**, because every backend ends up needing them:
   `/health` always, `/docs` off in production (the full shape of an API is a
   map for whoever finds it), and `logs/` in development but console-only in

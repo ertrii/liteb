@@ -2,17 +2,26 @@ import 'reflect-metadata';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, describe, expect, it } from '@jest/globals';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from '@jest/globals';
 import type { DataSource } from 'typeorm';
 import { defineModule, Liteb, Logger } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 
 /**
- * `router.log` es el mapa de qué contesta dónde, en orden de registro.
+ * Los archivos existen desde el primer arranque, vacíos.
  *
- * Es la respuesta más rápida a "por qué mi ruta da 404", que es la pregunta
- * que más veces se hace alguien que recién llega: una carpeta mal nombrada o
- * un grupo repetido se ven de un vistazo ahí y de ninguna otra manera.
+ * Un `error.log` vacío dice "no pasó nada"; uno que no existe no dice nada y
+ * manda a buscar por qué nunca se creó. Y `router.log` —el mapa de qué
+ * contesta dónde, en orden de registro— es la respuesta más rápida a "por qué
+ * mi ruta da 404": una carpeta mal nombrada o un grupo repetido se ven de un
+ * vistazo ahí y de ninguna otra manera.
  */
 describe('archivos de log', () => {
   let db: DataSource;
@@ -26,51 +35,160 @@ describe('archivos de log', () => {
     dir: path.join(__dirname, 'fixtures/modules/site'),
   });
 
-  afterEach(async () => {
-    await app?.close({ database: false }).catch(() => undefined);
-    app = undefined;
-    await closeTestDb();
-    // Volver a consola, o el resto de la suite escribiría en el temporal.
-    Logger.configure({ level: 'off' });
-    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  const temporal = (sufijo = '') =>
+    path.join(os.tmpdir(), `liteb-logs-${Date.now()}${sufijo}`);
+
+  /**
+   * Una sola base para todo el archivo. Levantar PGlite cuesta segundos;
+   * crearla por caso fue exactamente lo que una vez hizo que la suite entera
+   * empezara a dar timeouts.
+   */
+  beforeAll(async () => {
+    db = await createTestDb();
   });
 
-  it('crea la carpeta y deja el mapa de rutas', async () => {
-    dir = path.join(os.tmpdir(), `liteb-logs-${Date.now()}`);
-    expect(fs.existsSync(dir)).toBe(false);
+  afterAll(closeTestDb);
 
-    db = await createTestDb();
+  const levantar = async (logs?: Parameters<typeof Liteb.create>[0]['logs']) => {
     app = await Liteb.create({
       db,
       modules: [site],
       version: '2.0.0',
       basePath: '/api',
-      // La suite silencia el logger (test/setup.ts); acá hay que volver a
-      // encenderlo, que es justamente lo que se está probando.
-      logs: { dir, level: 'trace' },
+      ...(logs === undefined ? {} : { logs }),
     });
     await app.start(0);
+    return app;
+  };
 
-    expect(fs.existsSync(dir)).toBe(true);
+  /**
+   * El appender escribe asíncrono: sin esperar el vaciado, el archivo se lee
+   * vacío. Es la misma razón por la que `shutdown()` lo espera antes de salir
+   * del proceso. Y como `flush` CIERRA los appenders, va una sola vez, al
+   * final de cada caso y después de lo último que se escriba.
+   */
+  const vaciar = () => Logger.flush();
 
-    // El appender escribe asíncrono: sin esperar el vaciado, el archivo se
-    // lee vacío. Es la misma razón por la que `shutdown()` lo espera antes de
-    // salir del proceso.
-    await Logger.flush();
+  afterEach(async () => {
+    await app?.close({ database: false }).catch(() => undefined);
+    app = undefined;
+    // Volver a consola, o el resto de la suite escribiría en el temporal.
+    Logger.configure({ level: 'off' });
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('crea los cinco archivos, y sólo el mapa trae algo', async () => {
+    dir = temporal();
+    expect(fs.existsSync(dir)).toBe(false);
+
+    // La suite silencia el logger (test/setup.ts); acá hay que volver a
+    // encenderlo, que es justamente lo que se está probando.
+    await levantar({ dir, level: 'trace' });
+    await vaciar();
+
+    expect(fs.readdirSync(dir).sort()).toEqual([
+      'app.log',
+      'error.log',
+      'info.log',
+      'router.log',
+      'warn.log',
+    ]);
+    expect(fs.readFileSync(path.join(dir, 'router.log'), 'utf8')).not.toBe('');
+    // Nada salió mal todavía, y eso es exactamente lo que el archivo dice.
+    expect(fs.readFileSync(path.join(dir, 'error.log'), 'utf8')).toBe('');
+    expect(fs.readFileSync(path.join(dir, 'warn.log'), 'utf8')).toBe('');
+  });
+
+  it('el mapa lleva verbo, ruta completa y la clase que responde', async () => {
+    dir = temporal();
+
+    await levantar({ dir, level: 'trace' });
+    await vaciar();
 
     const mapa = fs.readFileSync(path.join(dir, 'router.log'), 'utf8');
     expect(mapa).toContain('registration order; the first match answers');
-    // Verbo, ruta completa y la clase que responde: lo que hace falta para
-    // entender un 404 sin adivinar.
+    // Lo que hace falta para entender un 404 sin adivinar.
     expect(mapa).toMatch(/GET\s+\/api\/tienda\/items\s+\(ItemsEndpoint\)/);
   });
 
-  it('sin dir no toca el disco: es lo que quiere un contenedor', async () => {
-    dir = path.join(os.tmpdir(), `liteb-logs-${Date.now()}-off`);
+  it('app.log es el neutral: lleva todo menos el mapa', async () => {
+    dir = temporal();
 
-    db = await createTestDb();
-    app = await Liteb.create({ db, modules: [site], version: '2.0.0' });
-    await app.start(0);
+    await levantar({ dir, level: 'trace' });
+    await vaciar();
+
+    const neutral = fs.readFileSync(path.join(dir, 'app.log'), 'utf8');
+    const info = fs.readFileSync(path.join(dir, 'info.log'), 'utf8');
+    expect(neutral).toContain('Done!');
+    expect(info).toContain('Done!');
+    // El mapa es un mapa, no una cronología: cincuenta líneas de arranque
+    // delante de lo primero que importa.
+    expect(neutral).not.toContain('the first match answers');
+  });
+
+  it('sin decir dónde, es `logs/` al lado del proceso', async () => {
+    // Es el punto de la decisión: quien tiene que descubrir una opción antes
+    // de poder leer lo que hizo su aplicación, no la lee nunca. Se prueba
+    // parándose en un temporal, no tocando variables de entorno: el nombre
+    // por defecto es parte de lo que se está afirmando.
+    const casa = fs.mkdtempSync(path.join(os.tmpdir(), 'liteb-cwd-'));
+    const previo = process.cwd();
+    process.chdir(casa);
+
+    try {
+      await levantar({ level: 'trace' });
+      await vaciar();
+
+      expect(fs.readdirSync(path.join(casa, 'logs')).sort()).toEqual([
+        'app.log',
+        'error.log',
+        'info.log',
+        'router.log',
+        'warn.log',
+      ]);
+    } finally {
+      process.chdir(previo);
+      fs.rmSync(casa, { recursive: true, force: true });
+    }
+  });
+
+  it('se puede renombrar un archivo', async () => {
+    dir = temporal('-renombrado');
+
+    await levantar({ dir, level: 'trace', files: { error: 'errores' } });
+    await vaciar();
+
+    expect(fs.existsSync(path.join(dir, 'errores.log'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'error.log'))).toBe(false);
+  });
+
+  it('apagar un nivel no pierde sus líneas: siguen en el neutral', async () => {
+    dir = temporal('-apagado');
+
+    await levantar({ dir, level: 'trace', files: { info: false } });
+    Logger.info('algo que igual hay que poder leer');
+    await vaciar();
+
+    expect(fs.existsSync(path.join(dir, 'info.log'))).toBe(false);
+    expect(fs.readFileSync(path.join(dir, 'app.log'), 'utf8')).toContain(
+      'algo que igual hay que poder leer',
+    );
+  });
+
+  it('con dir null no toca el disco: es lo que quiere un contenedor', async () => {
+    dir = temporal('-off');
+
+    await levantar({ dir: null, level: 'trace' });
+    await vaciar();
+
+    expect(fs.existsSync(dir)).toBe(false);
+  });
+
+  it('con level off tampoco: no deja una carpeta de archivos vacíos', async () => {
+    dir = temporal('-silencio');
+
+    await levantar({ dir, level: 'off' });
+    await vaciar();
 
     expect(fs.existsSync(dir)).toBe(false);
   });
