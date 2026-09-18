@@ -139,7 +139,7 @@ export class GetUserApi extends Endpoint<UserParams> {
 
 - **Lifecycle**: `previous()` → `main()`. `previous()` is optional and runs on the same instance, with `params`, `body`, `query` and `auth` already in place — throwing from it skips `main()`, which is what makes it a guard. There is no `error()` or `final()` hook: throw the right error class and the framework maps it, and wrap work that must commit or roll back in `this.db.transaction(cb)`.
 - **Request state** (`this.params`, `this.body`, `this.query`, `this.request`, `this.response`, `this.file(s)`) is injected per request.
-- **Errors**: throw a framework error to get a mapped HTTP status — `NotFoundError` (404), `AuthError` (401), `ForbiddenError` (403), `CustomerError` (406), `SchemaError` (422), `CustomError(status, ...)`. Any other thrown value becomes a 500. Unmatched routes return the same `{ message, identifier }` shape with 404.
+- **Errors**: throw a framework error to get a mapped HTTP status — `NotFoundError` (404), `AuthError` (401), `ForbiddenError` (403), `CustomerError` (406), `SchemaError` (422), `CustomError(status, ...)`. Any other thrown value becomes a 500. Unmatched routes answer the same shape with 404. See [Failures](#failures).
 - **Who is asking** is `this.auth` (see [Authentication](#authentication)).
 
 ### Transactions
@@ -359,6 +359,69 @@ Four more options, all of them policy the application owns and liteb only
 mounts: `cors`, `auth`, `docs` (the generated OpenAPI UI) and `health`. See
 [the CLI guide](./cli.md#liteb-init-name) for what `liteb init` wires by
 default and why each one differs in production.
+
+### Failures
+
+Every failure answers the same shape, as `application/problem+json`
+([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)) — which is also how a
+client tells a failure from a payload that happens to have a `status` field:
+
+```json
+{
+  "type": "/problems/validation",
+  "title": "Validation failed",
+  "status": 422,
+  "detail": "The request body is not valid",
+  "code": "schema",
+  "errors": { "email": "must be an email" },
+  "requestId": "9f2c1a7b4e30"
+}
+```
+
+- **`title` is stable and names the KIND of problem; `detail` is about this
+  occurrence.** Show `detail`, group by `title`.
+- **Branch on `code`**, not on `title` or `type`. Its values are the
+  `ErrorIdentifier` enum: `schema`, `customer`, `not_found`, `internal`,
+  `unauthorized`, `forbidden`, `custom`.
+- **`errors` says which FIELD is at fault**, so a form can put the message
+  under the right input instead of in a banner. It is an extension member,
+  which the RFC allows precisely for this, and it is the reason the shape
+  exists at all.
+- **`requestId`** is the same id the response header carries and every log line
+  of that request was written with.
+
+`CustomError(status, message, payload)` puts `payload` under `response`, for
+the case where the client needs data about the failure and not just words.
+
+### One id per request
+
+Read from `x-request-id` or generated, echoed in the response, and present in
+**every log line written while serving that request** — the access line,
+anything an endpoint logs, anything a provider or a listener logs deep inside:
+
+```
+GET /api/products 200 4.4 ms - 139 [44e9e203a52f]
+[44e9e203a52f] restock of product 12 failed, rolling back
+```
+
+It reaches those inner lines through `AsyncLocalStorage` rather than being
+passed down, because the lines worth correlating are written where nobody
+handed anything in. In an endpoint it is `this.requestId`; anywhere else,
+`currentRequestId()`.
+
+Worth putting in whatever you record — an audit row, a job you enqueue, a call
+to another service — because that is what ties "a user says it failed" to the
+lines that say why.
+
+An incoming header is client input: it is accepted only if it matches
+`[A-Za-z0-9._:-]{1,128}` and replaced by a generated id otherwise, since a
+newline in a header would otherwise become a forged log entry. Replaced rather
+than sanitized — a half-cleaned id is not the one the caller is holding, so it
+would correlate nothing.
+
+```typescript
+requestId: { header: 'x-correlation-id' }   // if your gateway already sends one
+```
 
 ### Health
 

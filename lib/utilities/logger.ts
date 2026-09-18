@@ -2,12 +2,26 @@ import * as fs from 'fs';
 import * as path from 'path';
 import EndpointReader from '../core/endpoint-reader';
 import slash from 'slash';
+import { currentRequestId } from '../core/request-id';
 import log4js, {
   configureLogger,
   flushLogger,
   getLogDir,
   LoggerOptions,
 } from '../services/log4js';
+
+/**
+ * Prefixes a line with the request being served, when there is one.
+ *
+ * This is what makes a request id worth having: the lines to correlate are the
+ * ones written deep inside — a provider, a listener, a repository — and none of
+ * them has been handed anything.
+ */
+const tagged = (message: any) => {
+  const id = currentRequestId();
+  if (!id) return message;
+  return typeof message === 'string' ? `[${id}] ${message}` : message;
+};
 
 export class Logger {
   /**
@@ -46,7 +60,7 @@ export class Logger {
    * @returns Result of the log4js info call.
    */
   static info(message: any, ...args: any[]) {
-    return log4js.getLogger('info').info(message, ...args);
+    return log4js.getLogger('info').info(tagged(message), ...args);
   }
 
   /**
@@ -56,7 +70,7 @@ export class Logger {
    * @returns Result of the log4js warn call.
    */
   static warn(message: any, ...args: any[]) {
-    return log4js.getLogger('warn').warn(message, ...args);
+    return log4js.getLogger('warn').warn(tagged(message), ...args);
   }
 
   /**
@@ -66,7 +80,7 @@ export class Logger {
    * @returns Result of the log4js error call.
    */
   static error(message: any, ...args: any[]) {
-    return log4js.getLogger('error').error(message, ...args);
+    return log4js.getLogger('error').error(tagged(message), ...args);
   }
 
   /**

@@ -93,10 +93,12 @@ describe('ruteo', () => {
     const res = await request(app()).get('/api/no-existe');
 
     expect(res.status).toBe(404);
-    expect(res.type).toBe('application/json');
+    // RFC 9457: así un cliente distingue un fallo de una respuesta que por
+    // casualidad trae un campo `status`.
+    expect(res.type).toBe('application/problem+json');
     expect(res.body).toMatchObject({
-      identifier: ErrorIdentifier.NOT_FOUND,
-      message: 'Cannot GET /api/no-existe',
+      code: ErrorIdentifier.NOT_FOUND,
+      detail: 'Cannot GET /api/no-existe',
     });
   });
 });
@@ -126,8 +128,8 @@ describe('errores de dominio', () => {
 
     expect(res.status).toBe(404);
     expect(res.body).toMatchObject({
-      message: 'cliente no existe',
-      identifier: ErrorIdentifier.NOT_FOUND,
+      detail: 'cliente no existe',
+      code: ErrorIdentifier.NOT_FOUND,
     });
   });
 });
@@ -182,8 +184,8 @@ describe('previous()', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({
-      identifier: ErrorIdentifier.UNAUTHORIZED,
-      message: 'Sin pase.',
+      code: ErrorIdentifier.UNAUTHORIZED,
+      detail: 'Sin pase.',
     });
   });
 });

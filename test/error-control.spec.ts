@@ -15,9 +15,32 @@ describe('ErrorControl', () => {
     const control = new ErrorControl(new NotFoundError('no existe'));
 
     expect(control.getStatus()).toBe(HttpStatus.NOT_FOUND);
-    expect(control.toJson()).toMatchObject({
-      message: 'no existe',
-      identifier: ErrorIdentifier.NOT_FOUND,
+    // La forma es la de RFC 9457: `title` es estable y describe la CLASE de
+    // problema, `detail` es lo que pasó esta vez, y `code` es contra lo que un
+    // cliente ramifica.
+    expect(control.toJson()).toEqual({
+      type: '/problems/not-found',
+      title: 'Not found',
+      status: HttpStatus.NOT_FOUND,
+      detail: 'no existe',
+      code: ErrorIdentifier.NOT_FOUND,
+      errors: {},
+    });
+  });
+
+  it('un fallo de validación dice DE QUÉ CAMPO, que es para lo que existe', () => {
+    // Sin esto un formulario sólo puede poner el mensaje en un cartel: no sabe
+    // debajo de qué input va.
+    const control = new ErrorControl(
+      new SchemaError('datos inválidos', {
+        email: 'no es un correo',
+        edad: 'debe ser un número',
+      }),
+    );
+
+    expect(control.toJson().errors).toEqual({
+      email: 'no es un correo',
+      edad: 'debe ser un número',
     });
   });
 
@@ -26,7 +49,7 @@ describe('ErrorControl', () => {
 
     expect(control.getStatus()).toBe(HttpStatus.UNAUTHORIZED);
     expect(control.toJson()).toMatchObject({
-      identifier: ErrorIdentifier.UNAUTHORIZED,
+      code: ErrorIdentifier.UNAUTHORIZED,
     });
   });
 
@@ -37,9 +60,9 @@ describe('ErrorControl', () => {
 
     expect(control.getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
     expect(control.toJson()).toMatchObject({
-      message: 'datos inválidos',
-      identifier: ErrorIdentifier.SCHEMA,
-      errorFields: { name: 'requerido' },
+      detail: 'datos inválidos',
+      code: ErrorIdentifier.SCHEMA,
+      errors: { name: 'requerido' },
     });
   });
 
@@ -48,7 +71,7 @@ describe('ErrorControl', () => {
 
     expect(control.getStatus()).toBe(HttpStatus.NOT_ACCEPTABLE);
     expect(control.toJson()).toMatchObject({
-      identifier: ErrorIdentifier.CUSTOMER,
+      code: ErrorIdentifier.CUSTOMER,
     });
   });
 
@@ -59,8 +82,8 @@ describe('ErrorControl', () => {
 
     expect(control.getStatus()).toBe(HttpStatus.CONFLICT);
     expect(control.toJson()).toMatchObject({
-      message: 'duplicado',
-      identifier: ErrorIdentifier.CUSTOM,
+      detail: 'duplicado',
+      code: ErrorIdentifier.CUSTOM,
       response: { id: 7 },
     });
   });
@@ -70,8 +93,8 @@ describe('ErrorControl', () => {
 
     expect(control.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(control.toJson()).toMatchObject({
-      message: 'algo explotó',
-      identifier: ErrorIdentifier.INTERNAL,
+      detail: 'algo explotó',
+      code: ErrorIdentifier.INTERNAL,
     });
   });
 
@@ -81,7 +104,7 @@ describe('ErrorControl', () => {
 
     expect(control.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(control.toJson()).toMatchObject({
-      message: 'Internal server error.',
+      detail: 'Internal server error.',
     });
   });
 });

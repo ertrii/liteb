@@ -97,6 +97,8 @@ export { Auth } from './core/auth';
 export { CorsConfigError } from './core/cors';
 export type { CorsConfig } from './core/cors';
 export { buildHealth } from './core/health';
+export { buildRequestId, currentRequestId } from './core/request-id';
+export type { RequestIdConfig } from './core/request-id';
 export type {
   HealthConfig,
   HealthReport,

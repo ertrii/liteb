@@ -150,7 +150,7 @@ describe('Auth (extremo a extremo)', () => {
     const res = await request(app()).get('/api/yo/actual');
 
     expect(res.status).toBe(401);
-    expect(res.body).toMatchObject({ identifier: ErrorIdentifier.UNAUTHORIZED });
+    expect(res.body).toMatchObject({ code: ErrorIdentifier.UNAUTHORIZED });
   });
 
   it('un resolutor que lanza se mapea como cualquier otro error', async () => {
@@ -158,8 +158,8 @@ describe('Auth (extremo a extremo)', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({
-      identifier: ErrorIdentifier.UNAUTHORIZED,
-      message: 'Malformed credential.',
+      code: ErrorIdentifier.UNAUTHORIZED,
+      detail: 'Malformed credential.',
     });
   });
 
@@ -174,7 +174,7 @@ describe('Auth (extremo a extremo)', () => {
     const res = await request(app()).get('/api/yo/secreto').set('x-user', '42');
 
     expect(res.status).toBe(403);
-    expect(res.body).toMatchObject({ identifier: ErrorIdentifier.FORBIDDEN });
+    expect(res.body).toMatchObject({ code: ErrorIdentifier.FORBIDDEN });
   });
 
   it('con el permiso, pasa', async () => {
@@ -195,8 +195,8 @@ describe('Auth (extremo a extremo)', () => {
       .set('x-perms', 'secretos.ver');
 
     expect(res.status).toBe(500);
-    expect(res.body.message).toMatch(/Unknown permission "secretos.vre"/);
-    expect(res.body.message).toMatch(/Did you mean: secretos.ver/);
+    expect(res.body.detail).toMatch(/Unknown permission "secretos.vre"/);
+    expect(res.body.detail).toMatch(/Did you mean: secretos.ver/);
   });
 
   it('dos peticiones simultáneas no se pisan el actor', async () => {

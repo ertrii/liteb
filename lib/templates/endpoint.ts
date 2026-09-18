@@ -40,6 +40,19 @@ export abstract class Endpoint<
   public httpStatus: HttpStatus = HttpStatus.OK;
 
   /**
+   * The id of this request: the same string in the `x-request-id` header the
+   * caller got back, in every log line written while serving it, and in the
+   * error body if it failed.
+   *
+   * Worth putting in whatever you record — an audit row, a job you enqueue, a
+   * call to another service — because that is what ties a user saying "it
+   * failed" to the lines that say why.
+   */
+  public get requestId(): string {
+    return (this.request as { requestId?: string }).requestId ?? '';
+  }
+
+  /**
    * Who is making this request, and what they may do.
    *
    * Filled by the application's `auth` resolver, so the endpoint never learns

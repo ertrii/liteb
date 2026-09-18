@@ -40,6 +40,7 @@ import {
 import { AuthResolver } from './auth';
 import { buildCors, CorsConfig } from './cors';
 import { buildHealth, HealthConfig } from './health';
+import { buildRequestId, RequestIdConfig } from './request-id';
 
 /** One module's migrations, and which of them already ran. */
 export interface ModuleMigrationStatus {
@@ -83,6 +84,13 @@ export interface LitebOptions {
    * reaching a route, and so the headers are present on an error too.
    */
   cors?: CorsConfig;
+
+  /**
+   * One id per request, in the log lines, the error body and a response
+   * header. Always on; this only changes which header carries it, for a
+   * gateway that already sends its own.
+   */
+  requestId?: RequestIdConfig;
 
   /**
    * Interactive documentation, generated from the same decorators that mount
@@ -253,6 +261,11 @@ export default class Liteb extends Server {
     // business reaching a route, and a response that fails still needs the
     // headers or the browser hides the reason.
     if (options.cors) app.use(buildCors(options.cors));
+
+    // Right after, so everything downstream — every log line, every error
+    // body, the access log — is written under the same id, and the client is
+    // handed it in a header whether the request succeeded or not.
+    app.use(buildRequestId(options.requestId));
 
     if (options.health) {
       const path = options.health.path ?? '/health';
@@ -730,18 +743,16 @@ export default class Liteb extends Server {
         // close that connection properly.
         if (res.headersSent) return next(error);
 
-        const errResult = new ErrorControl(error as ErrorType);
-        res.status(errResult.getStatus()).json(errResult.toJson());
+        new ErrorControl(error as ErrorType).send(res);
       },
     );
   };
 
   private registerNotFoundHandler = () => {
     this.app.use((req: Request, res: Response) => {
-      const errResult = new ErrorControl(
+      new ErrorControl(
         new NotFoundError(`Cannot ${req.method} ${req.originalUrl}`),
-      );
-      res.status(errResult.getStatus()).json(errResult.toJson());
+      ).send(res);
     });
   };
 

@@ -32,6 +32,40 @@ export class RouterOption {
   };
 }
 
+/**
+ * morgan's `dev` line, plus the id of the request.
+ *
+ * Written out rather than composed because morgan does not expose its named
+ * formats: `dev` is a format string with a colour picked from the status, and
+ * an access line that cannot be tied to an id is the one line you have for a
+ * request that was slow instead of broken.
+ */
+morgan.format('liteb', (tokens, request, response) => {
+  const status = response.headersSent ? response.statusCode : undefined;
+  const colour =
+    status === undefined ? 0
+    : status >= 500 ? 31
+    : status >= 400 ? 33
+    : status >= 300 ? 36
+    : 32;
+  const id = (request as { requestId?: string }).requestId;
+
+  return [
+    '[0m',
+    tokens.method(request, response),
+    ' ',
+    tokens.url(request, response),
+    ` [${colour}m`,
+    status ?? '-',
+    ' [0m',
+    tokens['response-time'](request, response) ?? '-',
+    ' ms - ',
+    tokens.res(request, response, 'content-length') ?? '-',
+    id ? ` [${id}]` : '',
+    '[0m',
+  ].join('');
+});
+
 export default class Server {
   protected app: Express;
   protected server?: http.Server;
@@ -58,7 +92,7 @@ export default class Server {
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
     this.app.use(
-      morgan('dev', { skip: (request) => this.quietPaths.has(request.path) }),
+      morgan('liteb', { skip: (request) => this.quietPaths.has(request.path) }),
     );
   }
 

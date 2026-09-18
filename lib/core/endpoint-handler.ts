@@ -150,7 +150,7 @@ export default class EndpointHandler {
       // is what keeps this from writing a JSON error into the middle of a
       // file the client is still downloading.
       if (res.headersSent) return;
-      res.status(errResult.getStatus()).json(errResult.toJson());
+      errResult.send(res);
     }
   };
 }

@@ -39,12 +39,17 @@ describe('un middleware que lanza', () => {
     const res = await request(server).get('/api/lo-que-sea');
 
     expect(res.status).toBe(500);
-    expect(res.type).toBe('application/json');
+    expect(res.type).toBe('application/problem+json');
     expect(res.body).toEqual({
-      message: 'Not allowed by CORS',
-      response: null,
-      errorFields: {},
-      identifier: 'internal',
+      type: '/problems/internal',
+      title: 'Internal server error',
+      status: 500,
+      detail: 'Not allowed by CORS',
+      code: 'internal',
+      errors: {},
+      // El mismo id que se fue en la cabecera y con el que se escribió cada
+      // línea de log de esta petición.
+      requestId: res.headers['x-request-id'],
     });
     // Lo que se filtraba antes.
     expect(res.text).not.toContain('at ');
@@ -58,7 +63,7 @@ describe('un middleware que lanza', () => {
     const res = await request(server).get('/api/lo-que-sea');
 
     expect(res.status).toBe(404);
-    expect(res.body.identifier).toBe('not_found');
+    expect(res.body.code).toBe('not_found');
   });
 
   it('lanzar sincrónicamente cuenta igual', async () => {
@@ -69,7 +74,7 @@ describe('un middleware que lanza', () => {
     const res = await request(server).get('/api/lo-que-sea');
 
     expect(res.status).toBe(500);
-    expect(res.body.message).toBe('explotó');
+    expect(res.body.detail).toBe('explotó');
   });
 
   it('si ya salieron bytes, no escribe un JSON en el medio', async () => {
@@ -93,6 +98,6 @@ describe('un middleware que lanza', () => {
     const res = await request(server).get('/api/lo-que-sea');
 
     expect(res.status).toBe(404);
-    expect(res.body.identifier).toBe('not_found');
+    expect(res.body.code).toBe('not_found');
   });
 });

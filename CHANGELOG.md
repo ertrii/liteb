@@ -30,6 +30,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **One id per request.** Read from `x-request-id` or generated, echoed in the
+  response, and present in **every log line written while serving that
+  request** — the access line, anything an endpoint logs, anything a provider
+  or a listener logs deep inside. It is also in the error body and on
+  `this.requestId`.
+
+  It travels in `AsyncLocalStorage` rather than being passed down, because the
+  lines worth correlating are the ones written where nobody handed anything:
+  threading a parameter through every repository to reach the interesting case
+  is how the idea gets abandoned halfway.
+
+  An incoming header is client input, so it is accepted only if it matches
+  `[A-Za-z0-9._:-]{1,128}` and replaced by a generated id otherwise — a newline
+  in a header would otherwise become a forged log entry. Replaced rather than
+  sanitized: a half-cleaned id is not the one the caller is holding, so it
+  would correlate nothing.
+
+  Twelve hex characters, not a UUID: it is prefixed to every log line, and 36
+  characters buys entropy nobody needs to tell two requests apart inside one
+  log file. `requestId: { header: 'x-correlation-id' }` if your gateway already
+  sends one.
+
 - **A health check.** `Liteb.create({ health: { path: '/health' } })` mounts an
   unauthenticated 200/503 outside `basePath` — what a load balancer, a
   container runtime or an uptime check reads.
@@ -90,6 +112,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and not something a text rewrite can honour.
 
 ### Changed
+
+- **The error body follows RFC 9457 (`application/problem+json`).** One shape
+  for every failure, and a media type that tells a client a response is a
+  failure rather than a payload that happens to have a `status` field.
+
+  ```json
+  {
+    "type": "/problems/validation",
+    "title": "Validation failed",
+    "status": 422,
+    "detail": "email must be an email",
+    "code": "schema",
+    "errors": { "email": "must be an email" },
+    "requestId": "9f2c1a7b4e30"
+  }
+  ```
+
+  | Was | Is | Why |
+  | --- | --- | --- |
+  | `message` | `detail` | the RFC's split: `title` is stable and names the KIND of problem, `detail` is about this occurrence |
+  | `identifier` | `code` | unchanged values; branch on this, not on `title` or `type` |
+  | `errorFields` | `errors` | **same purpose**: which FIELD is at fault, so a form puts the message under the right input instead of in a banner |
+  | — | `status`, `title`, `type`, `requestId` | new |
+
+  `errors` is an extension member, which the RFC allows precisely for this. It
+  is the reason the shape exists at all, and nothing about it changed but the
+  name.
+
+  A thrown plain object used to be answered **verbatim**, so one endpoint could
+  reply in a shape no client had a parser for. It now keeps its status and its
+  payload (under `response`) in the same shape as everything else.
 
 - **A contract's implementation is a class in `providers/`, not a factory in
   the manifest.** `module.ts` is where a module's pieces are wired; it had

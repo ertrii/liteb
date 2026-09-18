@@ -142,7 +142,7 @@ describe('arranque con módulos', () => {
     const res = await request(server).get('/api/facturacion/cargos');
 
     expect(res.status).toBe(404);
-    expect(res.body.identifier).toBe('not_found');
+    expect(res.body.code).toBe('not_found');
   });
 
   it('una vez encendido, el mismo módulo sí responde', async () => {

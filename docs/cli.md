@@ -156,6 +156,10 @@ finds it; `details: true` adds them, for when it is behind a gate.
 cannot drift from what the API does. `init` leaves it off in production for the
 same reason as the thin health body.
 
+Every line in those logs — and every failed response — carries the id of the
+request it belongs to, read from `x-request-id` or generated. Nothing to
+configure; it is what ties a user saying "it failed" to the lines that say why.
+
 **`logs/`** holds the rotating files, and `router.log` is the one worth knowing
 about: the map of what answers where, in registration order — the fastest
 answer to "why is my route a 404". In production `init` switches to console
