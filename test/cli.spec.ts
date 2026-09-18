@@ -147,6 +147,29 @@ describe('liteb init', () => {
     expect(parsed.scripts.build).toBe('liteb build');
   });
 
+  it('deja listo lo que todo backend termina necesitando', () => {
+    const index = createProject({ name: 'mi-app', litebVersion }).files.find(
+      (file) => file.path === 'src/index.ts',
+    )!.content;
+
+    // Salud: un 200/503 sin credenciales, que es lo que lee un balanceador.
+    expect(index).toContain("health: { path: '/health' }");
+    // Documentación viva, apagada en producción: el mapa de la API no se
+    // regala.
+    expect(index).toContain("{ path: '/docs' }");
+    expect(index).toContain("ConfigService.mode() === 'production' ? undefined");
+    // Archivos de log en desarrollo, consola en producción: dentro de un
+    // contenedor el disco no es donde nadie lee.
+    expect(index).toContain(
+      "logs: { dir: ConfigService.mode() === 'production' ? null : 'logs' }",
+    );
+
+    const env = createProject({ name: 'mi-app', litebVersion }).files.find(
+      (file) => file.path === '.env',
+    )!.content;
+    expect(env).toContain('NODE_ENV=development');
+  });
+
   it('el tsconfig trae los dos flags sin los cuales nada funciona', () => {
     const tsconfig = createProject({ name: 'mi-app', litebVersion }).files[1];
 

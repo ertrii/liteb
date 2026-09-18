@@ -96,6 +96,12 @@ export type {
 export { Auth } from './core/auth';
 export { CorsConfigError } from './core/cors';
 export type { CorsConfig } from './core/cors';
+export { buildHealth } from './core/health';
+export type {
+  HealthConfig,
+  HealthReport,
+  HealthStatus,
+} from './core/health';
 export type {
   Actor,
   AuthResult,
@@ -114,5 +120,5 @@ export * from './utilities/errors';
 export * from './utilities/config-service';
 export { HttpStatus } from './interfaces/http-status';
 export * from './interfaces/type-error';
-export type { LitebOptions } from './core/liteb';
+export type { LitebOptions, DocsConfig } from './core/liteb';
 export { Liteb };

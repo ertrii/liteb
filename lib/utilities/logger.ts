@@ -4,6 +4,7 @@ import EndpointReader from '../core/endpoint-reader';
 import slash from 'slash';
 import log4js, {
   configureLogger,
+  flushLogger,
   getLogDir,
   LoggerOptions,
 } from '../services/log4js';
@@ -21,6 +22,21 @@ export class Logger {
    */
   static configure(options: LoggerOptions = {}) {
     return configureLogger(options);
+  }
+
+  /**
+   * Waits for what is buffered to reach the disk, and closes the appenders.
+   *
+   * Called at the very end of `shutdown()`: the file appender writes
+   * asynchronously, so exiting right after a log line loses it — including the
+   * last line of an ordered shutdown, which is the one somebody reads when a
+   * restart goes wrong.
+   *
+   * Anything logged after this needs {@link Logger.configure} again, which is
+   * why it belongs at the end of a process's life and nowhere else.
+   */
+  static flush(): Promise<void> {
+    return flushLogger();
   }
 
   /**

@@ -30,6 +30,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A health check.** `Liteb.create({ health: { path: '/health' } })` mounts an
+  unauthenticated 200/503 outside `basePath` — what a load balancer, a
+  container runtime or an uptime check reads.
+
+  Two things it gets right that a hand-written one usually does not. The
+  database check is a **round trip**, not `isInitialized`: that flag stays true
+  after a connection drops, because the pool only finds out when something
+  asks, so a health check reading it reports `pass` through the one outage it
+  exists for. And it answers 503 **as soon as shutdown begins** — `close()` now
+  marks it, where before only `shutdown()` did — which is the window a balancer
+  needs to stop sending traffic while in-flight requests finish.
+
+  The body is thin on purpose: `{ status, uptime }`, plus `checks` naming what
+  failed. A probe cannot authenticate, so versions and module counts would be a
+  map of the installation for whoever finds it; `details: true` adds them, for
+  when it sits behind a gate. It is also kept out of the access log, because a
+  probe every few seconds otherwise buries every real request.
+
+- **`docs` and `logs` as `Liteb.create` options**, next to `cors`, so the
+  application declares them in one place instead of calling methods after the
+  fact. `docs` mounts the generated OpenAPI UI (`app.swagger()` still works and
+  is what it calls); `logs` configures the log destination.
+
+- **`liteb init` wires all three**, because every backend ends up needing them:
+  `/health` always, `/docs` off in production (the full shape of an API is a
+  map for whoever finds it), and `logs/` in development but console-only in
+  production — inside a container the disk is not where anyone reads logs, and
+  the files go with the container. `.env` now carries `NODE_ENV`.
+
 - **`liteb create event` and `liteb create slot`**, so every kind of token a
   module publishes has a command and a folder: `contracts/`, `events/` and
   `slots/`. Neither is globbed by liteb — a token is imported by name — which
@@ -287,6 +316,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   line to it.
 
 ### Fixed
+
+- **The last lines of an ordered shutdown could be lost.** The file appender
+  writes asynchronously and `shutdown()` called `process.exit(0)` right after
+  logging "Shutdown complete." — so the line somebody reads when a restart went
+  wrong was the one most likely to be missing. It now waits for the flush, and
+  `Logger.flush()` is exported for anything else that ends a process.
 
 - **A routine's `this.emit()` reached nobody.** The event bus was never passed
   to the scheduled routine, and `emit` returns quietly when there is none — so

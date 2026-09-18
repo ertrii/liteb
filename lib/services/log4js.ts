@@ -94,4 +94,21 @@ export function configureLogger(options: LoggerOptions = {}) {
   } as log4js.Configuration);
 }
 
+/**
+ * Waits for what is buffered to reach the disk.
+ *
+ * The file appender writes asynchronously, so `process.exit()` right after a
+ * log line loses it — including the last line of an ordered shutdown, which is
+ * the one somebody reads when a restart goes wrong.
+ *
+ * It SHUTS DOWN the appenders, so anything logged after this needs
+ * {@link configureLogger} again. That is why it belongs at the end of a
+ * process's life and nowhere else.
+ */
+export function flushLogger(): Promise<void> {
+  return new Promise((resolve) => {
+    log4js.shutdown(() => resolve());
+  });
+}
+
 export default configureLogger();

@@ -105,7 +105,7 @@ Writes:
 ```
 package.json          scripts, and the dependencies the framework needs
 tsconfig.json         the two decorator flags, and the @/ alias
-.env  .env.template   ports, CORS origins, database
+.env  .env.template   NODE_ENV, ports, CORS origins, database
 .gitignore
 src/index.ts          createApp() separated from main()
 src/config/permissions.ts
@@ -126,6 +126,41 @@ on, every one of them is an error.
 `if (require.main === module)`. Importing the entry file must not start a
 server — that is what lets a test, a script and `liteb migrate` build the
 application without listening on a port.
+
+It also wires three things every backend ends up needing, so they are not a
+task for later:
+
+| | Where | In production |
+| --- | --- | --- |
+| **Health check** | `/health` | on |
+| **API docs** | `/docs`, spec at `/docs.json` | off |
+| **Log files** | `logs/`, including `router.log` | console only |
+
+**`/health`** answers 200 while the application can serve and 503 while it
+cannot — which is what a load balancer, a container runtime or an uptime check
+reads. It sits outside `basePath`, needs no credentials (a balancer cannot sign
+in) and is kept out of the access log, because a probe every few seconds
+otherwise buries every real request.
+
+Two details it gets right and a hand-written one usually does not: the database
+check is a **round trip**, not `isInitialized` — that flag stays true after a
+connection drops, so a health check reading it reports `pass` through the one
+outage it exists for. And it flips to 503 **as soon as shutdown begins**, before
+the server stops accepting, which is the window a balancer needs to drain.
+
+The body is deliberately thin: `{ status, uptime }`, plus `checks` naming what
+failed. Versions and module counts are a map of your installation for whoever
+finds it; `details: true` adds them, for when it is behind a gate.
+
+**`/docs`** is generated from the same decorators that mount the routes, so it
+cannot drift from what the API does. `init` leaves it off in production for the
+same reason as the thin health body.
+
+**`logs/`** holds the rotating files, and `router.log` is the one worth knowing
+about: the map of what answers where, in registration order — the fastest
+answer to "why is my route a 404". In production `init` switches to console
+only: inside a container the disk is not where anyone reads logs, and the files
+go with the container.
 
 ### The `@/` alias
 

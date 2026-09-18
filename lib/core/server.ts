@@ -1,6 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express, {
   Express,
+  RequestHandler,
   NextFunction,
   Request,
   Response,
@@ -36,6 +37,18 @@ export default class Server {
   protected server?: http.Server;
 
   /**
+   * Paths kept out of the access log.
+   *
+   * A liveness probe runs every few seconds forever. Logging it buries every
+   * real request under it, which is how an access log stops being read.
+   *
+   * A `Set` filled later rather than a constructor argument: morgan reads it
+   * per request, and the options that decide what goes in it are read after
+   * this runs.
+   */
+  protected quietPaths = new Set<string>();
+
+  /**
    * Initializes the Express application and sets up basic middleware such as
    * the body parser, cookie parser and morgan for request logging.
    */
@@ -44,7 +57,9 @@ export default class Server {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
-    this.app.use(morgan('dev'));
+    this.app.use(
+      morgan('dev', { skip: (request) => this.quietPaths.has(request.path) }),
+    );
   }
 
   /**
@@ -113,6 +128,16 @@ export default class Server {
   ) => {
     this.app.use.bind(this.app);
     this.app.use(callback);
+  };
+
+  /**
+   * Answers GET on ONE exact path, ahead of the module routers.
+   *
+   * `use(path, handler)` would also match everything under it, which turns
+   * `/health/anything` into a 200 and hides a typo in a probe's URL.
+   */
+  protected mountGet = (pathname: string, handler: RequestHandler) => {
+    this.app.get(pathname, handler);
   };
 
   /**

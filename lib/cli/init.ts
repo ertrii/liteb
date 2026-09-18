@@ -125,6 +125,30 @@ export async function createApp() {
 
     basePath: '/api',
 
+    // Can this application serve? An unauthenticated 200/503 that a load
+    // balancer, a container runtime or an uptime check reads. It answers 503
+    // while the database does not, and while the app is shutting down — which
+    // is what gives a balancer the window to stop sending traffic before the
+    // process stops accepting it. Outside \`basePath\`, and kept out of the
+    // access log so a probe every few seconds does not bury every real
+    // request.
+    health: { path: '/health' },
+
+    // Interactive docs at /docs, the raw OpenAPI 3 at /docs.json — generated
+    // from the same decorators that mount the routes, so they cannot drift
+    // from what the API does.
+    //
+    // Off in production: the full shape of an API is a map for whoever finds
+    // it. Put it behind your own gate if you want it there.
+    docs:
+      ConfigService.mode() === 'production' ? undefined : { path: '/docs' },
+
+    // Rotating files, including \`router.log\`: the map of what answers where,
+    // in registration order, which is the fastest answer to "why is my route
+    // a 404". Console only in production — inside a container the disk is not
+    // where anyone reads logs, and the files go with the container.
+    logs: { dir: ConfigService.mode() === 'production' ? null : 'logs' },
+
     // Who may call this API from a browser. \`credentials\` sends and accepts
     // cookies, which a session needs — and which forces an explicit list: a
     // browser refuses \`*\` on a request that carries them.
@@ -161,7 +185,8 @@ async function main() {
 if (require.main === module) void main();
 `;
 
-  const env = `SERVER_PORT=3000
+  const env = `NODE_ENV=development
+SERVER_PORT=3000
 
 # Origins allowed to call this API from a browser, comma separated. Exact,
 # with scheme and port. Empty means no browser may.
@@ -227,6 +252,7 @@ logs
     [],
     [
       `Fill in .env (the database has to exist; liteb creates tables, not databases).`,
+      `Once it runs: /health answers the probes, /docs has the API, and logs/ has the route map.`,
       // `npx liteb` without a version resolves the `latest` tag, which is a
       // different major with a different CLI. Inside the project it is the
       // local install that answers, so no version is needed here.

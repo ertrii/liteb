@@ -50,6 +50,17 @@ export async function createApp() {
       credentials: true,
     },
 
+    // Can this application serve? An unauthenticated 200/503 for a load
+    // balancer, a container runtime or an uptime check. Outside `basePath`,
+    // and kept out of the access log so a probe every few seconds does not
+    // bury every real request.
+    health: { path: '/health' },
+
+    // Generated from the same decorators that mount the routes, so it cannot
+    // drift from what the API does. `liteb init` leaves this off in
+    // production, where the full shape of an API is a map for whoever finds it.
+    docs: { path: '/docs', info: { title: 'Liteb Demo API', version: '2.0.0' } },
+
     // How a request becomes an actor.
     auth: sessionAuth,
   });

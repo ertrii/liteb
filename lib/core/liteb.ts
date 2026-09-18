@@ -7,6 +7,7 @@ import EndpointReader from './endpoint-reader';
 import PatternResolve from './pattern-resolver';
 import Server, { RouterOption } from './server';
 import { Logger } from '../utilities/logger';
+import type { LoggerOptions } from '../services/log4js';
 import ErrorControl from '../utilities/error-control';
 import { NotFoundError } from '../utilities/errors';
 import { ErrorType } from '../interfaces/type-error';
@@ -38,6 +39,7 @@ import {
 } from '../modules/permissions';
 import { AuthResolver } from './auth';
 import { buildCors, CorsConfig } from './cors';
+import { buildHealth, HealthConfig } from './health';
 
 /** One module's migrations, and which of them already ran. */
 export interface ModuleMigrationStatus {
@@ -81,6 +83,42 @@ export interface LitebOptions {
    * reaching a route, and so the headers are present on an error too.
    */
   cors?: CorsConfig;
+
+  /**
+   * Interactive documentation, generated from the same decorators that mount
+   * the routes — so it cannot drift from what the API actually does.
+   *
+   * Left out, nothing is exposed. The full shape of an API is a map for
+   * whoever finds it, and where that is acceptable is the application's call,
+   * not the framework's.
+   */
+  docs?: DocsConfig;
+
+  /**
+   * Can this application serve? An unauthenticated 200/503 that a load
+   * balancer, a container runtime or an uptime check can read.
+   *
+   * Left out, nothing is mounted — but there is little reason to: every
+   * platform that runs a backend expects it.
+   */
+  health?: HealthConfig;
+
+  /**
+   * Where the logs go. Left out, everything goes to the console only, which
+   * is what a container wants.
+   *
+   * With a `dir`, liteb also writes rotating files — including `router.log`,
+   * the map of what answers where in registration order, which is the fastest
+   * answer to "why is my route a 404".
+   */
+  logs?: LoggerOptions;
+}
+
+/** Where the generated OpenAPI documentation is served. */
+export interface DocsConfig {
+  /** The UI. The raw OpenAPI 3 JSON is served at `<path>.json`. */
+  path?: string;
+  info?: OpenAPIInfo;
 }
 
 /**
@@ -207,10 +245,31 @@ export default class Liteb extends Server {
 
     const app = new Liteb(dataSource);
 
+    // Before anything else, so a route can never shadow it and a failure
+    // during boot is still visible through it.
+    if (options.logs) Logger.configure(options.logs);
+
     // First, and before any `app.use()` the caller adds: a preflight has no
     // business reaching a route, and a response that fails still needs the
     // headers or the browser hides the reason.
     if (options.cors) app.use(buildCors(options.cors));
+
+    if (options.health) {
+      const path = options.health.path ?? '/health';
+      app.quietPaths.add(path);
+      app.mountGet(
+        path,
+        buildHealth(options.health, {
+          db: () => app.dbSource,
+          version: options.version,
+          isShuttingDown: () => app.shuttingDown,
+        }),
+      );
+    }
+
+    if (options.docs) {
+      app.swagger(options.docs.path ?? '/docs', options.docs.info);
+    }
 
     app.authResolver = options.auth;
     app.useModules(modules, {
@@ -716,6 +775,11 @@ export default class Liteb extends Server {
   public close = async (options: { database?: boolean } = {}) => {
     const { database = true } = options;
 
+    // Marked HERE and not only in `shutdown()`: this is where draining
+    // actually begins, and the health check reads it so a load balancer can
+    // stop sending traffic before the server stops accepting it.
+    this.shuttingDown = true;
+
     // Stop the schedules so nothing new starts.
     this.scheduled.forEach((schedule) => schedule.stop());
     this.scheduled = [];
@@ -753,6 +817,10 @@ export default class Liteb extends Server {
     await this.close();
 
     Logger.info('Shutdown complete.');
+    // Exiting right after a log line loses it: the file appender writes
+    // asynchronously, and this is the line somebody reads when a restart went
+    // wrong.
+    await Logger.flush();
     process.exit(0);
   };
 }

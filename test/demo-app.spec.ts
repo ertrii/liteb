@@ -49,10 +49,12 @@ describe('la app de ejemplo (src/)', () => {
       version: '2.0.0',
       basePath: '/api',
       auth: headerAuth,
+      // Como en src/index.ts.
+      health: { path: '/health' },
+      docs: { path: '/docs', info: { title: 'Liteb Demo API', version: '2.0.0' } },
     });
     // Igual que src/index.ts: las vistas viven dentro del módulo que las usa.
     await app.setTemplates('pug', path.join(__dirname, '../src/modules/*/views'));
-    app.swagger('/docs', { title: 'Liteb Demo API', version: '2.0.0' });
     await app.start(0);
   });
 
@@ -250,6 +252,14 @@ describe('la app de ejemplo (src/)', () => {
     const res = await request(server()).get('/api/products/export');
 
     expect(res.status).toBe(401);
+  });
+
+  it('/health contesta sin credenciales y fuera del basePath', async () => {
+    // Un balanceador no inicia sesión, y no sabe de prefijos de aplicación.
+    const res = await request(server()).get('/health');
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('pass');
   });
 
   it('@ApiHidden deja la página fuera del spec, pero montada', async () => {

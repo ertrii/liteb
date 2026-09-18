@@ -355,6 +355,36 @@ const app = await Liteb.create({
 await app.start(4000);
 ```
 
+Four more options, all of them policy the application owns and liteb only
+mounts: `cors`, `auth`, `docs` (the generated OpenAPI UI) and `health`. See
+[the CLI guide](./cli.md#liteb-init-name) for what `liteb init` wires by
+default and why each one differs in production.
+
+### Health
+
+```typescript
+health: { path: '/health' }      // 200 while it can serve, 503 while it cannot
+```
+
+Unauthenticated and outside `basePath`, because that is what a load balancer, a
+container runtime or an uptime check can read. Kept out of the access log: a
+probe every few seconds otherwise buries every real request.
+
+The database check is a **round trip**, not `isInitialized` — that flag stays
+true after a connection drops, since the pool only finds out when something
+asks, so a check reading it reports `pass` through the one outage it exists
+for. And it answers 503 **as soon as shutdown begins**, before the server stops
+accepting, which is the window a balancer needs to drain.
+
+```json
+{ "status": "pass", "uptime": 1284 }
+{ "status": "fail", "uptime": 1284, "checks": { "database": "fail" } }
+```
+
+Thin on purpose: a probe cannot authenticate, so versions and module counts
+would be a map of your installation for whoever finds it. `details: true` adds
+them, for when it sits behind a gate.
+
 On boot it reads `_modules`, resolves the dependency graph, runs each module's
 pending migrations **in dependency order**, registers the contracts, and mounts
 only what is enabled. Any failure there stops the boot: serving half-mounted is
