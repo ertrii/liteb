@@ -1,4 +1,4 @@
-# Authorization
+| 500 `Unknown permission` | The key is in no manifest. With `declarePermissions` this is nearly always a string literal somebody typed instead of importing the set. || Which keys **exist** | the module's `permissions.ts` | the module |# Authorization
 
 Who is making the request, and what they are allowed to do.
 
@@ -12,7 +12,7 @@ They are separate on purpose, and nothing works until all three are present.
 
 | Responsibility | Where it lives | Who decides |
 | --- | --- | --- |
-| Which keys **exist** | `permissions` in `defineModule()` | the module |
+| Which keys **exist** | the module's `permissions.ts` | the module |
 | Which keys somebody **holds** | your `auth` resolver | your application |
 | Which keys an endpoint **demands** | `this.auth.assert(...)` | the endpoint |
 
@@ -43,10 +43,26 @@ stops being what you want.
 
 ## 2. Declare the keys the module can gate
 
-A key is the vocabulary of one module, declared in its manifest:
+One file, and it is the only place a key is ever spelled out:
+
+```typescript
+// src/modules/tasks/permissions.ts
+import { declarePermissions } from 'liteb';
+
+export const permissions = declarePermissions('tasks', {
+  view: 'View tasks',
+  manage: 'Create and edit tasks',
+  assign: 'Assign a task to somebody else',
+});
+```
+
+The manifest lists them by reference, so there is no second list to keep in
+sync:
 
 ```typescript
 // src/modules/tasks/module.ts
+import { permissions } from './permissions';
+
 export default defineModule({
   id: 'tasks',
   version: '1.0.0',
@@ -54,13 +70,20 @@ export default defineModule({
   dir: __dirname,
   routes: './endpoints/*.endpoint.ts',
 
-  permissions: [
-    { key: 'tasks.view', label: 'View tasks' },
-    { key: 'tasks.manage', label: 'Create and edit tasks' },
-    { key: 'tasks.assign', label: 'Assign a task to somebody else' },
-  ],
+  permissions,
 });
 ```
+
+Everything else imports from that file and gets a TYPED key —
+`permissions.manage` is the string `'tasks.manage'`, so a misspelling stops
+compiling instead of surfacing as a 500 on the first request that hits it.
+
+`liteb create module` writes this file, and
+`liteb create endpoint tasks/assign --permission tasks.assign` adds a line to
+it.
+
+> The plain array — `permissions: [{ key, label }]` — still works, and is what
+> you want when the keys come from somewhere else. You lose the typed keys.
 
 Two rules the manifest enforces at import time, before anything boots:
 
@@ -71,9 +94,6 @@ Two rules the manifest enforces at import time, before anything boots:
 - **The label is required.** It is what a person reads on the screen where
   somebody builds a role — not a description of the code. Write it the way you
   would explain the permission out loud.
-
-`liteb create endpoint tasks/assign --permission tasks.assign` writes the key
-here for you, with a starting label.
 
 The catalog of every declared key is `app.permissions()`:
 
@@ -94,10 +114,13 @@ One function, passed to `Liteb.create()`. It runs once per request.
 
 ```typescript
 // src/config/roles.ts — your policy, not the framework's
+import { permissions as tasks } from '../modules/tasks/permissions';
+
 export const PERMISSIONS_BY_ROLE: Record<UserRole, string[]> = {
-  owner: ['*'],
-  agent: ['tasks.view', 'tasks.manage'],
-  viewer: ['tasks.view'],
+  owner: ['*'],                                  // everything, see below
+  agent: [tasks.view, tasks.manage],             // renaming one stops compiling
+  viewer: [tasks.view],
+  auditor: [...tasks],                           // everything THIS module has
 };
 ```
 
@@ -141,11 +164,13 @@ matters, but start correct.
 ## 4. Demand a key
 
 ```typescript
+import { permissions } from '../permissions';
+
 @HttpPost()
 @Body(CreateTaskDto)
 export default class CreateTaskEndpoint extends Endpoint<null, CreateTaskDto> {
   public async main() {
-    this.auth.assert('tasks.manage');
+    this.auth.assert(permissions.manage);
 
     return this.db.getRepository(Task).save({
       ...this.body,
@@ -382,6 +407,19 @@ public async main() {
 }
 ```
 
+## Everything one module declares
+
+A set spreads into its keys, which is the "this role owns this module" grant
+without listing them one by one — and without `*`, which would also hand over
+every other module:
+
+```typescript
+import { permissions as tasks } from '../modules/tasks/permissions';
+import { permissions as billing } from '../modules/billing/permissions';
+
+manager: [...tasks, ...billing],
+```
+
 ## Policy in the database instead of a constant
 
 The resolver is the only thing that changes. Nothing else in the application
@@ -426,7 +464,8 @@ Only an `Endpoint` has it, because only a request has an actor behind it.
 # Rules for keys
 
 - Must start with the module id, then at least one more dotted segment:
-  `tasks.view`, `tasks.board.export`.
+  `tasks.view`, `tasks.board.export`. `declarePermissions` adds the prefix, so
+  the names you write are `view` and `board.export`.
 - Lowercase, digits and dashes: `customer-portal.view` is fine, `Tasks.View` is
   not.
 - No duplicates inside one module.

@@ -6,6 +6,7 @@ import {
   Group,
   Priority,
 } from '../../../../lib';
+import { permissions } from '../permissions';
 import { Product } from '../entities/product.entity';
 
 /**
@@ -23,7 +24,7 @@ export default class ExportProductsEndpoint extends Endpoint {
   private readonly products = this.db.getRepository(Product);
 
   public async main(): Promise<DataJson> {
-    this.auth.assert('catalog.products.view');
+    this.auth.assert(permissions['products.view']);
     const products = await this.products.find({ order: { name: 'ASC' } });
 
     return csv(products, {

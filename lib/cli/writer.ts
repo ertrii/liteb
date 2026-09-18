@@ -101,6 +101,25 @@ export function applyEdit(source: string, edit: FileEdit): string | null {
     return lines.join('\n');
   }
 
+  if (edit.objectEntry) {
+    const { after, value, unless } = edit.objectEntry;
+    if (source.includes(unless)) return source;
+
+    const lines = source.split('\n');
+    const opens = lines.findIndex((line) => line.includes(after));
+    if (opens === -1) return null;
+
+    // The last line of the literal, so entries keep the order they were added
+    // in. Not found means the file is not the one we think it is.
+    const closes = lines.findIndex(
+      (line, index) => index > opens && line.trim().startsWith('})'),
+    );
+    if (closes === -1) return null;
+
+    lines.splice(closes, 0, value);
+    return lines.join('\n');
+  }
+
   if (edit.arrayEntry) {
     const { field, value, importLine, unless } = edit.arrayEntry;
     const pattern = new RegExp(`(\\b${field}\\s*:\\s*\\[)([^\\]]*)(\\])`);
@@ -140,6 +159,9 @@ function withImport(source: string, importLine: string): string {
 function describe(edit: FileEdit): string {
   if (edit.append) return `Add to ${edit.path}: ${edit.append}`;
   if (edit.uncomment) return `Add to ${edit.path}: ${edit.uncomment}`;
+  if (edit.objectEntry) {
+    return `Add ${edit.objectEntry.value.trim()} to ${edit.path}.`;
+  }
   if (edit.arrayEntry) {
     return `Add ${edit.arrayEntry.value} to "${edit.arrayEntry.field}" in ${edit.path}, and its import.`;
   }

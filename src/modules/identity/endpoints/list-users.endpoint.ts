@@ -1,4 +1,5 @@
 import { Endpoint, HttpGet, Group } from '../../../../lib';
+import { permissions } from '../permissions';
 import { User } from '../entities/user.entity';
 
 @Group('users')
@@ -8,7 +9,7 @@ export class ListUsersEndpoint extends Endpoint {
 
   main() {
     // 401 when anonymous, 403 when signed in without the key.
-    this.auth.assert('identity.users.view');
+    this.auth.assert(permissions['users.view']);
 
     // `select` on purpose: the password column must not leave the process.
     return this.users.find({

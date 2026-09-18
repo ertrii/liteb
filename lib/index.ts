@@ -63,6 +63,8 @@ export { slot } from './modules/slots';
 export type { Slot } from './modules/slots';
 export { event, EventBus } from './modules/events';
 export { PermissionRegistry } from './modules/permissions';
+export { declarePermissions } from './modules/declare-permissions';
+export type { PermissionSet, AnyPermissionSet } from './modules/declare-permissions';
 export type { RegisteredPermission } from './modules/permissions';
 export type { EventToken } from './modules/events';
 export { On } from './decorators/on.decorator';

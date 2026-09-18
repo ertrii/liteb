@@ -1,4 +1,5 @@
 import { contract, defineModule } from '../../../lib';
+import { permissions } from './permissions';
 import { User } from './entities/user.entity';
 import * as migrations from './migrations';
 
@@ -28,12 +29,8 @@ export default defineModule({
   migrations,
   routes: './endpoints/*.endpoint.ts',
 
-  // The vocabulary this module can gate. Every key MUST start with the module
-  // id: all modules, including third-party ones, share a single space.
-  permissions: [
-    { key: 'identity.users.view', label: 'View users' },
-    { key: 'identity.users.manage', label: 'Create and edit users' },
-  ],
+  // The vocabulary this module can gate, declared in ./permissions.ts.
+  permissions,
 
   provides: [
     {

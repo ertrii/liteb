@@ -75,7 +75,26 @@ export function createModule(options: ModuleOptions): Plan {
   const label = options.label ?? toPascal(id).replace(/([a-z])([A-Z])/g, '$1 $2');
   const from = relativeFrom(options.from, 2);
 
+  const permissionsFile = `import { declarePermissions } from '${from}';
+
+/**
+ * Everything this module can gate, declared ONCE — this is where to start.
+ *
+ * The manifest lists these, the endpoints demand them and the application
+ * grants them, all by importing from here. The key is written in one place,
+ * so a typo anywhere else does not compile instead of surfacing as a 500.
+ *
+ * \`liteb create endpoint ${id}/<name> --permission ${id}.<key>\` adds a line
+ * here. The label is what a person reads on a roles screen: write it the way
+ * you would say it out loud.
+ */
+export const permissions = declarePermissions('${id}', {
+  view: 'View ${label.toLowerCase()}',
+});
+`;
+
   const manifest = `import { defineModule } from '${from}';
+import { permissions } from './permissions';
 import * as migrations from './migrations';
 
 /**
@@ -109,7 +128,8 @@ export default defineModule({
   // tasks: './tasks/*.task.ts',
   // listeners: './listeners/*.listener.ts',
 
-  permissions: [{ key: '${id}.view', label: 'View ${label.toLowerCase()}' }],
+  // Declared in ./permissions.ts, so the keys have one home.
+  permissions,
 });
 `;
 
@@ -128,9 +148,10 @@ export {};
     group: null,
     decorator: 'HttpGet',
     routePath: '',
-    // Declared in the manifest, asserted only once there is an `auth` resolver
-    // to assert against. The first request to a new project must answer.
-    permission: { key: `${id}.view`, active: false },
+    // Declared in permissions.ts, asserted only once there is an `auth`
+    // resolver to assert against. The first request to a new project must
+    // answer.
+    permission: { key: `${id}.view`, active: false, accessor: 'permissions.view' },
     from: relativeFrom(options.from, 3),
   });
 
@@ -143,6 +164,7 @@ export {};
 
   return plan(
     [
+      { path: `${dir}/permissions.ts`, content: permissionsFile },
       { path: `${dir}/module.ts`, content: manifest },
       { path: `${dir}/migrations/index.ts`, content: migrationsIndex },
       { path: `${dir}/endpoints/${id}.endpoint.ts`, content: endpoint },
@@ -176,18 +198,33 @@ export {};
  * are first.
  */
 function permissionBlock(
-  permission: { key: string; active: boolean } | null,
+  permission: { key: string; active: boolean; accessor: string } | null,
 ): string {
   if (!permission) return '';
   if (permission.active) {
-    return `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert('${permission.key}');\n\n`;
+    return `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert(${permission.accessor});\n\n`;
   }
   return (
     `    // Gate this endpoint by uncommenting the line below. It needs an \`auth\`\n` +
     `    // resolver in Liteb.create(): without one there is nobody to check, so\n` +
     `    // reading \`this.auth\` is a configuration error and not a 401.\n` +
-    `    // this.auth.assert('${permission.key}');\n\n`
+    `    // this.auth.assert(${permission.accessor});\n\n`
   );
+}
+
+/**
+ * How to reach one key on the module's permission set.
+ *
+ * A name is only a property when it is a plain identifier; `products.view`
+ * carries a dot for a deeper namespace and needs brackets.
+ */
+function permissionAccessor(key: string, moduleId: string): string {
+  const name = key.startsWith(`${moduleId}.`)
+    ? key.slice(moduleId.length + 1)
+    : key;
+  return /^[a-z][a-zA-Z0-9]*$/.test(name)
+    ? `permissions.${name}`
+    : `permissions['${name}']`;
 }
 
 function endpointSource(args: {
@@ -196,7 +233,7 @@ function endpointSource(args: {
   group: string | null;
   decorator: string;
   routePath: string;
-  permission: { key: string; active: boolean } | null;
+  permission: { key: string; active: boolean; accessor: string } | null;
   from: string;
 }): string {
   const route = args.routePath ? `'${args.routePath}'` : '';
@@ -204,9 +241,14 @@ function endpointSource(args: {
   const imports = ['DataJson', 'Endpoint', args.decorator];
   if (args.group) imports.splice(2, 0, 'Group');
   const group = args.group ? `@Group('${args.group}')\n` : '';
+  // Left in even while the assertion is commented: it is the breadcrumb from
+  // an endpoint back to the file that declares what it could demand.
+  const permissions = args.permission
+    ? `import { permissions } from '../permissions';\n`
+    : '';
 
   return `import { ${imports.join(', ')} } from '${args.from}';
-
+${permissions}
 ${group}@${args.decorator}(${route})
 export default class ${args.className} extends Endpoint {
   public async main(): Promise<DataJson> {
@@ -247,25 +289,31 @@ export function createEndpoint(options: EndpointOptions): Plan {
   // that keeps writing the old name teaches the old framework.
   const className = `${toPascal(target.name)}Endpoint`;
 
-  const permission =
+  const requested =
     options.permission === false
       ? null
       : typeof options.permission === 'string'
         ? { key: options.permission, active: true }
         : { key: `${target.module}.view`, active: false };
+  const permission = requested && {
+    ...requested,
+    accessor: permissionAccessor(requested.key, target.module),
+  };
 
   // A key that no module declares is a 500, not a 403 — on purpose, because it
   // is a typo and not a missing grant. So asking for one here has to DECLARE
   // it too, or the generator would write code that cannot run.
+  const own = permission?.key.startsWith(`${target.module}.`) ?? false;
+  const name = own ? permission!.key.slice(target.module.length + 1) : '';
   const edits =
-    permission?.active && permission.key.startsWith(`${target.module}.`)
+    permission?.active && own
       ? [
           {
-            path: `${dir}/module.ts`,
-            arrayEntry: {
-              field: 'permissions',
-              value: `{ key: '${permission.key}', label: '${permissionLabel(permission.key)}' }`,
-              unless: `'${permission.key}'`,
+            path: `${dir}/permissions.ts`,
+            objectEntry: {
+              after: `declarePermissions('${target.module}', {`,
+              value: `  '${name}': '${permissionLabel(permission.key)}',`,
+              unless: `'${name}':`,
             },
           },
         ]
@@ -278,8 +326,8 @@ export function createEndpoint(options: EndpointOptions): Plan {
   if (permission?.active) {
     hints.push(
       permission.key.startsWith(`${target.module}.`)
-        ? `The label of "${permission.key}" is a guess: it is what a roles screen shows, so make it read the way you would explain it.`
-        : `"${permission.key}" belongs to another module, so it was not declared here. It must exist in that module's "permissions" or the assertion is a 500, not a 403.`,
+        ? `The label of "${permission.key}" in permissions.ts is a guess: it is what a roles screen shows, so make it read the way you would explain it.`
+        : `"${permission.key}" belongs to another module, so it was not declared here. It must exist in that module's permissions or the assertion is a 500, not a 403.`,
     );
   }
 

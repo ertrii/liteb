@@ -246,7 +246,7 @@ describe('un módulo generado y puesto a andar', () => {
     expect(res.body).toEqual({ ok: true });
   });
 
-  it('trae la aserción COMENTADA, y la clave declarada en el manifiesto', () => {
+  it('trae la aserción COMENTADA, y la clave declarada en permissions.ts', () => {
     // Las dos mitades del andamiaje tienen que coincidir: `init` escribe
     // `auth` comentado, así que un endpoint que asserta de entrada contesta
     // 500 al primer request de cualquier proyecto nuevo.
@@ -254,13 +254,23 @@ describe('un módulo generado y puesto a andar', () => {
       `${modulesDir}/inventory/endpoints/inventory.endpoint.ts`,
     );
 
-    expect(endpoint).toContain("// this.auth.assert('inventory.view');");
+    expect(endpoint).toContain('// this.auth.assert(permissions.view);');
     expect(endpoint).not.toMatch(/^\s*this\.auth\.assert/m);
-    // Declarada igual: al descomentarla tiene que existir, o es un 500 por
-    // clave desconocida en vez de un 403.
-    expect(read(`${modulesDir}/inventory/module.ts`)).toContain(
-      "key: 'inventory.view'",
+    // El import queda vivo aunque la línea esté comentada: es la miga de pan
+    // desde el endpoint hasta el archivo que declara lo que puede exigir.
+    expect(endpoint).toContain("import { permissions } from '../permissions';");
+  });
+
+  it('las claves se declaran en UN lugar, y el manifiesto lo referencia', () => {
+    // El punto de partida: una sola línea por clave, y el resto la importa.
+    expect(read(`${modulesDir}/inventory/permissions.ts`)).toContain(
+      "declarePermissions('inventory', {",
     );
+    const manifest = read(`${modulesDir}/inventory/module.ts`);
+    expect(manifest).toContain("import { permissions } from './permissions';");
+    expect(manifest).toContain('permissions,');
+    // Sin segunda lista que mantener sincronizada.
+    expect(manifest).not.toContain("key: 'inventory.view'");
   });
 
   it('el endpoint agregado después se monta con su método y su ruta', async () => {
@@ -285,13 +295,17 @@ describe('un módulo generado y puesto a andar', () => {
     expect(res.status).toBe(403);
   });
 
-  it('--permission declara la clave en el manifiesto, no sólo la assertea', () => {
+  it('--permission declara la clave donde viven, no sólo la assertea', () => {
     // Sin esto sería un 500 "Unknown permission" en vez de un 403: el
     // generador habría escrito código que no puede correr. La etiqueta es un
     // punto de partida legible, para la pantalla de roles.
-    expect(read(`${modulesDir}/inventory/module.ts`)).toContain(
-      "{ key: 'inventory.count', label: 'Count inventory' }",
+    expect(read(`${modulesDir}/inventory/permissions.ts`)).toContain(
+      "'count': 'Count inventory',",
     );
+    // Y el endpoint la exige por la clave TIPADA, no por una cadena suelta.
+    expect(
+      read(`${modulesDir}/inventory/endpoints/count-items.endpoint.ts`),
+    ).toContain('this.auth.assert(permissions.count);');
     expect(app.permissions().map((permission) => permission.key)).toEqual([
       'inventory.view',
       'inventory.count',

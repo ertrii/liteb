@@ -1,5 +1,6 @@
 import type { DataSource, EntitySchema } from 'typeorm';
 import type { Contract, Contribution, Provider } from './container';
+import type { AnyPermissionSet } from './declare-permissions';
 
 /**
  * A database entity contributed by a module: a decorated class or a TypeORM
@@ -88,7 +89,12 @@ export interface ModuleManifest {
   tasks?: ModulePattern;
   listeners?: ModulePattern;
 
-  permissions?: ModulePermission[];
+  /**
+   * What this module can gate. Either the entries, or a set built with
+   * `declarePermissions()` — which keeps the keys in one place and hands out
+   * typed ones to the endpoints and the resolver.
+   */
+  permissions?: ModulePermission[] | AnyPermissionSet;
 
   /** Contracts this module implements for the rest of the application. */
   provides?: Provider<any>[];

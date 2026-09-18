@@ -1,4 +1,5 @@
 import { contract, defineModule, event, slot } from '../../../lib';
+import { permissions } from './permissions';
 import { Product } from './entities/product.entity';
 import { StockMove } from './entities/stock-move.entity';
 import * as migrations from './migrations';
@@ -58,10 +59,8 @@ export default defineModule({
   migrations,
   routes: './endpoints/*.endpoint.ts',
 
-  permissions: [
-    { key: 'catalog.products.view', label: 'View products' },
-    { key: 'catalog.products.manage', label: 'Create and restock products' },
-  ],
+  // Declared in ./permissions.ts, so the keys have one home.
+  permissions,
 
   provides: [
     {

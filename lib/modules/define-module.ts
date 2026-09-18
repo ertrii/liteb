@@ -7,6 +7,7 @@ import {
   ModulePermission,
   ResolvedModule,
 } from './module-manifest';
+import { isPermissionSet, PERMISSION_SET } from './declare-permissions';
 
 /** Lowercase, starting with a letter: `billing`, `customer-portal`. */
 const ID_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
@@ -155,9 +156,24 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     );
   }
 
-  const permissions = manifest.permissions ?? [];
+  const declared = manifest.permissions ?? [];
+  // A set carries the id it was declared for, so a permissions file copied from
+  // another module is caught here instead of namespacing keys under the wrong
+  // owner.
+  if (isPermissionSet(declared) && declared[PERMISSION_SET].moduleId !== id) {
+    fail(
+      `Module "${id}": these permissions were declared for "${declared[PERMISSION_SET].moduleId}". Pass "${id}" to declarePermissions().`,
+      id,
+    );
+  }
+  const permissions = isPermissionSet(declared)
+    ? declared[PERMISSION_SET].entries
+    : declared;
   if (!Array.isArray(permissions)) {
-    fail(`Module "${id}": "permissions" must be an array.`, id);
+    fail(
+      `Module "${id}": "permissions" must be an array, or a set from declarePermissions().`,
+      id,
+    );
   }
   validatePermissions(permissions, id);
 

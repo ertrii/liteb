@@ -35,6 +35,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   2.0 final. `EndpointReader.moduleName` is a deprecated getter over the new
   `group` field.
 
+### Added
+
+- **`declarePermissions()`: one home for a module's permission keys.** A key was
+  a bare string written three times over — in the manifest, in the resolver that
+  grants it and in every endpoint that demands it — with nothing tying the three
+  together. Three chances to misspell it, and the only net was a 500 at run time.
+
+  ```typescript
+  // src/modules/tasks/permissions.ts  — the place to start
+  export const permissions = declarePermissions('tasks', {
+    view: 'View tasks',
+    manage: 'Create and edit tasks',
+  });
+
+  // module.ts — no second list to keep in sync
+  export default defineModule({ id: 'tasks', permissions, ... });
+
+  // an endpoint — a typo here does not compile
+  this.auth.assert(permissions.manage);
+
+  // the resolver — one key, or everything this module has
+  agent: [permissions.view],
+  auditor: [...permissions],
+  ```
+
+  The keys come out namespaced without anyone remembering the rule, and
+  `defineModule` refuses a set declared for a different module — which is what
+  a copied permissions file looks like. The plain array still works.
+
+  `liteb create module` writes the file; `create endpoint --permission` adds a
+  line to it.
+
 ### Fixed
 
 - **The scaffold no longer answers 500 to the first request.** `liteb init`

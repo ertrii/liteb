@@ -6,6 +6,7 @@ import {
   NotFoundError,
   Params,
 } from '../../../../lib';
+import { permissions } from '../permissions';
 import { ProductIdDto } from '../dto/product-id.dto';
 import { RestockDto } from '../dto/restock.dto';
 import { Product } from '../entities/product.entity';
@@ -26,7 +27,7 @@ import { ProductRestocked } from '../module';
 @Body(RestockDto)
 export class RestockProductEndpoint extends Endpoint<ProductIdDto, RestockDto> {
   async main() {
-    this.auth.assert('catalog.products.manage');
+    this.auth.assert(permissions['products.manage']);
 
     const productId = +this.params.id;
     const { quantity } = this.body;

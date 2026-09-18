@@ -27,6 +27,20 @@ export interface FileEdit {
   append?: string;
   /** Uncomments the line containing this fragment (`// tasks: ...`). */
   uncomment?: string;
+  /**
+   * Adds a line to an object literal, right after the line that opens it.
+   *
+   * A line insert and not a parse: the anchor is a line the generator itself
+   * wrote, so either it is there verbatim or the file is not the one we think.
+   */
+  objectEntry?: {
+    /** Line that opens the literal, e.g. `declarePermissions('tasks', {`. */
+    after: string;
+    /** The line to insert, already indented. */
+    value: string;
+    /** Plain substring that means "already there". */
+    unless: string;
+  };
   /** Adds a value to an array literal field, plus the import it needs. */
   arrayEntry?: {
     /** The field holding the array, e.g. `entities`. */

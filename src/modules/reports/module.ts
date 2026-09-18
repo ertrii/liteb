@@ -2,6 +2,7 @@ import { defineModule } from '../../../lib';
 import { UserDirectory } from '../identity/module';
 import { ProductBadges, ProductCatalog } from '../catalog/module';
 import { lowStockBadge } from './badges';
+import { permissions } from './permissions';
 
 /**
  * The optional one. Not `core`, so it INSTALLS DISABLED: an update must not
@@ -28,5 +29,5 @@ export default defineModule({
   tasks: './tasks/*.task.ts',
   listeners: './listeners/*.listener.ts',
 
-  permissions: [{ key: 'reports.view', label: 'View reports' }],
+  permissions,
 });
