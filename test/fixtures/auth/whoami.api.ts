@@ -1,5 +1,18 @@
 import { Endpoint, HttpGet, Group } from '../../../lib';
 
+/**
+ * Este fixture es una mini-app con su PROPIO vocabulario, y comparte programa
+ * de TypeScript con la demo de `src/`. Sin declararlo acá, `assert` sólo
+ * aceptaría las claves de la demo.
+ */
+declare global {
+  namespace LitebAuth {
+    interface Permissions {
+      'secretos.ver': true;
+    }
+  }
+}
+
 @Group('yo')
 @HttpGet('actual')
 export class WhoAmIApi extends Endpoint {
@@ -43,6 +56,9 @@ export class SecretApi extends Endpoint {
 @HttpGet('roto')
 export class TypoApi extends Endpoint {
   main() {
+    // @ts-expect-error el typo AHORA lo agarra el compilador; esta prueba
+    // cubre la red de ejecución, que sigue haciendo falta cuando la clave
+    // llega como dato y no como literal.
     this.auth.assert('secretos.vre');
     return { ok: true };
   }

@@ -150,6 +150,33 @@ logs
 *.log
 `;
 
+  const permissionTypes = `import type { PermissionsOf } from 'liteb';
+
+/**
+ * Every permission key the installed modules declare, taught to the compiler.
+ *
+ * With a module listed here, \`this.auth.assert('tasks.manage')\` is a plain
+ * string that TypeScript CHECKS: misspell it and the build fails, instead of
+ * the framework answering 500 on the first request that reaches the line.
+ *
+ * Each module still declares its own keys, with their labels, in its own
+ * \`permissions.ts\`. This file only carries those spellings into the type
+ * system, and \`liteb create module\` appends a block per module — interface
+ * merging joins them, so nothing here ever has to be reopened.
+ *
+ * Empty, every string is accepted and the run-time check is the only net.
+ *
+ * @example
+ * declare global {
+ *   namespace LitebAuth {
+ *     interface Permissions
+ *       extends PermissionsOf<typeof import('../modules/tasks/permissions').permissions> {}
+ *   }
+ * }
+ */
+export type { PermissionsOf };
+`;
+
   return plan(
     [
       { path: 'package.json', content: pkg },
@@ -158,6 +185,7 @@ logs
       { path: '.env', content: env },
       { path: '.env.template', content: env.replace(/=.+$/gm, '=') },
       { path: 'src/index.ts', content: index },
+      { path: 'src/config/permissions.ts', content: permissionTypes },
     ],
     [],
     [

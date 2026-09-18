@@ -1,5 +1,4 @@
 import { Endpoint, HttpGet } from '../../../../lib';
-import { permissions } from '../permissions';
 import { UserDirectory } from '../../identity/module';
 import { ProductCatalog } from '../../catalog/module';
 
@@ -15,7 +14,7 @@ import { ProductCatalog } from '../../catalog/module';
 @HttpGet('summary')
 export class SummaryEndpoint extends Endpoint {
   async main() {
-    this.auth.assert(permissions.view);
+    this.auth.assert('reports.view');
 
     const users = this.get(UserDirectory);
     const catalog = this.get(ProductCatalog);

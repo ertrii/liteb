@@ -116,6 +116,7 @@ describe('liteb init', () => {
       '.env',
       '.env.template',
       'src/index.ts',
+      'src/config/permissions.ts',
     ]);
   });
 
@@ -182,6 +183,13 @@ describe('un módulo generado y puesto a andar', () => {
     scaffold(
       createMigration({ target: 'inventory/create-items', modulesDir, from: 'liteb' }),
     );
+
+    // Antes que nada: el archivo que le enseña al compilador las claves de
+    // ESTA app. Sin él, los endpoints generados se tipan contra las claves de
+    // la demo de `src/` — que comparte programa de TypeScript con las pruebas —
+    // y `assert('inventory.count')` no compila. Una app de verdad lo tiene
+    // siempre; acá hay dos apps en el mismo tsconfig.
+    require(path.join(workspace, 'src/config/permissions.ts'));
 
     // Sin resetModules(): reiniciar el registro le daría al módulo generado una
     // copia NUEVA de liteb, y su `Endpoint` ya no sería el mismo que el del
@@ -254,11 +262,8 @@ describe('un módulo generado y puesto a andar', () => {
       `${modulesDir}/inventory/endpoints/inventory.endpoint.ts`,
     );
 
-    expect(endpoint).toContain('// this.auth.assert(permissions.view);');
+    expect(endpoint).toContain("// this.auth.assert('inventory.view');");
     expect(endpoint).not.toMatch(/^\s*this\.auth\.assert/m);
-    // El import queda vivo aunque la línea esté comentada: es la miga de pan
-    // desde el endpoint hasta el archivo que declara lo que puede exigir.
-    expect(endpoint).toContain("import { permissions } from '../permissions';");
   });
 
   it('las claves se declaran en UN lugar, y el manifiesto lo referencia', () => {
@@ -302,10 +307,14 @@ describe('un módulo generado y puesto a andar', () => {
     expect(read(`${modulesDir}/inventory/permissions.ts`)).toContain(
       "'count': 'Count inventory',",
     );
-    // Y el endpoint la exige por la clave TIPADA, no por una cadena suelta.
+    // El endpoint la exige como cadena, que es como se lee mejor. Lo que la
+    // hace segura es el bloque que `create module` agregó acá:
     expect(
       read(`${modulesDir}/inventory/endpoints/count-items.endpoint.ts`),
-    ).toContain('this.auth.assert(permissions.count);');
+    ).toContain("this.auth.assert('inventory.count');");
+    expect(read('src/config/permissions.ts')).toContain(
+      "typeof import('../modules/inventory/permissions').permissions",
+    );
     expect(app.permissions().map((permission) => permission.key)).toEqual([
       'inventory.view',
       'inventory.count',

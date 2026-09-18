@@ -151,7 +151,7 @@ export {};
     // Declared in permissions.ts, asserted only once there is an `auth`
     // resolver to assert against. The first request to a new project must
     // answer.
-    permission: { key: `${id}.view`, active: false, accessor: 'permissions.view' },
+    permission: { key: `${id}.view`, active: false },
     from: relativeFrom(options.from, 3),
   });
 
@@ -178,6 +178,12 @@ export {};
           importLine: `import ${variable} from '${importPath.startsWith('.') ? importPath : `./${importPath}`}';`,
         },
       },
+      {
+        // Without this the module's keys stay unchecked: `assert` falls back to
+        // accepting any string, and a typo goes back to being a 500.
+        path: 'src/config/permissions.ts',
+        append: permissionsDeclaration(id, options.modulesDir),
+      },
     ],
     [
       options.optional
@@ -198,33 +204,44 @@ export {};
  * are first.
  */
 function permissionBlock(
-  permission: { key: string; active: boolean; accessor: string } | null,
+  permission: { key: string; active: boolean } | null,
 ): string {
   if (!permission) return '';
   if (permission.active) {
-    return `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert(${permission.accessor});\n\n`;
+    return `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert('${permission.key}');\n\n`;
   }
   return (
     `    // Gate this endpoint by uncommenting the line below. It needs an \`auth\`\n` +
     `    // resolver in Liteb.create(): without one there is nobody to check, so\n` +
     `    // reading \`this.auth\` is a configuration error and not a 401.\n` +
-    `    // this.auth.assert(${permission.accessor});\n\n`
+    `    // this.auth.assert('${permission.key}');\n\n`
   );
 }
 
 /**
- * How to reach one key on the module's permission set.
+ * Teaches the compiler one module's keys, by appending to the application's
+ * `config/permissions.ts`.
  *
- * A name is only a property when it is a plain identifier; `products.view`
- * carries a dot for a deeper namespace and needs brackets.
+ * One `declare global` block per module, merged by TypeScript, and the import
+ * is inline — so adding a module is a pure APPEND and no existing line in that
+ * file ever has to be reopened.
  */
-function permissionAccessor(key: string, moduleId: string): string {
-  const name = key.startsWith(`${moduleId}.`)
-    ? key.slice(moduleId.length + 1)
-    : key;
-  return /^[a-z][a-zA-Z0-9]*$/.test(name)
-    ? `permissions.${name}`
-    : `permissions['${name}']`;
+function permissionsDeclaration(id: string, modulesDir: string): string {
+  const from = path.posix.relative(
+    'src/config',
+    `${modulesDir.replace(/\\/g, '/')}/${id}/permissions`,
+  );
+  return `
+declare global {
+  namespace LitebAuth {
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
+    interface Permissions
+      extends PermissionsOf<
+        typeof import('${from.startsWith('.') ? from : `./${from}`}').permissions
+      > {}
+  }
+}
+`;
 }
 
 function endpointSource(args: {
@@ -233,7 +250,7 @@ function endpointSource(args: {
   group: string | null;
   decorator: string;
   routePath: string;
-  permission: { key: string; active: boolean; accessor: string } | null;
+  permission: { key: string; active: boolean } | null;
   from: string;
 }): string {
   const route = args.routePath ? `'${args.routePath}'` : '';
@@ -241,14 +258,8 @@ function endpointSource(args: {
   const imports = ['DataJson', 'Endpoint', args.decorator];
   if (args.group) imports.splice(2, 0, 'Group');
   const group = args.group ? `@Group('${args.group}')\n` : '';
-  // Left in even while the assertion is commented: it is the breadcrumb from
-  // an endpoint back to the file that declares what it could demand.
-  const permissions = args.permission
-    ? `import { permissions } from '../permissions';\n`
-    : '';
-
   return `import { ${imports.join(', ')} } from '${args.from}';
-${permissions}
+
 ${group}@${args.decorator}(${route})
 export default class ${args.className} extends Endpoint {
   public async main(): Promise<DataJson> {
@@ -295,10 +306,7 @@ export function createEndpoint(options: EndpointOptions): Plan {
       : typeof options.permission === 'string'
         ? { key: options.permission, active: true }
         : { key: `${target.module}.view`, active: false };
-  const permission = requested && {
-    ...requested,
-    accessor: permissionAccessor(requested.key, target.module),
-  };
+  const permission = requested;
 
   // A key that no module declares is a 500, not a 403 — on purpose, because it
   // is a typo and not a missing grant. So asking for one here has to DECLARE

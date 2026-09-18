@@ -5,7 +5,6 @@ import {
   HttpStatus,
   Group,
 } from '../../../../lib';
-import { permissions } from '../permissions';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { Product } from '../entities/product.entity';
 
@@ -16,7 +15,7 @@ export class CreateProductEndpoint extends Endpoint<null, CreateProductDto> {
   private readonly products = this.db.getRepository(Product);
 
   async main() {
-    this.auth.assert(permissions['products.manage']);
+    this.auth.assert('catalog.products.manage');
 
     const product = await this.products.save(
       this.products.create({ name: this.body.name, stock: this.body.stock }),

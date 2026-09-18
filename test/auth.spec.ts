@@ -14,27 +14,44 @@ import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { testAuthResolver } from './fixtures/auth/actor';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 
+/**
+ * Estas suites prueban el chequeo EN EJECUCIÓN con su propio vocabulario
+ * (`billing.*`), a propósito independiente de lo que declare la app de `src/`.
+ *
+ * Dentro de este repo `PermissionKey` se estrecha a las claves de la demo —
+ * dos aplicaciones comparten el mismo programa de TypeScript — así que el
+ * ensanche va acá una sola vez, en vez de un @ts-expect-error por línea. Una
+ * app de verdad sólo declara las suyas y no necesita nada de esto.
+ */
+type AuthSinTipar = Omit<Auth, 'assert' | 'can'> & {
+  assert(...keys: string[]): void;
+  can(...keys: string[]): boolean;
+};
+
+const crearAuth = (...args: ConstructorParameters<typeof Auth>): AuthSinTipar =>
+  new Auth(...args) as unknown as AuthSinTipar;
+
 const actorDe = (userId: number) => ({ userId }) as LitebAuth.Actor;
 
 describe('Auth (sin servidor)', () => {
   it('distingue "nadie inició sesión" de "la app no configuró auth"', () => {
     // Sin resolutor es un error de programación: NO debe verse como un 401,
     // porque el cliente no puede hacer nada al respecto.
-    expect(() => new Auth(null, false).actor).toThrow(/pass `auth`/);
+    expect(() => crearAuth(null, false).actor).toThrow(/pass `auth`/);
 
     // Con resolutor, que no haya actor es la respuesta legítima.
-    expect(() => new Auth(null, true).actor).toThrow(AuthError);
+    expect(() => crearAuth(null, true).actor).toThrow(AuthError);
   });
 
   it('optional devuelve null en vez de lanzar', () => {
-    const auth = new Auth(null, true);
+    const auth = crearAuth(null, true);
 
     expect(auth.optional).toBeNull();
     expect(auth.isAuthenticated).toBe(false);
   });
 
   it('expone el actor tal como lo devolvió el resolutor', () => {
-    const auth = new Auth({ actor: actorDe(7) }, true);
+    const auth = crearAuth({ actor: actorDe(7) }, true);
 
     expect(auth.isAuthenticated).toBe(true);
     expect(auth.actor.userId).toBe(7);
@@ -42,7 +59,7 @@ describe('Auth (sin servidor)', () => {
   });
 
   it('can exige TODOS los permisos dados', () => {
-    const auth = new Auth(
+    const auth = crearAuth(
       { actor: actorDe(1), permissions: ['billing.view', 'billing.emit'] },
       true,
     );
@@ -54,22 +71,22 @@ describe('Auth (sin servidor)', () => {
   });
 
   it('"*" concede todo', () => {
-    const auth = new Auth({ actor: actorDe(1), permissions: ['*'] }, true);
+    const auth = crearAuth({ actor: actorDe(1), permissions: ['*'] }, true);
 
     expect(auth.can('lo.que.sea')).toBe(true);
   });
 
   it('un anónimo no puede nada, aunque no se le pida permiso', () => {
-    const auth = new Auth(null, true);
+    const auth = crearAuth(null, true);
 
     expect(auth.can('billing.view')).toBe(false);
     expect(auth.permissions).toEqual([]);
   });
 
   it('assert separa 401 de 403', () => {
-    expect(() => new Auth(null, true).assert('billing.view')).toThrow(AuthError);
+    expect(() => crearAuth(null, true).assert('billing.view')).toThrow(AuthError);
 
-    const auth = new Auth(
+    const auth = crearAuth(
       { actor: actorDe(1), permissions: ['billing.view'] },
       true,
     );
@@ -86,8 +103,8 @@ describe('Auth (sin servidor)', () => {
   });
 
   it('assert sin permisos solo exige estar identificado', () => {
-    expect(() => new Auth(null, true).assert()).toThrow(AuthError);
-    expect(() => new Auth({ actor: actorDe(1) }, true).assert()).not.toThrow();
+    expect(() => crearAuth(null, true).assert()).toThrow(AuthError);
+    expect(() => crearAuth({ actor: actorDe(1) }, true).assert()).not.toThrow();
   });
 });
 

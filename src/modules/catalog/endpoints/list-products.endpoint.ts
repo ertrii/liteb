@@ -1,5 +1,4 @@
 import { Endpoint, HttpGet, Group, Query } from '../../../../lib';
-import { permissions } from '../permissions';
 import { ListProductsQuery } from '../dto/list-products.query';
 import { Product } from '../entities/product.entity';
 import { ProductBadges } from '../module';
@@ -11,7 +10,7 @@ export class ListProductsEndpoint extends Endpoint<null, null, ListProductsQuery
   private readonly products = this.db.getRepository(Product);
 
   async main() {
-    this.auth.assert(permissions['products.view']);
+    this.auth.assert('catalog.products.view');
 
     // The string comparison is the point: see ListProductsQuery.
     const onlyEnabled = this.query.onlyEnabled === 'true';

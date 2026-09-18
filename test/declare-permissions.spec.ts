@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
+import { Auth } from '../lib/core/auth';
 import { declarePermissions } from '../lib/modules/declare-permissions';
 import { defineModule } from '../lib/modules/define-module';
 import { ModuleDefinitionError } from '../lib/modules/module-manifest';
@@ -98,5 +99,30 @@ describe('declarePermissions', () => {
     expect(() => {
       (tasks as unknown as Record<string, string>).view = 'otra';
     }).toThrow();
+  });
+});
+
+describe('las claves llegan al sistema de tipos', () => {
+  /**
+   * `src/config/permissions.ts` llena `LitebAuth.Permissions` con lo que
+   * declaran los módulos de la demo, así que `assert` y `can` dejan de tomar
+   * cualquier cadena. Es lo que permite volver al string suelto sin perder la
+   * red: el error pasa de ser un 500 en el primer request a no compilar.
+   */
+  it('un typo no compila', () => {
+    const auth = new Auth(
+      { actor: {} as never, permissions: ['catalog.products.view'] },
+      true,
+    );
+
+    // @ts-expect-error clave que ningún módulo declara
+    expect(() => auth.can('catalog.products.veiw')).not.toThrow();
+    expect(auth.can('catalog.products.view')).toBe(true);
+  });
+
+  it('`*` sigue siendo una clave válida de preguntar', () => {
+    const auth = new Auth({ actor: {} as never, permissions: ['*'] }, true);
+
+    expect(auth.can('*')).toBe(true);
   });
 });

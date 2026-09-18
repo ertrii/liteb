@@ -34,8 +34,44 @@ declare global {
      */
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Actor {}
+
+    /**
+     * Every permission key the application declares, as the KEYS of this
+     * interface. Fill it once and `assert` / `can` stop taking any string:
+     *
+     * ```typescript
+     * // src/config/permissions.ts, once
+     * import { permissions as tasks } from '../modules/tasks/permissions';
+     * import { permissions as billing } from '../modules/billing/permissions';
+     *
+     * declare global {
+     *   namespace LitebAuth {
+     *     interface Permissions
+     *       extends PermissionsOf<typeof tasks>,
+     *         PermissionsOf<typeof billing> {}
+     *   }
+     * }
+     * ```
+     *
+     * From then on `this.auth.assert('tasks.manage')` is a plain string that
+     * the compiler checks, and `'tasks.mange'` does not build. Left empty —
+     * the default — any string is accepted, so this is opt-in and adding it
+     * later breaks nothing that was already right.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
+    interface Permissions {}
   }
 }
+
+/**
+ * A key the application declared, or any string while it has declared none.
+ *
+ * The fallback is what keeps this additive: an application that never fills
+ * `LitebAuth.Permissions` keeps compiling exactly as before.
+ */
+export type PermissionKey = [keyof LitebAuth.Permissions] extends [never]
+  ? string
+  : (keyof LitebAuth.Permissions & string) | typeof GRANT_ALL;
 
 /** Whoever is making the request, as the application declared it. */
 export type Actor = LitebAuth.Actor;
@@ -157,7 +193,7 @@ export class Auth {
    * @example
    * if (!this.auth.can('billing.void')) return this.readOnlyView();
    */
-  public can(...permissions: string[]): boolean {
+  public can(...permissions: PermissionKey[]): boolean {
     permissions.forEach((permission) => this.assertDeclared(permission));
     if (!this.result) return false;
     if (this.granted.has(GRANT_ALL)) return true;
@@ -174,7 +210,7 @@ export class Auth {
    * @example
    * this.auth.assert('billing.void');
    */
-  public assert(...permissions: string[]): void {
+  public assert(...permissions: PermissionKey[]): void {
     // BEFORE the 401 on purpose: an undeclared key is a code error, and it must
     // not stay hidden until someone signs in. In development the first request
     // is usually anonymous, which is exactly when you want to hear about it.

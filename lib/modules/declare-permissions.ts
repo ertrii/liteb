@@ -93,6 +93,39 @@ export function declarePermissions<
   return Object.freeze(set) as PermissionSet<M, T>;
 }
 
+/**
+ * Turns a set into the shape `LitebAuth.Permissions` wants, so `assert` and
+ * `can` accept its keys as plain strings and refuse everything else.
+ *
+ * Declare it ONCE per application, listing every module:
+ *
+ * ```typescript
+ * // src/config/permissions.ts
+ * import type { PermissionsOf } from 'liteb';
+ * import { permissions as tasks } from '../modules/tasks/permissions';
+ * import { permissions as billing } from '../modules/billing/permissions';
+ *
+ * declare global {
+ *   namespace LitebAuth {
+ *     interface Permissions
+ *       extends PermissionsOf<typeof tasks>,
+ *         PermissionsOf<typeof billing> {}
+ *   }
+ * }
+ * ```
+ *
+ * From then on the endpoints go back to reading like plain English —
+ * `this.auth.assert('tasks.manage')` — except the compiler now checks it. The
+ * set stays the single place the key is spelled; this is what carries the
+ * spelling into the type system.
+ *
+ * Only the string properties are read, so the framework's own symbol never
+ * leaks into the union.
+ */
+export type PermissionsOf<S> = {
+  [K in Extract<S[Extract<keyof S, string>], string>]: true;
+};
+
 /** Whether a manifest's `permissions` came from {@link declarePermissions}. */
 export function isPermissionSet(value: unknown): value is AnyPermissionSet {
   return (

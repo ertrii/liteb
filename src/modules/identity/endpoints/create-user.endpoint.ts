@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Group,
 } from '../../../../lib';
-import { permissions } from '../permissions';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { User } from '../entities/user.entity';
 import { hashPassword } from '../services/password';
@@ -18,7 +17,7 @@ export class CreateUserEndpoint extends Endpoint<null, CreateUserDto> {
   private readonly users = this.db.getRepository(User);
 
   async main() {
-    this.auth.assert(permissions['users.manage']);
+    this.auth.assert('identity.users.manage');
 
     const taken = await this.users.existsBy({ username: this.body.username });
     if (taken) {

@@ -74,13 +74,30 @@ export default defineModule({
 });
 ```
 
-Everything else imports from that file and gets a TYPED key —
-`permissions.manage` is the string `'tasks.manage'`, so a misspelling stops
-compiling instead of surfacing as a 500 on the first request that hits it.
+Then list the module once, in the application's `src/config/permissions.ts`:
 
-`liteb create module` writes this file, and
+```typescript
+import type { PermissionsOf } from 'liteb';
+
+declare global {
+  namespace LitebAuth {
+    interface Permissions
+      extends PermissionsOf<typeof import('../modules/tasks/permissions').permissions> {}
+  }
+}
+```
+
+That is what makes the keys CHECKED while they stay plain strings:
+`this.auth.assert('tasks.manage')` reads the way it always did, and
+`'tasks.mange'` does not compile. One `declare global` block per module,
+merged by TypeScript, so adding a module is an append and nothing here is ever
+reopened. Leave the file empty and any string is accepted again — the run-time
+check is then the only net.
+
+`liteb init` writes `config/permissions.ts`, `liteb create module` writes the
+module's `permissions.ts` and appends its block, and
 `liteb create endpoint tasks/assign --permission tasks.assign` adds a line to
-it.
+the module's file.
 
 > The plain array — `permissions: [{ key, label }]` — still works, and is what
 > you want when the keys come from somewhere else. You lose the typed keys.
@@ -118,8 +135,8 @@ import { permissions as tasks } from '../modules/tasks/permissions';
 
 export const PERMISSIONS_BY_ROLE: Record<UserRole, string[]> = {
   owner: ['*'],                                  // everything, see below
-  agent: [tasks.view, tasks.manage],             // renaming one stops compiling
-  viewer: [tasks.view],
+  agent: ['tasks.view', 'tasks.manage'],         // checked, see step 2
+  viewer: ['tasks.view'],
   auditor: [...tasks],                           // everything THIS module has
 };
 ```
@@ -164,13 +181,11 @@ matters, but start correct.
 ## 4. Demand a key
 
 ```typescript
-import { permissions } from '../permissions';
-
 @HttpPost()
 @Body(CreateTaskDto)
 export default class CreateTaskEndpoint extends Endpoint<null, CreateTaskDto> {
   public async main() {
-    this.auth.assert(permissions.manage);
+    this.auth.assert('tasks.manage');
 
     return this.db.getRepository(Task).save({
       ...this.body,

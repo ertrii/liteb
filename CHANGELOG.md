@@ -52,11 +52,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   // module.ts — no second list to keep in sync
   export default defineModule({ id: 'tasks', permissions, ... });
 
-  // an endpoint — a typo here does not compile
-  this.auth.assert(permissions.manage);
+  // src/config/permissions.ts — once per module, appended
+  interface Permissions
+    extends PermissionsOf<typeof import('../modules/tasks/permissions').permissions> {}
 
-  // the resolver — one key, or everything this module has
-  agent: [permissions.view],
+  // an endpoint — still a plain string, and now a typo does not compile
+  this.auth.assert('tasks.manage');
+
+  // the resolver — checked too, or everything this module has
+  agent: ['tasks.view'],
   auditor: [...permissions],
   ```
 
