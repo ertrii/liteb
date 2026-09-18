@@ -42,6 +42,22 @@ describe('rewriteAliases', () => {
   });
 });
 
+describe('el propio repo', () => {
+  it('si el tsconfig tiene paths, tiene también el require de ts-node', () => {
+    // Esto se rompió de verdad: la demo pasó a usar `@/`, el tsconfig ganó el
+    // alias y `npm run dev` murió en el primer import, porque `paths` es cosa
+    // del compilador y ts-node no lo resuelve solo. La suite no lo vio porque
+    // jest resuelve con su propio moduleNameMapper.
+    const raw = fs.readFileSync(
+      path.join(__dirname, '../tsconfig.json'),
+      'utf8',
+    );
+
+    if (!raw.includes('"paths"')) return;
+    expect(raw).toContain('"ts-node": { "require": ["tsconfig-paths/register"] }');
+  });
+});
+
 describe('readAliases', () => {
   const root = path.join(workspace, 'read');
 

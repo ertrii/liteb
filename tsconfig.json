@@ -32,6 +32,10 @@
     "isolatedModules": true,
     "esModuleInterop": true
   },
+  // ts-node lee esto, y sin ello `npm run dev` muere en el primer import de la
+  // demo: `paths` es cosa del compilador y Node no sabe nada de `@/`. Es la
+  // misma línea que `liteb init` escribe en el tsconfig que genera.
+  "ts-node": { "require": ["tsconfig-paths/register"] },
   "compileOnSave": true,
   "include": ["./src", "jest.config.ts", "./lib"]
 }

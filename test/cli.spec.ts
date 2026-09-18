@@ -177,6 +177,13 @@ describe('liteb init', () => {
     expect(tsconfig.content).toContain('"emitDecoratorMetadata": true');
     // Con esto en true, cada campo de una entidad es un error.
     expect(tsconfig.content).toContain('"strictPropertyInitialization": false');
+
+    // Y el alias: sin el require de ts-node, `npm run dev` muere en el primer
+    // import que lo use.
+    expect(tsconfig.content).toContain('"paths": { "@/*": ["src/modules/*"] }');
+    expect(tsconfig.content).toContain(
+      '"ts-node": { "require": ["tsconfig-paths/register"] }',
+    );
   });
 });
 
