@@ -1,6 +1,8 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-/** Roles this demo knows. The mapping to permissions lives in `roles.ts`. */
+/** Roles this demo knows. The mapping to permissions is the APPLICATION's,
+ * in `src/config/roles.ts`: the module declares which keys exist, not who
+ * holds them. */
 export type UserRole = 'owner' | 'staff';
 
 @Entity('demo_users')

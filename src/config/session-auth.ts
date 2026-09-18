@@ -1,5 +1,6 @@
 import { AuthResolver } from '../../lib';
-import { UserDirectory } from '../modules/identity/module';
+import { User } from '../modules/identity/entities/user.entity';
+import { PERMISSIONS_BY_ROLE } from './roles';
 
 declare module 'express-session' {
   interface SessionData {
@@ -29,22 +30,28 @@ declare global {
  * Replace it with one that reads a bearer token (mobile app) or an API key
  * (third-party extension) and every endpoint keeps working untouched.
  *
- * The session holds nothing but the user id. Permissions are resolved per
- * request through the `identity` contract, so revoking a role takes effect on
- * the next request instead of the next login — and a user deleted mid-session
- * stops being an actor at once.
+ * It queries `db` directly, which is all a resolver needs: liteb stores no
+ * users and no roles, it receives a list of keys per request and compares
+ * strings. `get` is also available, to reach a module's contract instead —
+ * worth it when the resolver must not import a module's entity, because that
+ * module comes installed from somewhere else. Here the application owns all
+ * three, so the import is the honest shorter path. `reports` is where this
+ * demo shows a contract doing its actual job.
  *
- * That costs one lookup per request. An application that minds can cache it,
- * but the default should be correct rather than fast.
+ * Permissions are read PER REQUEST, not copied into the session at login, so
+ * revoking a role takes effect on the next request and a user deleted
+ * mid-session stops being an actor at once. That costs one lookup; an
+ * application that minds can cache it, but the default should be correct
+ * rather than fast.
  */
-const sessionAuth: AuthResolver = async (request, { get }) => {
+const sessionAuth: AuthResolver = async (request, { db }) => {
   const userId = request.session?.userId;
   if (!userId) return null;
 
-  const permissions = await get(UserDirectory).permissionsOf(userId);
-  if (!permissions) return null;
+  const user = await db.getRepository(User).findOneBy({ id: userId });
+  if (!user) return null;
 
-  return { actor: { userId }, permissions };
+  return { actor: { userId }, permissions: PERMISSIONS_BY_ROLE[user.role] };
 };
 
 export default sessionAuth;

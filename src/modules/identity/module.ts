@@ -1,7 +1,6 @@
 import { contract, defineModule } from '../../../lib';
 import { User } from './entities/user.entity';
 import * as migrations from './migrations';
-import { PERMISSIONS_BY_ROLE } from './roles';
 
 /**
  * What other modules may ask about users — WITHOUT importing anything from
@@ -10,15 +9,6 @@ import { PERMISSIONS_BY_ROLE } from './roles';
 export interface UserDirectory {
   count(): Promise<number>;
   nameOf(userId: number): Promise<string | null>;
-  /**
-   * Permission keys this user holds, or `null` if the user is gone.
-   *
-   * It lives here because WHO MAY DO WHAT is identity's business. The auth
-   * resolver calls it through the contract, so the rule can change — roles in
-   * a table, per-tenant overrides — without touching the resolver or a single
-   * endpoint.
-   */
-  permissionsOf(userId: number): Promise<string[] | null>;
 }
 
 export const UserDirectory = contract<UserDirectory>('identity.directory');
@@ -54,10 +44,6 @@ export default defineModule({
           count: () => users.count(),
           nameOf: async (userId) =>
             (await users.findOneBy({ id: userId }))?.fullName ?? null,
-          permissionsOf: async (userId) => {
-            const user = await users.findOneBy({ id: userId });
-            return user ? PERMISSIONS_BY_ROLE[user.role] : null;
-          },
         };
       },
     },
