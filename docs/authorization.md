@@ -95,9 +95,9 @@ reopened. Leave the file empty and any string is accepted again — the run-time
 check is then the only net.
 
 `liteb init` writes `config/permissions.ts`, `liteb create module` writes the
-module's `permissions.ts` and appends its block, and
+module's `permissions.ts` and appends its block there, and
 `liteb create endpoint tasks/assign --permission tasks.assign` adds a line to
-the module's file.
+the module's file. Nothing has to be wired by hand.
 
 > The plain array — `permissions: [{ key, label }]` — still works, and is what
 > you want when the keys come from somewhere else. You lose the typed keys.

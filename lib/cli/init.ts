@@ -166,15 +166,21 @@ logs
  *
  * Empty, every string is accepted and the run-time check is the only net.
  *
+ * The import above is what the blocks extend — an interface may only extend an
+ * identifier, so it cannot be inlined — and it is also what makes this file a
+ * module, which \`declare global\` requires. Until the first module is added it
+ * looks unused; that is expected.
+ *
  * @example
  * declare global {
  *   namespace LitebAuth {
  *     interface Permissions
- *       extends PermissionsOf<typeof import('../modules/tasks/permissions').permissions> {}
+ *       extends PermissionsOf<
+ *         typeof import('../modules/tasks/permissions').permissions
+ *       > {}
  *   }
  * }
  */
-export type { PermissionsOf };
 `;
 
   return plan(

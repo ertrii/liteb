@@ -101,3 +101,23 @@ export async function loadApp(options: LoadOptions): Promise<Liteb> {
 
   return app;
 }
+
+/**
+ * Opens the connection, turning a driver error into something actionable.
+ *
+ * Straight out of `liteb init` the `.env` is a template, so the first
+ * `liteb migrate` anybody runs fails inside the Postgres driver — a SASL or
+ * ECONNREFUSED stack that reads like the framework broke. It is the most
+ * likely first command and deserved the least cryptic failure.
+ */
+export async function connect(app: Liteb): Promise<void> {
+  try {
+    await app.connect();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new CliError(
+      `Could not reach the database: ${detail}\n\n` +
+        'Check the DB_* values in .env. The database itself has to exist — liteb creates tables, not databases.',
+    );
+  }
+}

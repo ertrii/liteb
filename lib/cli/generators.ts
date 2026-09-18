@@ -231,6 +231,10 @@ function permissionsDeclaration(id: string, modulesDir: string): string {
     'src/config',
     `${modulesDir.replace(/\\/g, '/')}/${id}/permissions`,
   );
+  // The module is reached with an inline `import(...)`, so a new block needs no
+  // new import line. `PermissionsOf` cannot be: an interface may only extend an
+  // identifier, so that one comes from the file's own import, which `init`
+  // writes.
   return `
 declare global {
   namespace LitebAuth {
@@ -312,7 +316,9 @@ export function createEndpoint(options: EndpointOptions): Plan {
   // is a typo and not a missing grant. So asking for one here has to DECLARE
   // it too, or the generator would write code that cannot run.
   const own = permission?.key.startsWith(`${target.module}.`) ?? false;
-  const name = own ? permission!.key.slice(target.module.length + 1) : '';
+  const raw = own ? permission!.key.slice(target.module.length + 1) : '';
+  // Quoted only when it has to be: a deeper namespace carries a dot.
+  const name = /^[a-z][a-zA-Z0-9]*$/.test(raw) ? raw : `'${raw}'`;
   const edits =
     permission?.active && own
       ? [
@@ -320,8 +326,8 @@ export function createEndpoint(options: EndpointOptions): Plan {
             path: `${dir}/permissions.ts`,
             objectEntry: {
               after: `declarePermissions('${target.module}', {`,
-              value: `  '${name}': '${permissionLabel(permission.key)}',`,
-              unless: `'${name}':`,
+              value: `  ${name}: '${permissionLabel(permission.key)}',`,
+              unless: `${name}:`,
             },
           },
         ]

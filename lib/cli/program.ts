@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Command } from 'commander';
-import { loadApp } from './app-loader';
+import { connect, loadApp } from './app-loader';
 import { runBuild } from './build';
 import { createProject, install } from './init';
 import {
@@ -235,6 +235,7 @@ export function buildProgram(): Command {
     .action(async (flags) => {
       const app = await loadApp({ root: process.cwd(), entry: flags.entry });
       try {
+        await connect(app);
         const ran = await app.migrate({ dryRun: flags.dryRun });
 
         if (ran.length === 0) {
@@ -262,6 +263,7 @@ ${ran.length} migration(s) ${verb}.`);
     .action(async (flags) => {
       const app = await loadApp({ root: process.cwd(), entry: flags.entry });
       try {
+        await connect(app);
         const status = await app.migrationStatus();
 
         if (status.length === 0) {

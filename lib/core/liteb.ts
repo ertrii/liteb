@@ -340,8 +340,12 @@ export default class Liteb extends Server {
    * Opens the connection if the caller has not. A command that only migrates
    * has no reason to call `start()`, and `start()` would mount an HTTP server
    * it never wanted.
+   *
+   * Public so a caller can tell "could not reach the database" apart from
+   * anything that happens afterwards — `migrate()` calls it anyway, and a
+   * driver error surfacing from there reads like a framework crash.
    */
-  private connect = async (): Promise<void> => {
+  public connect = async (): Promise<void> => {
     if (!this.dbSource.isInitialized) await this.dbSource.initialize();
   };
 

@@ -305,7 +305,7 @@ describe('un módulo generado y puesto a andar', () => {
     // generador habría escrito código que no puede correr. La etiqueta es un
     // punto de partida legible, para la pantalla de roles.
     expect(read(`${modulesDir}/inventory/permissions.ts`)).toContain(
-      "'count': 'Count inventory',",
+      "count: 'Count inventory',",
     );
     // El endpoint la exige como cadena, que es como se lee mejor. Lo que la
     // hace segura es el bloque que `create module` agregó acá:
