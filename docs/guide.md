@@ -779,12 +779,19 @@ resolves through symlinks and can hide a missing file or a bad `files` entry.
 > Step by step, with recipes and a troubleshooting table:
 > [docs/authorization.md](./authorization.md).
 
-`auth` is **optional**. An endpoint that never reads `this.auth` needs no
-resolver, and an API of plain endpoints stands up without deciding who your
-users are first. The scaffold reflects that: `liteb create` writes the
-`this.auth.assert(...)` line COMMENTED, and you uncomment it together with the
-resolver in `Liteb.create()`. `liteb create endpoint --permission <key>` writes
-it live for an application that already has one.
+`auth` is **optional** to the framework: an endpoint that never reads
+`this.auth` needs no resolver, and an API of plain endpoints stands up without
+deciding who your users are first.
+
+A project made by `liteb init` has one anyway. `src/config/auth.ts` lets
+EVERYONE through with every permission — not authentication, but enough that
+`this.auth`, `this.auth.assert(...)` and the compiler-checked permission keys
+all work from the first request. So `liteb create` writes the
+`this.auth.assert(...)` line **live**: the gate is in place and open, which is
+the only order in which closing it is a one-line change. A scaffold that ships
+the assertion commented teaches that endpoints are ungated by default, and the
+day somebody writes real authentication every endpoint written until then is
+still open. `--public` leaves the line out for the ones meant to be.
 
 When you do want it: endpoints never learn how a caller was identified. One
 resolver turns a request into an **actor**, and every endpoint reads it as

@@ -109,6 +109,7 @@ tsconfig.json         the two decorator flags, and the @/ alias
 .gitignore
 src/index.ts          createApp() separated from main()
 src/config/permissions.ts
+src/config/auth.ts
 ```
 
 Three things in there are worth knowing about, because getting any of them
@@ -126,6 +127,19 @@ on, every one of them is an error.
 `if (require.main === module)`. Importing the entry file must not start a
 server — that is what lets a test, a script and `liteb migrate` build the
 application without listening on a port.
+
+**Permissions and `auth` are written, not commented.** `src/config/auth.ts`
+holds a resolver that lets **everyone** through with every permission, and
+`src/index.ts` passes it. That is not authentication — it is what makes
+`this.auth`, `this.auth.assert(...)` and the compiler-checked permission keys
+all work on the first request, so replacing it later is one file and not a
+migration of every endpoint you wrote in the meantime. It says so in the log,
+once, the first time it lets a request through.
+
+`src/config/permissions.ts` starts with its `declare global` block already
+open. It is empty until the first module; `liteb create module` appends one
+block per module and interface merging joins them, so no line in that file is
+ever reopened.
 
 It also wires three things every backend ends up needing, so they are not a
 task for later:
@@ -253,10 +267,11 @@ itself on.** A module without `core: true` installs disabled: it is in the
 code, its tables exist, its permissions are in the catalog, and nothing of it
 runs until someone enables it. Core modules cannot be turned off at all.
 
-The generated endpoint carries its `this.auth.assert(...)` line **commented
-out**. That is deliberate and the two halves match: `init` writes the `auth`
-resolver commented out too, and asserting with no resolver is a configuration
-error that answers 500, not a 401. Uncomment both together.
+The generated endpoint carries its `this.auth.assert(...)` line **live**. It
+works from the first request because `init` wrote a resolver that lets everyone
+through — the gate is in place and open, which is the only order in which
+closing it is a one-line change. Pass `--public` for the ones that are meant to
+be open.
 
 ---
 
@@ -282,9 +297,14 @@ id**, so the scaffold writes no `@Group` at all. Pass `--group` only when the
 URL should not carry the module's name — a module serving two resources, or
 two modules contributing to one prefix.
 
-`--permission` writes the assertion **live** and declares the key in the
-module's `permissions.ts` in the same pass. It is opt-in because a live
-assertion needs an `auth` resolver, which a fresh project does not have.
+The assertion is written **live** either way. Without `--permission` it asserts
+`<module>.view`, the key a module starts with; with one, it asserts that key
+and **declares it** in the module's `permissions.ts` in the same pass — a key
+no module declares is a 500 and not a 403, on purpose, because it is a typo and
+not a missing grant.
+
+An endpoint that WRITES wants its own key, so pass `--permission`. `--public`
+leaves the line out entirely.
 
 ---
 

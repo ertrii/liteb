@@ -150,6 +150,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the URL, and `dir: null` is the right answer for logs inside a container.
   `.env` now carries `NODE_ENV` all the same.
 
+- **A new project starts with its authorization already wired**, not commented
+  out. `liteb init` writes `src/config/auth.ts` — a resolver that lets
+  EVERYONE through with every permission — and `src/index.ts` passes it. It is
+  not authentication, and it says so in the log, once, the first time it lets a
+  request through.
+
+  It is there so the whole mechanism works on the first request: `this.auth`,
+  `this.auth.assert(...)`, and the permission keys checked by the compiler. So
+  `liteb create` now writes the assertion **live**:
+
+  ```typescript
+  async main() {
+    this.auth.assert('inventory.view');
+    ...
+  ```
+
+  The gate in place and open, which is the only order in which closing it is a
+  one-line change. Commented, the scaffold taught that endpoints are ungated by
+  default, and the day somebody wrote real authentication every endpoint
+  written until then was still open. `--public` leaves the line out for the
+  ones meant to be.
+
+  `src/config/permissions.ts` likewise ships with its `declare global` block
+  already open rather than as an example in a comment. It is empty until the
+  first module, and `liteb create module` appends one block per module.
+
 - **`liteb create event` and `liteb create slot`**, so every kind of token a
   module publishes has a command and a folder: `contracts/`, `events/` and
   `slots/`. Neither is globbed by liteb — a token is imported by name — which

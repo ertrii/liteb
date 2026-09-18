@@ -35,6 +35,8 @@ describe('archivos de log', () => {
     dir: path.join(__dirname, 'fixtures/modules/site'),
   });
 
+  const raiz = process.cwd();
+
   const temporal = (sufijo = '') =>
     path.join(os.tmpdir(), `liteb-logs-${Date.now()}${sufijo}`);
 
@@ -70,6 +72,10 @@ describe('archivos de log', () => {
   const vaciar = () => Logger.flush();
 
   afterEach(async () => {
+    // Si un caso se queda sin tiempo, jest lo abandona y su `finally` puede no
+    // correr: sin esto el directorio de trabajo quedaría en un temporal para
+    // todo lo que sigue.
+    if (process.cwd() !== raiz) process.chdir(raiz);
     await app?.close({ database: false }).catch(() => undefined);
     app = undefined;
     // Volver a consola, o el resto de la suite escribiría en el temporal.

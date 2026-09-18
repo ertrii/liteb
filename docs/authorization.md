@@ -23,11 +23,20 @@ endpoints exist. They meet at the key.
 
 # Step by step
 
-## 1. Start with no authorization at all
+## 1. What a new project starts with
 
-`auth` is optional. An endpoint that never reads `this.auth` needs no resolver,
-and an application made only of those runs with no authorization wiring
-whatsoever.
+`liteb init` writes `src/config/auth.ts`: a resolver that lets **everyone**
+through with every permission, and warns once in the log the first time it
+does. It is not authentication. It is there so `this.auth` works, the generated
+`this.auth.assert(...)` lines pass, and the permission keys are checked by the
+compiler from the first request — the gate in place and open, so closing it
+later is one file.
+
+Replace its body (step 3) and everything already written starts being enforced.
+
+`auth` is optional to the framework, all the same: an endpoint that never reads
+`this.auth` needs no resolver, and an application made only of those runs with
+no authorization wiring whatsoever. That is what `--public` scaffolds.
 
 ```typescript
 @HttpGet()
@@ -501,6 +510,6 @@ segment, so a consistent namespace makes the error message useful.
 | 500 `Unknown permission` | The key is in no manifest — usually a typo, sometimes a key written in the endpoint and never declared. |
 | 403 for everybody, always | The resolver returns `permissions: []`, or the role map has no entry for that role (`undefined` reaches the check as empty). |
 | 401 while signed in | The resolver returned `null`: the session has no `userId`, or the user row is gone. |
-| Everything passes, nothing is gated | No endpoint calls `assert`. `liteb create` writes that line **commented**; uncomment it. |
+| Everything passes, nothing is gated | The scaffold resolver in `src/config/auth.ts` is still there: it grants `*` to everyone. It warns once in the log the first time it does. |
 | A key vanished from the roles screen | You are listing from somewhere other than `app.permissions()`. That list includes disabled modules on purpose. |
 | Works for the owner, not for anyone else | `*` holds everything. Test with a role that should be refused. |

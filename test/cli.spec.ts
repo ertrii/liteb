@@ -131,7 +131,31 @@ describe('liteb init', () => {
       '.env.template',
       'src/index.ts',
       'src/config/permissions.ts',
+      'src/config/auth.ts',
     ]);
+  });
+
+  it('permisos y auth quedan ESCRITOS, no comentados', () => {
+    // El pedido es que no haya que configurar nada para empezar: el bloque de
+    // permisos existe desde el primer día —`create module` le agrega uno por
+    // módulo y el merge de interfaces los junta— y hay un resolutor de verdad
+    // enchufado en el index.
+    const archivos = createProject({ name: 'mi-app', litebVersion }).files;
+    const busca = (ruta: string) =>
+      archivos.find((file) => file.path === ruta)!.content;
+
+    const permisos = busca('src/config/permissions.ts');
+    expect(permisos).toContain('declare global {');
+    expect(permisos).toContain('interface Permissions extends PermissionsOf<{}> {}');
+
+    const auth = busca('src/config/auth.ts');
+    // Deja pasar a todos, y lo dice en voz alta una vez.
+    expect(auth).toContain("permissions: ['*']");
+    expect(auth).toContain('Logger.warn(');
+
+    const index = busca('src/index.ts');
+    expect(index).toContain("import auth from './config/auth';");
+    expect(index).toMatch(/^\s*auth,$/m);
   });
 
   it('el package.json es válido y trae lo que el framework necesita', () => {
@@ -227,6 +251,16 @@ describe('un módulo generado y puesto a andar', () => {
     );
     scaffold(createEntity({ target: 'inventory/item', modulesDir, from: 'liteb' }));
     scaffold(
+      createEndpoint({
+        target: 'inventory/ping',
+        modulesDir,
+        from: 'liteb',
+        path: 'ping',
+        // `--public`: sin aserción, para los pocos que de verdad lo son.
+        permission: false,
+      }),
+    );
+    scaffold(
       createRoutine({ target: 'inventory/nightly', modulesDir, from: 'liteb' }),
     );
     scaffold(createListener({ target: 'inventory/audit', modulesDir, from: 'liteb' }));
@@ -312,23 +346,31 @@ describe('un módulo generado y puesto a andar', () => {
       read(`${modulesDir}/inventory/endpoints/inventory.endpoint.ts`),
     ).not.toContain('@Group');
 
-    // Y SIN cabeceras: el endpoint que trae el módulo no gatea nada.
-    const res = await request(server()).get('/api/inventory');
+    // Con la clave que el módulo declara: el andamiaje gatea de entrada.
+    const res = await request(server())
+      .get('/api/inventory')
+      .set('x-perms', 'inventory.view');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
   });
 
-  it('trae la aserción COMENTADA, y la clave declarada en permissions.ts', () => {
-    // Las dos mitades del andamiaje tienen que coincidir: `init` escribe
-    // `auth` comentado, así que un endpoint que asserta de entrada contesta
-    // 500 al primer request de cualquier proyecto nuevo.
+  it('y sin ella no responde: la puerta está puesta, no de adorno', async () => {
+    expect((await request(server()).get('/api/inventory')).status).toBe(401);
+  });
+
+  it('trae la aserción VIVA, con la clave que declara permissions.ts', () => {
+    // Las dos mitades del andamiaje coinciden: `init` escribe un resolutor que
+    // deja pasar a todos, así que la aserción puede nacer encendida. Al revés
+    // —comentada— enseña que un endpoint es abierto por defecto, y el día que
+    // alguien escriba autenticación de verdad todos los ya escritos siguen
+    // abiertos.
     const endpoint = read(
       `${modulesDir}/inventory/endpoints/inventory.endpoint.ts`,
     );
 
-    expect(endpoint).toContain("// this.auth.assert('inventory.view');");
-    expect(endpoint).not.toMatch(/^\s*this\.auth\.assert/m);
+    expect(endpoint).toMatch(/^\s*this\.auth\.assert\('inventory\.view'\);/m);
+    expect(endpoint).not.toContain("// this.auth.assert(");
   });
 
   it('las claves se declaran en UN lugar, y el manifiesto lo referencia', () => {
@@ -386,10 +428,15 @@ describe('un módulo generado y puesto a andar', () => {
     ]);
   });
 
-  it('una app SIN resolutor `auth` igual contesta: auth es opcional', async () => {
-    // La regresión: `init` escribe `auth` comentado. Si el andamiaje assertara
-    // de entrada, esto sería 500 — "this application resolves no actor" — en
-    // el primer request de todo proyecto nuevo.
+  it('un endpoint --public contesta sin resolutor: auth sigue siendo opcional', async () => {
+    // El framework no exige `auth`: un endpoint que nunca toca `this.auth` no
+    // necesita a nadie que resuelva. Lo que cambió es el andamiaje, no la
+    // regla — y `--public` es cómo se pide un endpoint que de verdad lo es.
+    const abierto = read(
+      `${modulesDir}/inventory/endpoints/ping.endpoint.ts`,
+    );
+    expect(abierto).not.toContain('this.auth');
+
     const sinAuth = await Liteb.create({
       db,
       modules: [require(path.join(workspace, modulesDir, 'inventory/module.ts')).default],
@@ -399,7 +446,7 @@ describe('un módulo generado y puesto a andar', () => {
     await sinAuth.start(0);
 
     try {
-      const res = await request(sinAuth.getApp()).get('/api/inventory');
+      const res = await request(sinAuth.getApp()).get('/api/inventory/ping');
       expect(res.status).toBe(200);
     } finally {
       await sinAuth.close({ database: false });

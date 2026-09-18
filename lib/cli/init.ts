@@ -95,6 +95,7 @@ export function createProject(options: InitOptions): Plan {
 `;
 
   const index = `import { ConfigService, Liteb } from 'liteb';
+import auth from './config/auth';
 
 /**
  * The application: a database, the modules it is made of, and how a request
@@ -178,19 +179,11 @@ export async function createApp() {
       credentials: true,
     },
 
-    // How a request becomes an actor. OPTIONAL: an endpoint that never reads
-    // \`this.auth\` needs no resolver, and a plain API works without this.
-    //
-    // Uncomment it together with the \`this.auth.assert(...)\` line your
-    // endpoints carry commented out — asserting with no resolver is a
-    // configuration error, not a 401, and answers 500 on purpose.
-    //
-    // auth: async (request, { db, get }) => {
-    //   const userId = Number(request.headers['x-user']);
-    //   if (!userId) return null;              // anonymous: 401 where asserted
-    //   // \`*\` grants everything; real ones are the keys your modules declare.
-    //   return { actor: { userId }, permissions: ['*'] };
-    // },
+    // How a request becomes whoever is behind it. See ./config/auth.ts — it
+    // lets EVERYONE through, with every permission, so a new project answers
+    // from the first request instead of 401ing at a resolver you have not
+    // written yet. Replace it before this has users.
+    auth,
   });
 }
 
@@ -236,25 +229,81 @@ logs
  * Each module still declares its own keys, with their labels, in its own
  * \`permissions.ts\`. This file only carries those spellings into the type
  * system, and \`liteb create module\` appends a block per module — interface
- * merging joins them, so nothing here ever has to be reopened.
+ * merging joins them, so nothing below ever has to be reopened.
  *
- * Empty, every string is accepted and the run-time check is the only net.
+ * Empty, as it starts, every string is accepted and the run-time check is the
+ * only net. It stops being empty with the first module.
+ */
+declare global {
+  namespace LitebAuth {
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
+    interface Permissions extends PermissionsOf<{}> {}
+  }
+}
+`;
+
+  const authFile = `import type { AuthResolver } from 'liteb';
+import { Logger } from 'liteb';
+
+let warned = false;
+
+/**
+ * Turns a request into whoever is behind it. THIS ONE LETS EVERYONE THROUGH.
  *
- * The import above is what the blocks extend — an interface may only extend an
- * identifier, so it cannot be inlined — and it is also what makes this file a
- * module, which \`declare global\` requires. Until the first module is added it
- * looks unused; that is expected.
+ * It is here so a new project answers from the first request: \`this.auth\`
+ * works, \`this.auth.assert(...)\` passes, the permission keys are checked by
+ * the compiler, and nothing 401s at a resolver nobody has written yet. The
+ * gate is in place and open. It is NOT authentication.
+ *
+ * Replace the body with how your application recognizes a caller — a session,
+ * a bearer token, an API key — and return \`null\` when it recognizes nobody.
+ * That \`null\` is what turns an assertion into a 401.
+ *
+ * \`db\` and \`get\` come in for exactly that: permissions are usually a query,
+ * and \`get\` reaches a module's contract when this file must not import that
+ * module's entities.
+ *
+ * Declare what an actor IS at the same time. liteb leaves it empty on purpose
+ * — a user id, a tenant, an API key issued to an extension are all valid, and
+ * a framework that picks one is a framework you fight later. Declared once,
+ * \`this.auth.actor\` is typed in every endpoint and routine:
  *
  * @example
  * declare global {
  *   namespace LitebAuth {
- *     interface Permissions
- *       extends PermissionsOf<
- *         typeof import('../modules/tasks/permissions').permissions
- *       > {}
+ *     interface Actor {
+ *       userId: number;
+ *     }
  *   }
  * }
+ *
+ * const auth: AuthResolver = async (request, { db }) => {
+ *   const userId = request.session?.userId;
+ *   if (!userId) return null;
+ *   const user = await db.getRepository(User).findOneBy({ id: userId });
+ *   if (!user) return null;
+ *   return { actor: { userId }, permissions: PERMISSIONS_BY_ROLE[user.role] };
+ * };
  */
+const auth: AuthResolver = async () => {
+  if (!warned) {
+    warned = true;
+    Logger.warn(
+      'Everyone is allowed: src/config/auth.ts still grants every permission to every request.',
+    );
+  }
+
+  return {
+    // Nobody, in the shape your application will give an actor. The cast is
+    // the honest part: there is no one behind this request to describe.
+    actor: {} as LitebAuth.Actor,
+    // \`*\` grants everything. Real ones are the keys your modules declare,
+    // which src/config/permissions.ts carries into the type system.
+    permissions: ['*'],
+  };
+};
+
+export default auth;
 `;
 
   return plan(
@@ -266,11 +315,13 @@ logs
       { path: '.env.template', content: env.replace(/=.+$/gm, '=') },
       { path: 'src/index.ts', content: index },
       { path: 'src/config/permissions.ts', content: permissionTypes },
+      { path: 'src/config/auth.ts', content: authFile },
     ],
     [],
     [
       `Fill in .env (the database has to exist; liteb creates tables, not databases).`,
       `Once it runs: /health answers the probes, /docs has the API, and logs/ has the route map.`,
+      `src/config/auth.ts lets EVERYONE through, so endpoints answer from the first request. Replace it before this has users.`,
       // `npx liteb` without a version resolves the `latest` tag, which is a
       // different major with a different CLI. Inside the project it is the
       // local install that answers, so no version is needed here.

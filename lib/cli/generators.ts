@@ -141,10 +141,9 @@ export default defineModule({
     group: null,
     decorator: 'HttpGet',
     routePath: '',
-    // Declared in permissions.ts, asserted only once there is an `auth`
-    // resolver to assert against. The first request to a new project must
-    // answer.
-    permission: { key: `${id}.view`, active: false },
+    // Declared in ./permissions.ts, and asserted from the start: `init` writes
+    // a resolver that grants everything, so the gate exists and is open.
+    permission: { key: `${id}.view` },
     from: relativeFrom(options.from, 3),
   });
 
@@ -186,28 +185,20 @@ export default defineModule({
 }
 
 /**
- * The permission line, live or commented.
+ * The permission line.
  *
- * It is commented by DEFAULT, and that is the whole point: `auth` is optional
- * in liteb — an endpoint that never touches `this.auth` needs no resolver —
- * but `assert()` does need one, and a scaffold that ships the assertion live
- * while `init` ships `auth` commented out answers 500 to the first request
- * anybody makes. Standing an API up must not require deciding who your users
- * are first.
+ * It is LIVE, because `liteb init` writes a resolver that lets everyone
+ * through: the gate is in place and open, which is the only order in which
+ * closing it is a one-line change. A scaffold that ships the assertion
+ * commented teaches that endpoints are ungated by default, and the day
+ * somebody writes real authentication every endpoint written until then is
+ * still open.
+ *
+ * `--public` leaves it out, for the handful that are meant to be.
  */
-function permissionBlock(
-  permission: { key: string; active: boolean } | null,
-): string {
+function permissionBlock(permission: { key: string } | null): string {
   if (!permission) return '';
-  if (permission.active) {
-    return `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert('${permission.key}');\n\n`;
-  }
-  return (
-    `    // Gate this endpoint by uncommenting the line below. It needs an \`auth\`\n` +
-    `    // resolver in Liteb.create(): without one there is nobody to check, so\n` +
-    `    // reading \`this.auth\` is a configuration error and not a 401.\n` +
-    `    // this.auth.assert('${permission.key}');\n\n`
-  );
+  return `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert('${permission.key}');\n\n`;
 }
 
 /**
@@ -246,7 +237,7 @@ function endpointSource(args: {
   group: string | null;
   decorator: string;
   routePath: string;
-  permission: { key: string; active: boolean } | null;
+  permission: { key: string } | null;
   from: string;
 }): string {
   const route = args.routePath ? `'${args.routePath}'` : '';
@@ -296,13 +287,11 @@ export function createEndpoint(options: EndpointOptions): Plan {
   // that keeps writing the old name teaches the old framework.
   const className = `${toPascal(target.name)}Endpoint`;
 
-  const requested =
+  const asked = typeof options.permission === 'string';
+  const permission =
     options.permission === false
       ? null
-      : typeof options.permission === 'string'
-        ? { key: options.permission, active: true }
-        : { key: `${target.module}.view`, active: false };
-  const permission = requested;
+      : { key: asked ? (options.permission as string) : `${target.module}.view` };
 
   // A key that no module declares is a 500, not a 403 — on purpose, because it
   // is a typo and not a missing grant. So asking for one here has to DECLARE
@@ -312,7 +301,7 @@ export function createEndpoint(options: EndpointOptions): Plan {
   // Quoted only when it has to be: a deeper namespace carries a dot.
   const name = /^[a-z][a-zA-Z0-9]*$/.test(raw) ? raw : `'${raw}'`;
   const edits =
-    permission?.active && own
+    permission && own
       ? [
           {
             path: `${dir}/permissions.ts`,
@@ -329,11 +318,17 @@ export function createEndpoint(options: EndpointOptions): Plan {
     'Validate what comes in with @Body(Dto) / @Params(Dto) / @Query(Dto).',
     'A literal route that a `:param` sibling would swallow needs @Priority(1); the router log shows the resulting order.',
   ];
-  if (permission?.active) {
+  if (permission && !own) {
     hints.push(
-      permission.key.startsWith(`${target.module}.`)
-        ? `The label of "${permission.key}" in permissions.ts is a guess: it is what a roles screen shows, so make it read the way you would explain it.`
-        : `"${permission.key}" belongs to another module, so it was not declared here. It must exist in that module's permissions or the assertion is a 500, not a 403.`,
+      `"${permission.key}" belongs to another module, so it was not declared here. It must exist in that module's permissions or the assertion is a 500, not a 403.`,
+    );
+  } else if (permission && asked) {
+    hints.push(
+      `The label of "${permission.key}" in permissions.ts is a guess: it is what a roles screen shows, so make it read the way you would explain it.`,
+    );
+  } else if (permission) {
+    hints.push(
+      `It asserts "${permission.key}" because that is the key a module starts with. An endpoint that WRITES wants its own: pass --permission ${target.module}.<key>.`,
     );
   }
 
