@@ -11,13 +11,9 @@ export {
 export { Body, Params, Query } from './decorators/request.decorator';
 export { Group } from './decorators/group.decorator';
 export type { GroupOptions, GroupMetadata } from './decorators/group.decorator';
-/** @deprecated Renamed to `Group`. */
-export { Module } from './decorators/module.decorator';
 export { Priority } from './decorators/priority.decorator';
 export { Cron } from './decorators/cron.decorator';
 export type { CronMetadata } from './decorators/cron.decorator';
-/** @deprecated Renamed to `Cron`. */
-export { Schedule } from './decorators/schedule.decorator';
 export { Use } from './decorators/use.decorator';
 export type { MiddlewareFn, UseMetadata } from './decorators/use.decorator';
 export {
@@ -56,7 +52,6 @@ export {
   loadModuleEndpoints,
   loadModuleListeners,
   loadModuleRoutines,
-  loadModuleTasks,
   toEndpointReaders,
   resolveModulePattern,
 } from './modules/module-loader';
@@ -77,12 +72,7 @@ export type { RegisteredPermission } from './modules/permissions';
 export type { EventToken } from './modules/events';
 export { On } from './decorators/on.decorator';
 export * from './templates/listener';
-export type {
-  Contract,
-  Contribution,
-  ProviderEntry,
-  ContainerContext,
-} from './modules/container';
+export type { Contract } from './modules/container';
 export { buildContainer } from './modules/build-container';
 export type {
   ModuleState,
@@ -118,7 +108,6 @@ export * from './templates/routine';
 export * from './templates/provider';
 export { Provides, Contributes } from './decorators/provides.decorator';
 export type { ProvidesMetadata } from './decorators/provides.decorator';
-export * from './templates/task';
 export * from './utilities/logger';
 export type { LoggerOptions } from './services/log4js';
 export * from './utilities/errors';

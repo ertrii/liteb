@@ -1,21 +1,12 @@
 import 'reflect-metadata';
+import path from 'path';
 import { describe, expect, it } from '@jest/globals';
 import type { DataSource } from 'typeorm';
-import {
-  buildContainer,
-  contract,
-  ContainerContext,
-  defineModule,
-  slot,
-} from '../lib';
+import { buildContainer, Container, contract, defineModule, Provider } from '../lib';
+import { PaymentMethod, PaymentMethods } from './fixtures/pagos/shared';
 
 const fakeDb = {} as DataSource;
-
-interface PaymentMethod {
-  id: string;
-  label: string;
-}
-const PaymentMethods = slot<PaymentMethod>('billing.payment-methods');
+const pagos = (nombre: string) => path.join(__dirname, 'fixtures/pagos', nombre);
 
 describe('ranuras de extensión', () => {
   it('una ranura que nadie llenó devuelve vacío, no falla', async () => {
@@ -27,129 +18,92 @@ describe('ranuras de extensión', () => {
     expect(container.countFor(PaymentMethods)).toBe(0);
   });
 
-  it('acepta VARIAS contribuciones: en eso se diferencia de un contrato', async () => {
+  it('acepta VARIAS: en eso se diferencia de un contrato', async () => {
     const efectivo = defineModule({
       id: 'cash',
       version: '1.0.0',
-      contributes: [
-        { slot: PaymentMethods, value: { id: 'cash', label: 'Efectivo' } },
-      ],
+      dir: pagos('efectivo'),
     });
     const banco = defineModule({
       id: 'bank',
       version: '1.0.0',
-      contributes: [
-        { slot: PaymentMethods, value: { id: 'bank', label: 'Transferencia' } },
-      ],
+      dir: pagos('banco'),
     });
 
     const container = await buildContainer([efectivo, banco], fakeDb);
 
+    // El orden es el de los módulos, que para entonces es orden de
+    // dependencias: estable entre arranques.
     expect(container.all(PaymentMethods).map((m) => m.id)).toEqual([
       'cash',
       'bank',
     ]);
   });
 
-  it('acepta clase y fábrica, con el contexto del contenedor', async () => {
-    const Tasa = contract<number>('fx.rate');
-    const fx = defineModule({
-      id: 'fx',
-      version: '1.0.0',
-      provides: [{ token: Tasa, value: 3.7 }],
-    });
-
-    class PorClase implements PaymentMethod {
-      id = 'clase';
-      label: string;
-      constructor(ctx: ContainerContext) {
-        this.label = `Clase a ${ctx.get(Tasa)}`;
-      }
-    }
-
-    const porClase = defineModule({
-      id: 'a',
-      version: '1.0.0',
-      contributes: [{ slot: PaymentMethods, use: PorClase }],
-    });
-    const porFabrica = defineModule({
-      id: 'b',
-      version: '1.0.0',
-      contributes: [
-        {
-          slot: PaymentMethods,
-          factory: (ctx) => ({ id: 'fab', label: `Fábrica a ${ctx.get(Tasa)}` }),
-        },
-      ],
-    });
-
-    const container = await buildContainer([fx, porClase, porFabrica], fakeDb);
-
-    expect(container.all(PaymentMethods).map((m) => m.label)).toEqual([
-      'Clase a 3.7',
-      'Fábrica a 3.7',
-    ]);
-  });
-
-  it('se construye una sola vez y se cachea', async () => {
-    let veces = 0;
-    const mod = defineModule({
-      id: 'x',
-      version: '1.0.0',
-      contributes: [
-        {
-          slot: PaymentMethods,
-          factory: () => {
-            veces += 1;
-            return { id: 'x', label: 'X' };
-          },
-        },
-      ],
-    });
-
-    const container = await buildContainer([mod], fakeDb);
-    container.all(PaymentMethods);
-    container.all(PaymentMethods);
-
-    expect(veces).toBe(1);
-  });
-
-  it('una contribución que pide su propia ranura se reporta, no revienta la pila', async () => {
-    const mod = defineModule({
-      id: 'x',
-      version: '1.0.0',
-      contributes: [
-        {
-          slot: PaymentMethods,
-          factory: (ctx) => {
-            ctx.all(PaymentMethods);
-            return { id: 'x', label: 'X' };
-          },
-        },
-      ],
-    });
-
-    const container = await buildContainer([mod], fakeDb);
-
-    expect(() => container.all(PaymentMethods)).toThrow(
-      /is being filled while it is still being filled/,
-    );
-  });
-
   it('un módulo apagado no aporta: buildContainer solo ve los activos', async () => {
-    // `buildContainer` recibe los módulos ACTIVOS, así que apagar la extensión
-    // retira lo que agregó — el método de pago desaparece.
+    // Apagar la extensión retira lo que agregó.
     const efectivo = defineModule({
       id: 'cash',
       version: '1.0.0',
-      contributes: [
-        { slot: PaymentMethods, value: { id: 'cash', label: 'Efectivo' } },
-      ],
+      dir: pagos('efectivo'),
     });
 
     expect((await buildContainer([], fakeDb)).all(PaymentMethods)).toEqual([]);
     expect(
       (await buildContainer([efectivo], fakeDb)).all(PaymentMethods),
     ).toHaveLength(1);
+  });
+
+  it('una contribución resuelve contratos como cualquier proveedor', () => {
+    const Tasa = contract<{ valor: number }>('fx.rate');
+
+    class TasaProvider extends Provider {
+      public readonly valor = 3.7;
+    }
+    class EnDolares extends Provider implements PaymentMethod {
+      public readonly id = 'usd';
+      public readonly label = `Dólares a ${this.get(Tasa).valor}`;
+    }
+
+    const container = new Container(fakeDb);
+    container.register('fx', Tasa, TasaProvider);
+    container.contribute('pay', PaymentMethods, EnDolares);
+
+    expect(container.all(PaymentMethods)[0].label).toBe('Dólares a 3.7');
+  });
+
+  it('se construye una sola vez y se cachea', () => {
+    let veces = 0;
+    class Contada extends Provider implements PaymentMethod {
+      public readonly id = 'x';
+      public readonly label = 'X';
+      constructor() {
+        super();
+        veces += 1;
+      }
+    }
+
+    const container = new Container(fakeDb);
+    container.contribute('x', PaymentMethods, Contada);
+
+    container.all(PaymentMethods);
+    container.all(PaymentMethods);
+
+    expect(veces).toBe(1);
+  });
+
+  it('una contribución que pide su propia ranura se reporta, no revienta la pila', () => {
+    class SePideASiMisma extends Provider implements PaymentMethod {
+      public readonly id = 'x';
+      public readonly label = 'X';
+      private readonly otras = this.all(PaymentMethods);
+    }
+
+    const container = new Container(fakeDb);
+    container.contribute('x', PaymentMethods, SePideASiMisma);
+
+    expect(() => container.all(PaymentMethods)).toThrow(
+      /is being filled while it is still being filled/,
+    );
   });
 });

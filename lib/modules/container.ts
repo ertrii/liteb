@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
-import { Provider } from '../templates/provider';
-import type { EventBus, EventToken } from './events';
+import type { Provider } from '../templates/provider';
+import type { EventBus } from './events';
 import type { Slot } from './slots';
 
 /**
@@ -29,44 +29,8 @@ export function contract<T>(id: string): Contract<T> {
   return { id, kind: 'contract' };
 }
 
-/** What an implementation is built with. */
-export interface ContainerContext {
-  db: DataSource;
-  get: <T>(token: Contract<T>) => T;
-  /**
-   * Announces something happened. Available here so a contract's
-   * implementation — where most of a module's work lives — can emit without
-   * reaching for a global.
-   */
-  emit: <T>(token: EventToken<T>, payload: T) => Promise<void>;
-  /** Everything contributed to an extension point. */
-  all: <T>(slot: Slot<T>) => T[];
-}
-
-/**
- * A manifest entry saying how to build a contract's implementation.
- *
- * @deprecated The implementation is a `Provider` class in the module's
- * `providers/` folder, marked with `@Provides(token)`. A manifest entry still
- * works and goes away in 2.0 final. A `use:` whose class extends `Provider`
- * gets `db`, `get`, `emit` and `all` injected like any other; anything else is
- * built the old way, with the context as its only constructor argument.
- */
-export type ProviderEntry<T> =
-  | { token: Contract<T>; use: new (ctx: ContainerContext) => T }
-  | { token: Contract<T>; factory: (ctx: ContainerContext) => T }
-  | { token: Contract<T>; value: T };
-
-/**
- * A manifest entry saying how to build a contribution to an extension point.
- *
- * @deprecated Same as {@link ProviderEntry}: a `Provider` class marked with
- * `@Contributes(slot)`, in `providers/`.
- */
-export type Contribution<T> =
-  | { slot: Slot<T>; use: new (ctx: ContainerContext) => T }
-  | { slot: Slot<T>; factory: (ctx: ContainerContext) => T }
-  | { slot: Slot<T>; value: T };
+/** A class that implements a contract, or fills an extension point. */
+export type ProviderClass = new () => Provider;
 
 export class ContractError extends Error {
   constructor(
@@ -79,14 +43,14 @@ export class ContractError extends Error {
 }
 
 interface Registration {
-  provider: ProviderEntry<unknown>;
+  ProviderClass: ProviderClass;
   moduleId: string;
   instance?: unknown;
   resolving?: boolean;
 }
 
 interface SlotRegistration {
-  contribution: Contribution<unknown>;
+  ProviderClass: ProviderClass;
   moduleId: string;
 }
 
@@ -118,8 +82,12 @@ export class Container {
    * would get one of them by load order, which is the kind of bug that changes
    * between deploys.
    */
-  register(moduleId: string, provider: ProviderEntry<any>): void {
-    const { id } = provider.token;
+  register(
+    moduleId: string,
+    token: Contract<unknown>,
+    ProviderClass: ProviderClass,
+  ): void {
+    const { id } = token;
     const existing = this.registry.get(id);
 
     if (existing) {
@@ -129,7 +97,7 @@ export class Container {
       );
     }
 
-    this.registry.set(id, { provider, moduleId });
+    this.registry.set(id, { ProviderClass, moduleId });
   }
 
   has<T>(token: Contract<T>): boolean {
@@ -172,7 +140,7 @@ export class Container {
 
     registration.resolving = true;
     try {
-      registration.instance = this.build(registration.provider);
+      registration.instance = this.build(registration.ProviderClass);
       return registration.instance as T;
     } finally {
       registration.resolving = false;
@@ -188,12 +156,13 @@ export class Container {
    * boots.
    */
   public contribute(
-    contribution: Contribution<unknown>,
     moduleId: string,
+    target: Slot<unknown>,
+    ProviderClass: ProviderClass,
   ): void {
-    const current = this.slots.get(contribution.slot.id) ?? [];
-    current.push({ contribution, moduleId });
-    this.slots.set(contribution.slot.id, current);
+    const current = this.slots.get(target.id) ?? [];
+    current.push({ ProviderClass, moduleId });
+    this.slots.set(target.id, current);
   }
 
   /**
@@ -222,8 +191,8 @@ export class Container {
 
     this.resolvingSlots.add(target.id);
     try {
-      const built = registrations.map(({ contribution }) =>
-        this.build(this.asProvider(contribution)),
+      const built = registrations.map(({ ProviderClass }) =>
+        this.build(ProviderClass),
       );
       this.filled.set(target.id, built);
       return built as T[];
@@ -242,47 +211,32 @@ export class Container {
     return this.slots.get(target.id)?.length ?? 0;
   }
 
-  /** A contribution and a provider are built the same way. */
-  private asProvider(contribution: Contribution<unknown>): ProviderEntry<unknown> {
-    const token = { id: contribution.slot.id, kind: 'contract' } as Contract<unknown>;
-    if ('value' in contribution) return { token, value: contribution.value };
-    if ('factory' in contribution) {
-      return { token, factory: contribution.factory };
-    }
-    return { token, use: contribution.use };
-  }
-
   /** See {@link EventBus.useContainer}: the two reference each other. */
   public useEvents(events: EventBus): void {
     this.events = events;
   }
 
-  private build(provider: ProviderEntry<unknown>): unknown {
-    const ctx: ContainerContext = {
-      db: this.db,
-      get: (token) => this.get(token),
-      emit: async (token, payload) => {
-        // An application with no bus (no modules) simply has nobody listening.
-        await this.events?.emit(token, payload);
-      },
-      all: (target) => this.all(target),
-    };
+  /**
+   * Builds an implementation.
+   *
+   * `db`, `container` and `events` go on the PROTOTYPE first, so a field
+   * initializer — `private readonly users = this.db.getRepository(User)` —
+   * already has them when the constructor runs. Then they are copied onto the
+   * instance, which pins them: a second application in the same process
+   * registering the same class cannot change what this one already built.
+   */
+  private build(ProviderClass: ProviderClass): unknown {
+    const proto = ProviderClass.prototype;
+    proto.db = this.db;
+    proto.container = this;
+    proto.events = this.events;
 
-    if ('value' in provider) return provider.value;
-    if ('factory' in provider) return provider.factory(ctx);
+    const instance = new ProviderClass();
+    instance.db = this.db;
+    instance.container = this;
+    instance.events = this.events;
 
-    // A `Provider` subclass gets db, container and bus on its prototype BEFORE
-    // it is constructed, which is what makes a field initializer like
-    // `private readonly users = this.db.getRepository(User)` work — the same
-    // injection an endpoint, a routine and a listener get.
-    if (provider.use.prototype instanceof Provider) {
-      const ProviderClass = provider.use as unknown as new () => Provider;
-      ProviderClass.prototype.db = this.db;
-      ProviderClass.prototype.container = this;
-      ProviderClass.prototype.events = this.events;
-      return new ProviderClass();
-    }
-
-    return new provider.use(ctx);
+    return instance;
   }
 }
+

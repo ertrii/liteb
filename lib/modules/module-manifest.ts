@@ -1,5 +1,5 @@
 import type { DataSource, EntitySchema } from 'typeorm';
-import type { Contract, Contribution, ProviderEntry } from './container';
+import type { Contract } from './container';
 import type { AnyPermissionSet } from './declare-permissions';
 
 /**
@@ -163,9 +163,6 @@ export interface ModuleManifest {
    */
   providers?: ModulePattern;
 
-  /** @deprecated Renamed to `routines`, for the folder `./routines`. */
-  tasks?: ModulePattern;
-
   /**
    * What this module can gate. Either the entries, or a set built with
    * `declarePermissions()` — which keeps the keys in one place and hands out
@@ -174,24 +171,12 @@ export interface ModuleManifest {
   permissions?: ModulePermission[] | AnyPermissionSet;
 
   /**
-   * @deprecated Contracts this module implements, declared here. The
-   * implementation is now a `Provider` class in `providers/`, marked with
-   * `@Provides(token)`. Still honoured, and goes away in 2.0 final.
-   */
-  provides?: ProviderEntry<any>[];
-
-  /**
-   * @deprecated What this module contributes to OTHER modules' extension
-   * points, declared here. It is now a `Provider` class in `providers/`,
-   * marked with `@Contributes(slot)`. Still honoured, and goes away in 2.0
-   * final.
-   */
-  contributes?: Contribution<any>[];
-
-  /**
-   * Contracts this module calls. Optional, but declaring them turns a missing
+   * Contracts this module calls.
+   *
+   * A declaration, not logic, which is why it belongs here: it turns a missing
    * provider into a refusal to start instead of a failure on the first request
-   * that happens to need it.
+   * that happens to need it. liteb cannot see which contracts a module calls
+   * by reading its code.
    */
   consumes?: Contract<any>[];
 
@@ -221,8 +206,6 @@ export interface ResolvedModule {
   listeners: string[];
   providers: string[];
   permissions: ModulePermission[];
-  provides: ProviderEntry<any>[];
-  contributes: Contribution<any>[];
   consumes: Contract<any>[];
   onInstall: ModuleHook | null;
   onEnable: ModuleHook | null;

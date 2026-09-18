@@ -120,9 +120,6 @@ export async function loadModuleRoutines(
   );
 }
 
-/** @deprecated Renamed to {@link loadModuleRoutines}. */
-export const loadModuleTasks = loadModuleRoutines;
-
 /** A provider class together with the contract or slot it declared. */
 export interface LoadedProvider {
   target: Contract<unknown> | Slot<unknown>;

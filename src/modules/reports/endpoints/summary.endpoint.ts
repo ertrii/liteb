@@ -1,6 +1,6 @@
 import { Endpoint, HttpGet } from '../../../../lib';
-import { UserDirectory } from '../../identity/contracts/user-directory.contract';
-import { ProductCatalog } from '../../catalog/contracts/product-catalog.contract';
+import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+import { ProductCatalog } from '@/catalog/contracts/product-catalog.contract';
 
 /**
  * The whole point of contracts: this reads data owned by two other modules and

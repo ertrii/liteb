@@ -264,7 +264,7 @@ describe('un módulo ya compilado, dentro de node_modules', () => {
     const lib = slash(path.join(__dirname, '../lib'));
     fs.writeFileSync(
       path.join(paquete, 'apis/charges.api.js'),
-      `const { Endpoint, HttpGet, Module } = require('${lib}');
+      `const { Endpoint, HttpGet, Group } = require('${lib}');
 
 class ChargesApi extends Endpoint {
   main() {
@@ -272,7 +272,7 @@ class ChargesApi extends Endpoint {
   }
 }
 // Lo que emite tsc para los decoradores: aplicarlos como las funciones que son.
-Module('cargos')(ChargesApi);
+Group('cargos')(ChargesApi);
 HttpGet('lista')(ChargesApi);
 
 module.exports = { ChargesApi };
@@ -297,7 +297,7 @@ module.exports = { ChargesApi };
     const readers = await loadModuleEndpoints(mod);
 
     expect(readers).toHaveLength(1);
-    expect(readers[0].moduleName).toBe('cargos');
+    expect(readers[0].group).toBe('cargos');
     expect(readers[0].pathname).toBe('lista');
   });
 });

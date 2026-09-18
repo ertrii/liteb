@@ -2,7 +2,7 @@ import { Contributes, Provider } from '../../../../lib';
 import {
   ProductBadge,
   ProductBadges,
-} from '../../catalog/slots/product-badges.slot';
+} from '@/catalog/slots/product-badges.slot';
 
 /**
  * What this module adds to catalog's product list — without catalog knowing it

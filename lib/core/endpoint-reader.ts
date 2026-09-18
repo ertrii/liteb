@@ -208,11 +208,6 @@ export default class EndpointReader {
     return !this.method;
   };
 
-  /** @deprecated Renamed to `group`. */
-  public get moduleName(): string {
-    return this.group;
-  }
-
   public getEndpointClass = () => {
     return this.EndpointClass;
   };

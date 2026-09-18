@@ -8,7 +8,6 @@ import {
   Group,
   HttpGet,
   HttpPost,
-  Module,
   Params,
   Priority,
   Use,
@@ -109,26 +108,6 @@ describe('@Group es opcional: manda el id del módulo', () => {
 
   it('fuera de un módulo y sin decorador, cuelga del basePath a secas', () => {
     expect(new EndpointReader(SinGrupo).group).toBe('');
-  });
-});
-
-describe('@Module sigue funcionando, deprecado', () => {
-  // Renombrado a @Group en alpha.2; el alias sale en la 2.0 final.
-  @Module('viejo', { basePath: '/' })
-  @HttpGet('ruta')
-  class Antiguo extends Endpoint {
-    main() {
-      return { ok: true };
-    }
-  }
-
-  it('escribe la misma metadata, y basePath significa mount', () => {
-    const reader = new EndpointReader(Antiguo);
-
-    expect(reader.group).toBe('viejo');
-    expect(reader.mountAt).toBe('/');
-    // El campo viejo también sigue leyéndose.
-    expect(reader.moduleName).toBe('viejo');
   });
 });
 

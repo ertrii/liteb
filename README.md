@@ -75,6 +75,7 @@ billing/
 ├── entities/*.entity.ts        migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts   listeners/*.listener.ts
 ├── contracts/*.contract.ts     providers/*.provider.ts
+│   events/*.event.ts           slots/*.slot.ts
 ```
 
 Name a field — `routes: './apis/*.api.ts'` — only to say something else; it

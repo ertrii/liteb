@@ -1,6 +1,6 @@
 import { defineModule } from '../../../lib';
-import { UserDirectory } from '../identity/contracts/user-directory.contract';
-import { ProductCatalog } from '../catalog/contracts/product-catalog.contract';
+import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+import { ProductCatalog } from '@/catalog/contracts/product-catalog.contract';
 import { permissions } from './permissions';
 
 /**

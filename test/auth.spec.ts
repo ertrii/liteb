@@ -5,7 +5,6 @@ import request from 'supertest';
 import {
   Auth,
   AuthError,
-  contract,
   defineModule,
   ForbiddenError,
   Liteb,
@@ -13,6 +12,7 @@ import {
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { testAuthResolver } from './fixtures/auth/actor';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { Grants } from './fixtures/grants/contracts/grants.contract';
 
 /**
  * Estas suites prueban el chequeo EN EJECUCIÓN con su propio vocabulario
@@ -217,30 +217,12 @@ describe('el resolutor recibe db y contratos', () => {
   // La política de permisos vive en el módulo que la posee, y el resolutor
   // llega a ella por contrato — sin importar el módulo ni cerrar sobre un
   // DataSource global.
-  interface Grants {
-    forUser(userId: number): Promise<string[] | null>;
-  }
-  const Grants = contract<Grants>('grants.policy');
-
   const grantsModule = defineModule({
     id: 'grants',
     version: '1.0.0',
     core: true,
-    provides: [
-      {
-        token: Grants,
-        factory: ({ db }) => ({
-          forUser: async (userId) => {
-            // Usa el `db` del contenedor: prueba que llega vivo.
-            const rows: Array<{ perms: string }> = await db.query(
-              'select perms from permisos_demo where user_id = $1',
-              [userId],
-            );
-            return rows.length > 0 ? rows[0].perms.split(',') : null;
-          },
-        }),
-      },
-    ],
+    // Su proveedor está en ./providers, y el token en ./contracts.
+    dir: path.join(__dirname, 'fixtures/grants'),
   });
 
   const fixtures = defineModule({

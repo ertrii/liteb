@@ -105,28 +105,19 @@ describe('los decoradores no dejan cruzar los conceptos', () => {
   });
 });
 
-describe('convive con el manifiesto viejo', () => {
-  it('dos módulos proveyendo el mismo contrato sigue siendo un error', async () => {
+describe('un contrato tiene exactamente un proveedor', () => {
+  it('dos módulos respondiendo el mismo es un error de arranque', async () => {
+    // El MISMO directorio montado dos veces: dos módulos con la misma clase.
+    // Sin esto, el consumidor recibiría uno u otro según el orden de carga, que
+    // es la clase de error que cambia entre despliegues.
     const otro = defineModule({
       id: 'otro',
       version: '1.0.0',
-      provides: [{ token: Greeter, value: { hello: () => 'yo' } }],
+      dir: path.join(__dirname, 'fixtures/proveedores'),
     });
 
     await expect(buildContainer([demo, otro], fakeDb)).rejects.toThrow(
       ContractError,
     );
-  });
-
-  it('un `provides` declarado a mano se sigue registrando', async () => {
-    const viejo = defineModule({
-      id: 'viejo',
-      version: '1.0.0',
-      provides: [{ token: Clock, value: { now: () => 'a mano' } }],
-    });
-
-    const container = await buildContainer([viejo], fakeDb);
-
-    expect(container.get(Clock).now()).toBe('a mano');
   });
 });

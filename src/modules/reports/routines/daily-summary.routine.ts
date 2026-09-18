@@ -1,5 +1,5 @@
 import { Cron, Routine } from '../../../../lib';
-import { ProductCatalog } from '../../catalog/contracts/product-catalog.contract';
+import { ProductCatalog } from '@/catalog/contracts/product-catalog.contract';
 
 /**
  * A module's routines start only while the module is ENABLED. Disabling

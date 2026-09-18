@@ -32,7 +32,7 @@ export function createProject(options: InitOptions): Plan {
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
+    "dev": "nodemon --watch src --ext ts --exec \\"ts-node -r tsconfig-paths/register src/index.ts\\"",
     "build": "liteb build",
     "start": "node build/index.js"
   },
@@ -49,6 +49,7 @@ export function createProject(options: InitOptions): Plan {
     "@types/node": "^20.14.0",
     "nodemon": "^3.1.0",
     "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.4.0"
   }
 }
@@ -61,6 +62,16 @@ export function createProject(options: InitOptions): Plan {
     "moduleResolution": "Node",
     "rootDir": "src",
     "outDir": "build",
+    // \`@/billing/contracts/x.contract\` instead of
+    // \`../../billing/contracts/x.contract\`. A module only ever imports
+    // another module's TOKENS, and those are the deep paths.
+    //
+    // A path alias is compile-time only: \`tsc\` checks it and then emits it
+    // verbatim, which Node does not understand. \`liteb build\` rewrites them
+    // to relative paths, and \`npm run dev\` resolves them with
+    // tsconfig-paths. Change this and change the dev script with it.
+    "baseUrl": ".",
+    "paths": { "@/*": ["${modulesDir}/*"] },
     "strict": true,
     // TypeORM entities and validated DTOs declare fields the constructor never
     // assigns: the ORM fills them. With this on, every one of them is an error.

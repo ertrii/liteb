@@ -9,20 +9,16 @@ import { BillingService } from './fixtures/modules/contracts';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 
 const salesDir = path.join(__dirname, 'fixtures/modules/sales');
-
-/** La implementación vive en el módulo que la publica, y solo ahí. */
-class BillingServiceImpl implements BillingService {
-  async emitirCargo(input: { cliente: string; monto: number }) {
-    return { id: `cargo-${input.cliente}-${input.monto}` };
-  }
-}
+const billingDir = path.join(__dirname, 'fixtures/modules/billing');
 
 const billing = () =>
   defineModule({
     id: 'billing',
     version: '1.0.0',
     core: true,
-    provides: [{ token: BillingService, use: BillingServiceImpl }],
+    // Su proveedor está en ./providers: el manifiesto no lo nombra.
+    dir: billingDir,
+    routes: './controllers/*.controller.ts',
   });
 
 const sales = () =>
@@ -73,7 +69,8 @@ describe('contratos entre módulos', () => {
     const billingOpcional = defineModule({
       id: 'billing',
       version: '1.0.0',
-      provides: [{ token: BillingService, use: BillingServiceImpl }],
+      dir: billingDir,
+      routes: './controllers/*.controller.ts',
     });
 
     app = await Liteb.create({
@@ -90,6 +87,7 @@ describe('contratos entre módulos', () => {
     db = await createTestDb();
 
     // sales declara que consume, pero billing no lo provee.
+    // Sin `dir`: no hay carpeta de proveedores que leer, así que no provee.
     const billingMudo = defineModule({
       id: 'billing',
       version: '1.0.0',

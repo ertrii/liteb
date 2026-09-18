@@ -6,6 +6,50 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [2.0.0-alpha.2] - 2026-09-17
 
+### Removed
+
+- **Every deprecated name is gone**, in one go rather than carried to 2.0
+  final. `2.0.0-alpha.1` is the only 2.x release in the wild, and keeping two
+  spellings of the same thing costs more — in the docs, in autocomplete, in a
+  shim file per rename — than the one upgrade it saves.
+
+  | Gone | Use |
+  | --- | --- |
+  | `@Module`, `MODULE`, `ModuleOptions.basePath` | `@Group`, `GROUP`, `mount` |
+  | `Task`, `@Schedule`, `SCHEDULE` | `Routine`, `@Cron`, `CRON` |
+  | `loadModuleTasks`, `tasks:` | `loadModuleRoutines`, `routines:` |
+  | `EndpointReader.moduleName` | `.group` |
+  | `provides:`, `contributes:` | a `Provider` class in `providers/` |
+  | `ProviderEntry<T>`, `Contribution<T>`, `ContainerContext` | — |
+
+  The container shrank with them: one way to build an implementation instead of
+  three, so `Container.register(moduleId, token, ProviderClass)` and
+  `contribute(moduleId, slot, ProviderClass)` take the class directly and
+  `ContainerContext` no longer exists — a provider gets what it needs on
+  `this`.
+
+### Added
+
+- **A path alias for module imports.** `liteb init` writes
+  `"paths": { "@/*": ["src/modules/*"] }`, so the one import that crosses
+  modules stops being a staircase:
+
+  ```typescript
+  import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+  ```
+
+  A `paths` alias is compile-time only — `tsc` checks it and emits
+  `require("@/…")` verbatim, which Node does not understand, and a build that
+  type-checks then dies on its first require. So `liteb build` rewrites aliased
+  specifiers to relative paths in the output, and the generated `dev` script
+  resolves them with `tsconfig-paths`. Doing it at build time is deliberate:
+  the alternative is a loader hook the deployed process has to remember to
+  install, and a build that only runs under a wrapper is not a build.
+
+  Only prefix aliases with a single target are rewritten. An exact mapping or a
+  list of fallbacks resolves by trying each in turn, which is a compiler's job
+  and not something a text rewrite can honour.
+
 ### Changed
 
 - **A contract's implementation is a class in `providers/`, not a factory in
@@ -58,9 +102,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   there. Inventing a glob so the table looked symmetrical would have been
   decoration.
 
-  `provides:` and `contributes:` in the manifest still work, deprecated, and go
-  away in 2.0 final. The type `Provider<T>` (the three-shape union) is now
-  `ProviderEntry<T>`; the name belongs to the base class.
+  `provides:` and `contributes:` were removed with everything else deprecated
+  (see **Removed**).
 
 - **`Task` is now `Routine`, and `@Schedule` is now `@Cron`.** "Task" is the
   most common noun in business software — a work order, a case, a to-do — and
@@ -85,9 +128,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   The folder and the manifest field move with it:
   `routines/*.routine.ts`, `routines:`, `liteb create routine <module>/<name>`.
-  `Task`, `@Schedule`, `loadModuleTasks` and the manifest's `tasks:` still
-  work, deprecated, and go away in 2.0 final — an existing manifest needs no
-  change.
 
 - **A module's folders are a convention, not a declaration.** `entities`,
   `migrations`, `routes`, `tasks` and `listeners` now default to the standard
@@ -130,8 +170,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   process's working directory happens to be. An explicit `entities: []` means
   the module has none, so no default applies.
 
-  Nothing had to change in an existing manifest: a declared field wins over the
-  convention.
+  A declared field still wins over the convention.
 
   The CLI shrank with it. `create entity`, `create task`, `create listener` and
   `create migration` now write their file and edit **nothing** — there is no
@@ -169,9 +208,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   name into every public URL, make renaming a module a breaking API change, and
   forbid a module from serving two resources.
 
-  `@Module` and its `basePath` option still work, deprecated, and go away in
-  2.0 final. `EndpointReader.moduleName` is a deprecated getter over the new
-  `group` field.
+  `@Module`, its `basePath` option and `EndpointReader.moduleName` were
+  removed (see **Removed**).
 
 ### Added
 

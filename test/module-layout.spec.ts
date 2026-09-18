@@ -147,14 +147,6 @@ describe('cuando el módulo está en otro lado', () => {
     expect(mod.implicit).toEqual([]);
   });
 
-  it('el nombre viejo `tasks` sigue apuntando a las rutinas', () => {
-    // Un manifiesto escrito antes del rename no tiene por qué cambiar.
-    const mod = defineModule({ ...base, dir, tasks: './routines/*.routine.ts' });
-
-    expect(mod.routines).toEqual(['./routines/*.routine.ts']);
-    expect(mod.implicit).not.toContain('routines');
-  });
-
   it('mezclar globs con clases no pasa de defineModule', () => {
     class Manual {}
 

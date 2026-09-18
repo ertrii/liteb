@@ -27,29 +27,10 @@ export async function buildContainer(
     // class's own decorator, so nothing lists them.
     for (const { target, ProviderClass } of await loadModuleProviders(mod)) {
       if (target.kind === 'contract') {
-        container.register(mod.id, {
-          token: target,
-          use: ProviderClass as never,
-        });
+        container.register(mod.id, target, ProviderClass);
       } else {
-        container.contribute(
-          { slot: target, use: ProviderClass as never },
-          mod.id,
-        );
+        container.contribute(mod.id, target, ProviderClass);
       }
-    }
-
-    // The manifest's own entries, which are the deprecated way to say the same
-    // thing. Registered after the folder, so a contract answered twice is
-    // reported against the module that did it.
-    for (const provider of mod.provides) {
-      container.register(mod.id, provider);
-    }
-    // Contributions need no check of their own: an extension point with no
-    // contributions is a feature nobody installed, and one with many is the
-    // whole point.
-    for (const contribution of mod.contributes) {
-      container.contribute(contribution, mod.id);
     }
   }
 

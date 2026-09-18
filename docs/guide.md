@@ -164,8 +164,6 @@ Commit, rollback and release are the callback's contract, so they cannot be forg
 | `@HttpPatch`  | PATCH       |
 | `@HttpQuery`  | QUERY       |
 
-> `@Get`, `@Post`, `@Put`, `@Delete` and `@Patch` are still exported as **deprecated aliases** of their `Http*` counterparts, so existing code keeps working. Prefer the `Http*` names in new code.
-
 **About `@HttpQuery`**: QUERY is a safe, idempotent method that (unlike GET) allows a body — useful for searches whose criteria are too large for the query string. Declare the criteria with `@Body`. Note that QUERY is an IETF draft (`draft-ietf-httpbis-safe-method-w-body`): it needs a Node whose HTTP parser recognizes it, may not be supported by proxies/CDNs, and is excluded from the OpenAPI spec. If the runtime doesn't support the verb, the route is skipped with a clear log line instead of crashing startup.
 
 ### The group: @Group
@@ -190,9 +188,9 @@ The two identities are deliberately separate: the module id names the
 INSTALLABLE UNIT (permissions, `requires`, the `_modules` row), the group names
 the URL. Renaming one must not rename the other.
 
-> `@Module` is the old name of this decorator and still works, deprecated: it
-> meant "route group" in 1.x, before "module" came to mean the installable
-> unit. Its `basePath` option is now `mount`. Both go away in 2.0 final.
+> `@Module` was the old name of this decorator: it meant "route group" in 1.x,
+> before "module" came to mean the installable unit. It and its `basePath`
+> option were removed — the option is now `mount`.
 
 ### Where a group is mounted
 
@@ -233,7 +231,7 @@ export class CreateUserApi extends Endpoint<null, CreateUserDto> {
 }
 ```
 
-`@Use` takes a middleware **function** `(req, res, next)`. (A `Middleware` base class exists but is deprecated — a function can set headers and choose the status, the class cannot.)
+`@Use` takes a middleware **function** `(req, res, next)` — a function can set headers and choose the status, which is why there is no base class for it.
 
 ## Modules
 
@@ -298,7 +296,19 @@ in them to discover — a token is imported by name:
 | `events/*.event.ts` · `slots/*.slot.ts` | the events it announces, the extension points it opens |
 
 Together they are the module's public face: the only files another module ever
-imports.
+imports — and the reason `liteb init` writes a path alias, because those are
+the deep paths:
+
+```typescript
+import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+//                            ^ src/modules/, however deep you are
+```
+
+A `paths` alias is **compile-time only**: `tsc` type-checks it and then emits
+`require("@/…")` verbatim, which Node has never heard of. `liteb build`
+rewrites them to relative paths in the output, and `npm run dev` resolves them
+with `tsconfig-paths`. Change the alias in `tsconfig.json` and change the `dev`
+script with it.
 
 **Naming a field says something else**, and only for that field:
 
@@ -464,9 +474,7 @@ which contract it answers.
 - A `Provider` with no decorator is skipped with a warning: a file being
   written is not a broken installation.
 
-> The manifest's `provides:` and `contributes:` still work, deprecated. They
-> put a module's real work inside `module.ts`, which is the one file that
-> should only wire things together.
+
 
 ### Extension points
 
@@ -1017,10 +1025,10 @@ Two things worth knowing:
   declared with `{ runOnInit: true }` and ran at startup, and `'manual'` for a
   tick nothing scheduled. Branch on it when the first run should differ.
 
-> Renamed from `Task` / `@Schedule`. "Task" is the most common
-> noun in business software — a work order, a case, a to-do — and an
-> application with its own `Task` entity had to alias one of the two in every
-> file that used both. The old names still work, deprecated.
+> Renamed from `Task` / `@Schedule`. "Task" is the most common noun in
+> business software — a work order, a case, a to-do — and an application with
+> its own `Task` entity had to alias one of the two in every file that used
+> both. The old names were removed.
 
 ## Environment configuration
 

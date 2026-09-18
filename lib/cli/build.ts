@@ -1,6 +1,7 @@
 import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { applyAliases, readAliases } from './aliases';
 import { CliError } from './names';
 
 export interface BuildOptions {
@@ -69,6 +70,16 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
   const assetsTarget = emittedUnderAssets ? path.join(out, assetsDir) : out;
   const assets = copyAssets(path.resolve(root, assetsDir), assetsTarget);
   log(`Copied ${assets} file(s) that were never TypeScript.`);
+
+  // `tsc` type-checks a path alias and then emits it verbatim, which Node has
+  // never heard of. Without this the build throws on its first require.
+  const aliases = readAliases(root, project, out, assetsDir, emittedUnderAssets);
+  const rewritten = applyAliases(out, aliases);
+  if (rewritten > 0) {
+    log(
+      `Resolved ${aliases.map((a) => a.prefix).join(', ')} in ${rewritten} file(s).`,
+    );
+  }
 
   let compiled = 0;
   let readable = 0;

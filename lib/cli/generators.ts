@@ -512,9 +512,9 @@ export function createProvider(options: ProviderOptions): Plan {
   const token = fillsSlot ? toPascal(options.slot as string) : name;
   const decorator = fillsSlot ? 'Contributes' : 'Provides';
   const tokenImport = fillsSlot
-    ? `// The slot belongs to the module that OPENED it: import ${token} from there
-// and delete this line.
-import { ${token} } from '../../<module>/slots/${toKebab(options.slot as string)}.slot';`
+    ? `// The slot belongs to the module that OPENED it: point this at that
+// module. \`@/\` is the alias for your modules folder.
+import { ${token} } from '@/<module>/slots/${toKebab(options.slot as string)}.slot';`
     : `import { ${token} } from '../contracts/${target.name}.contract';`;
 
   const content = `import { ${decorator}, Provider } from '${from}';

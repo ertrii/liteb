@@ -14,7 +14,12 @@ const config: Config = {
    * Sin esto, la prueba tendría que generar rutas relativas y dejaría de
    * probar el caso real.
    */
-  moduleNameMapper: { '^liteb$': '<rootDir>/lib' },
+  moduleNameMapper: {
+    '^liteb$': '<rootDir>/lib',
+    // El mismo alias que `liteb init` escribe: la demo lo usa, así que jest
+    // tiene que resolverlo igual que el build.
+    '^@/(.*)$': '<rootDir>/src/modules/$1',
+  },
   setupFiles: ['<rootDir>/test/setup.ts'],
   /**
    * Los 5s por defecto alcanzaban hasta que las suites que levantan PGlite
