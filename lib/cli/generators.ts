@@ -718,6 +718,18 @@ export class ${className} implements MigrationInterface {
     await runner.query(\`
       -- what this migration creates
     \`);
+
+    // Delete this once the SQL above is written.
+    //
+    // It is here because an EMPTY migration succeeds: a query that is only a
+    // comment runs fine, so liteb records the migration as applied — and from
+    // then on it has no reason to run it again. The SQL written afterwards
+    // would never execute, and \`liteb migrate\` would keep answering "nothing
+    // to migrate" about a table that was never created. Failing here rolls the
+    // whole thing back and leaves no row behind.
+    throw new Error(
+      '${className} has no SQL yet: write it, or delete the file.',
+    );
   }
 
   public async down(runner: QueryRunner): Promise<void> {
@@ -733,6 +745,8 @@ export class ${className} implements MigrationInterface {
     [],
     [
       'Migrations run per module, before any route is mounted. Inside a module the trailing timestamp is the order — nothing lists them.',
+      'It THROWS until you write its SQL. An empty migration would be recorded as applied, and what you wrote afterwards would never run.',
+      `Or let TypeORM write it from your entities: liteb migration:generate ${target.module}/${target.name}`,
     ],
   );
 }

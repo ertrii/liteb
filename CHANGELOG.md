@@ -50,6 +50,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`liteb migration:generate <module>/<name>`** — TypeORM's generator, filed by
+  module.
+
+  ```bash
+  npx liteb migration:generate billing/add-due-date
+  ```
+
+  It connects, has TypeORM read the live schema, compare it against the
+  entities and write the SQL that closes the gap. That is the same machinery
+  behind `synchronize: true` minus the part where it runs behind your back, it
+  does the job better than anything hand-rolled, and there was no reason for
+  liteb to have its own.
+
+  What TypeORM cannot do is decide WHERE the migration goes: it sees one schema
+  and modules do not exist for it. That half is liteb's, decided from the only
+  thing that knows — which module declares which entity. A diff that lands
+  entirely in another module is **refused** and names the owner, because a
+  migration in the wrong module runs in the wrong order, or not at all when
+  that module is disabled. One that also touches another module's tables is
+  written with a warning naming them; splitting it is a judgement call and
+  liteb does not make it.
+
+  It refuses while migrations are pending — a pending one is a change the
+  database has not seen, so the diff would describe it a second time. `--print`
+  shows the SQL and writes nothing. The same answer is on the application:
+  `app.pendingSchema()` and `app.tableOwners()`.
+
 - **One id per request.** Read from `x-request-id` or generated, echoed in the
   response, and present in **every log line written while serving that
   request** — the access line, anything an endpoint logs, anything a provider
@@ -197,6 +224,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first module, and `liteb module` appends one block per module.
 
 ### Fixed
+
+- **A migration you had not written yet was recorded as applied**, and that is
+  the worst shape a bug can take: it took the one command whose whole job is to
+  not be silent, and made it silent.
+
+  The scaffold's `up()` ran a SQL comment. A comment is a valid, successful
+  query — so liteb recorded the migration as done, and from then on had no
+  reason to run it again. The SQL written afterwards never executed, and
+  `liteb migrate` kept answering *nothing to migrate* about a table that was
+  never created.
+
+  The scaffold now **throws** until its SQL is written. Each migration runs in
+  its own transaction, so the failure rolls back and leaves no row behind: it
+  stays pending, which is what it is.
+
+  If you already hit this, the ledger holds a row for a migration that did
+  nothing. Delete it and migrate again:
+
+  ```sql
+  delete from _module_migrations where module = '<module>' and name = '<Class1234>';
+  ```
 
 - **The last lines of an ordered shutdown could be lost.** The file appender
   writes asynchronously and `shutdown()` called `process.exit(0)` right after

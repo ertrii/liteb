@@ -96,6 +96,8 @@ export type {
 export { Auth } from './core/auth';
 export { CorsConfigError } from './core/cors';
 export type { CorsConfig } from './core/cors';
+export { schemaDiff, tableOwners } from './modules/schema-diff';
+export type { SchemaDiff } from './modules/schema-diff';
 export { buildHealth } from './core/health';
 export { buildRequestId, currentRequestId } from './core/request-id';
 export type { RequestIdConfig } from './core/request-id';

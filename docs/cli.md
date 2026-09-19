@@ -4,8 +4,13 @@ Everything `liteb` writes, and nothing else. For what the framework *does* with
 what it writes, see [the guide](./guide.md).
 
 The CLI does two things and refuses to do more: it writes files, and it runs
-builds and migrations. It does not know your application — no database, no
-config file, no registry of what exists. It reads arguments and writes files.
+builds and migrations.
+
+The generators know nothing about your application — no database, no config
+file, no registry of what exists. They read arguments and write files. The four
+that DO reach the database (`migrate`, `migrate:status`, `migration:generate`,
+and nothing else) get there the same way: they import your entry point and ask
+it for the application, which already knows where its data lives.
 
 ```bash
 npx liteb@alpha init my-app     # the only time you need @alpha
@@ -31,6 +36,7 @@ different CLI.
 | [`routine <module>/<name>`](#liteb-routine-modulename) | Work on a schedule |
 | [`entity <module>/<name>`](#liteb-entity-modulename) | A TypeORM entity |
 | [`migration <module>/<name>`](#liteb-migration-modulename) | A timestamped migration |
+| [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | The same, written from your entities by TypeORM |
 | [`contract <module>/<name>`](#liteb-contract-modulename) | A capability this module publishes |
 | [`provider <module>/<name>`](#liteb-provider-modulename) | The class that answers it |
 | [`event <module>/<name>`](#liteb-event-modulename) | Something this module announces |
@@ -364,6 +370,54 @@ contract. Between modules the order is dependency order, so a module's tables
 exist before a dependent touches them. TypeORM's own runner cannot do that: it
 sorts every migration in the DataSource globally, and a module written last
 year would migrate before the dependency it needs.
+
+**It THROWS until you write its SQL**, and that is not politeness. An empty
+migration SUCCEEDS: a query that is only a comment runs fine, so liteb records
+it as applied and from then on has no reason to run it again — the SQL you write
+afterwards never executes, and `liteb migrate` keeps answering *nothing to
+migrate* about a table that was never created. Failing instead rolls the whole
+thing back and leaves no row behind. Delete the `throw` when the SQL is there.
+
+---
+
+## `liteb migration:generate <module>/<name>`
+
+```bash
+npx liteb migration:generate billing/add-due-date
+npx liteb migration:generate billing/add-due-date --print
+```
+
+| Flag | Effect |
+| --- | --- |
+| `--entry <file>` | file exporting `createApp()` |
+| `--dir <path>` | where modules live (default `src/modules`) |
+| `--print` | show the SQL and write nothing |
+| `--force` | overwrite a file that already exists |
+
+**This is TypeORM's generator, filed by module.** It connects, has TypeORM read
+the live schema, compare it against your entities and write the SQL that closes
+the gap — the same machinery behind `synchronize: true`, minus the part where it
+runs behind your back. That half is TypeORM's and it does it better than anything
+hand-rolled.
+
+What TypeORM cannot do is decide **where** the migration goes: it sees one
+schema, and modules do not exist for it. That half is liteb's, and it is decided
+from the only thing that knows — which module declares which entity. So:
+
+- a diff that lands entirely in another module is **refused**, and names the
+  module that owns it. A migration in the wrong module runs in the wrong order,
+  or not at all when that module is disabled, and that surfaces in production on
+  data that already exists;
+- one that touches another module's tables as well is written, with a warning
+  naming them. Splitting it is a judgement call and liteb does not make it.
+
+It **refuses while migrations are pending**. A pending migration is a change the
+database has not seen, so the diff would describe it a second time and you would
+run the same DDL twice. `liteb migrate` first.
+
+> **Read what it writes.** A diff cannot tell a rename from a drop plus an add,
+> so a renamed column comes out as losing one and gaining another — and on a
+> table with rows, that is the data.
 
 ---
 

@@ -230,6 +230,35 @@ describe('un módulo generado y puesto a andar', () => {
 
   let inventory: ResolvedModule;
 
+  /** Reemplaza el andamiaje por una migración de verdad, como haría un autor. */
+  const escribirMigracion = () => {
+    const carpeta = path.join(workspace, modulesDir, 'inventory/migrations');
+    const archivo = fs
+      .readdirSync(carpeta)
+      .find((name) => name.endsWith('-create-items.ts')) as string;
+    const ruta = path.join(carpeta, archivo);
+
+    // Escribe el SQL y saca el freno: todo lo que hay desde el comentario que
+    // lo anuncia hasta el cierre del throw.
+    const lineas = fs.readFileSync(ruta, 'utf8').split('\n');
+    const desde = lineas.findIndex((line) =>
+      line.includes('Delete this once the SQL above is written'),
+    );
+    const hasta = lineas.findIndex((line, i) => i > desde && line.trim() === ');');
+    lineas.splice(desde - 1, hasta - desde + 2);
+
+    fs.writeFileSync(
+      ruta,
+      lineas
+        .join('\n')
+        .replace(
+          '      -- what this migration creates',
+          '      create table inv_items (id serial primary key)',
+        )
+        .replace('      -- how to undo it', '      drop table inv_items'),
+    );
+  };
+
   beforeAll(async () => {
     fs.rmSync(workspace, { recursive: true, force: true });
 
@@ -267,6 +296,11 @@ describe('un módulo generado y puesto a andar', () => {
     scaffold(
       createMigration({ target: 'inventory/create-items', modulesDir, from: 'liteb' }),
     );
+    // Lo que hace un autor a continuación: escribir el SQL y sacar el freno.
+    // Sin eso el andamiaje se niega a correr, a propósito — una migración
+    // vacía se anotaría como aplicada y lo que se escribiera después no
+    // correría nunca.
+    escribirMigracion();
     scaffold(
       createContract({ target: 'inventory/stock', modulesDir, from: 'liteb' }),
     );

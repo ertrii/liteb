@@ -41,6 +41,7 @@ import { AuthResolver } from './auth';
 import { buildCors, CorsConfig } from './cors';
 import { buildHealth, HealthConfig } from './health';
 import { buildRequestId, RequestIdConfig } from './request-id';
+import { SchemaDiff, schemaDiff, tableOwners } from '../modules/schema-diff';
 
 /** One module's migrations, and which of them already ran. */
 export interface ModuleMigrationStatus {
@@ -470,6 +471,36 @@ export default class Liteb extends Server {
     }
     return ran;
   };
+
+  /**
+   * What the database is missing to match the entities, as SQL.
+   *
+   * TypeORM already knows how to answer this: its schema builder reads the
+   * live schema, compares it against the entity metadata and emits the
+   * statements that close the gap. This is that answer, and nothing is run —
+   * where those statements end up is a decision, and it belongs to whoever
+   * asked.
+   *
+   * @example
+   * const app = await createApp();
+   * const { up, down } = await app.pendingSchema();
+   * await app.close();
+   */
+  public pendingSchema = async (): Promise<SchemaDiff> => {
+    await this.connect();
+    return schemaDiff(this.dbSource);
+  };
+
+  /**
+   * Which module owns each table, from the entities each one declares.
+   *
+   * What makes a whole-database diff filable: TypeORM sees one schema and has
+   * no idea modules exist, so the mapping has to come from here.
+   *
+   * Needs the connection open — `pendingSchema()` opens it.
+   */
+  public tableOwners = (): Map<string, string> =>
+    tableOwners(this.dbSource, this.modules);
 
   /**
    * What each module declares and what of it already ran.

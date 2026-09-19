@@ -16,6 +16,7 @@ import {
   createSlot,
   createRoutine,
 } from './generators';
+import { generateMigration } from './migration-generator';
 import { CliError } from './names';
 import { Plan } from './plan';
 import { apply } from './writer';
@@ -278,6 +279,54 @@ export function buildProgram(): Command {
       flags,
     );
   });
+
+  program
+    .command('migration:generate <module/name>')
+    .description("The SQL that makes the database match this module's entities")
+    .option('--entry <file>', 'file exporting createApp()')
+    .option('--dir <path>', 'where modules live', 'src/modules')
+    .option('--print', 'show the SQL and write nothing')
+    .option('--force', 'overwrite a file that already exists')
+    .action(async (target: string, flags) => {
+      const app = await loadApp({ root: process.cwd(), entry: flags.entry });
+      try {
+        await connect(app);
+
+        // Before the diff, not after. A pending migration is a change the
+        // database has not seen yet, so the diff would describe it a second
+        // time — and running both is the same DDL twice.
+        const pending = await app.migrate({ dryRun: true });
+        if (pending.length > 0) {
+          throw new CliError(
+            `${pending.length} migration(s) have not run yet, so the diff would repeat what they already do.
+` +
+              `Run them first: liteb migrate`,
+          );
+        }
+
+        const diff = await app.pendingSchema();
+        if (flags.print) {
+          if (diff.up.length === 0) {
+            console.log('Nothing to generate: the database already matches the entities.');
+            return;
+          }
+          diff.up.forEach((query) => console.log(`  ${query}`));
+          return;
+        }
+
+        report(
+          generateMigration({
+            target,
+            diff,
+            owners: app.tableOwners(),
+            modulesDir: flags.dir,
+          }),
+          flags,
+        );
+      } finally {
+        await app.close();
+      }
+    });
 
   program
     .command('migrate')
