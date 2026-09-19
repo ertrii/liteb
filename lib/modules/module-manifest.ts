@@ -158,7 +158,7 @@ export interface ModuleManifest {
    *
    * There is no folder for the CONTRACTS themselves: a token is imported by
    * name, so there is nothing to discover. `contracts/` is still where they
-   * go, and `liteb create contract` writes them there — it is a convention for
+   * go, and `liteb contract` writes them there — it is a convention for
    * people, not a glob.
    */
   providers?: ModulePattern;

@@ -162,7 +162,16 @@ describe('archivos de log', () => {
       expect(
         fs.readFileSync(path.join(casa, 'logs', 'app.log'), 'utf8'),
       ).toContain('después de cambiar de directorio');
-      expect(fs.existsSync(path.join(previo, 'logs'))).toBe(false);
+      // Y no en el directorio de trabajo nuevo. Se mira la línea, no la
+      // existencia de la carpeta: la raíz del repo no es propiedad de esta
+      // prueba —un `npm run dev` corriendo al lado escribe su propio `logs/`—
+      // y afirmar que no existe convierte eso en un fallo intermitente.
+      const vecino = path.join(previo, 'logs', 'app.log');
+      if (fs.existsSync(vecino)) {
+        expect(fs.readFileSync(vecino, 'utf8')).not.toContain(
+          'después de cambiar de directorio',
+        );
+      }
     } finally {
       process.chdir(previo);
       fs.rmSync(casa, { recursive: true, force: true });

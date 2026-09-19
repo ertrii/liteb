@@ -72,7 +72,7 @@ describe('nombres', () => {
 
   it('exige decir a qué módulo pertenece', () => {
     expect(() => parseTarget('list-products', 'endpoint')).toThrow(
-      /liteb create endpoint <module>\/<name>/,
+      /liteb endpoint <module>\/<name>/,
     );
     expect(parseTarget('catalog/list-products', 'endpoint')).toEqual({
       module: 'catalog',

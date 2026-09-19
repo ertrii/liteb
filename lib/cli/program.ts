@@ -106,10 +106,6 @@ export function buildProgram(): Command {
       result.hints.forEach((hint) => console.log(`  next     ${hint}`));
     });
 
-  const create = program
-    .command('create')
-    .description('Writes the shape of a module, or of something inside one.');
-
   const common = (command: Command): Command =>
     command
       .option('--dir <path>', 'where modules live', 'src/modules')
@@ -121,7 +117,7 @@ export function buildProgram(): Command {
       .option('--force', 'overwrite files that already exist');
 
   common(
-    create
+    program
       .command('module <name>')
       .description('A module: its manifest, its permissions and a first endpoint')
       .option('--label <text>', 'human name, for a "modules" screen')
@@ -149,7 +145,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('endpoint <module/name>')
       .description('An HTTP endpoint inside a module')
       .option('--method <verb>', 'get, post, put, patch, delete, query', 'get')
@@ -157,7 +153,7 @@ export function buildProgram(): Command {
       .option('--group <name>', 'route prefix (@Group); defaults to the module id')
       .option(
         '--permission <key>',
-        'assert this key from the start (needs an `auth` resolver)',
+        'assert this key instead of the module default, declaring it too',
       )
       .option('--public', 'no permission line at all'),
   ).action((target, flags) => {
@@ -176,7 +172,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('routine <module/name>')
       .description(
         'Work on a schedule, started only while the module is enabled',
@@ -195,7 +191,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('contract <module/name>')
       .description('A capability this module publishes: the token and the shape'),
   ).action((target, flags) => {
@@ -206,7 +202,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('provider <module/name>')
       .description('The class that answers a contract, found by its folder')
       .option('--slot <name>', 'fill an extension point instead of answering a contract'),
@@ -223,7 +219,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('event <module/name>')
       .description('Something this module announces, for whoever is listening'),
   ).action((target, flags) => {
@@ -234,7 +230,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('slot <module/name>')
       .description('An extension point this module opens for others to fill'),
   ).action((target, flags) => {
@@ -245,7 +241,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('listener <module/name>')
       .description('Reacts to an event, without answering whoever emitted'),
   ).action((target, flags) => {
@@ -256,7 +252,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('entity <module/name>')
       .description('A TypeORM entity, found by its folder')
       .option('--table <name>', 'table name'),
@@ -273,7 +269,7 @@ export function buildProgram(): Command {
   });
 
   common(
-    create
+    program
       .command('migration <module/name>')
       .description("A migration, added to the module's own ledger"),
   ).action((target, flags) => {

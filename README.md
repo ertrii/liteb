@@ -14,7 +14,7 @@ Express + TypeORM + class-validator underneath, decorators on top.
 ```bash
 npx liteb@alpha init my-app    # package.json, tsconfig, .env, entry point
 cd my-app
-npx liteb create module billing
+npx liteb module billing
 npm run dev
 ```
 
@@ -138,14 +138,14 @@ They are not interchangeable, and the types refuse to mix them.
 
 ```bash
 npx liteb init [name]                        # a project that runs
-npx liteb create module billing              # manifest, first endpoint, migrations index
-npx liteb create endpoint billing/issue --method post
-npx liteb create entity billing/charge       # registered in the manifest
-npx liteb create migration billing/create-charges
-npx liteb create contract billing/service
-npx liteb create provider billing/service
-npx liteb create routine billing/nightly --cron "0 7 * * *"
-npx liteb create listener billing/audit
+npx liteb module billing              # manifest, first endpoint, migrations index
+npx liteb endpoint billing/issue --method post
+npx liteb entity billing/charge       # registered in the manifest
+npx liteb migration billing/create-charges
+npx liteb contract billing/service
+npx liteb provider billing/service
+npx liteb routine billing/nightly --cron "0 7 * * *"
+npx liteb listener billing/audit
 
 npx liteb migrate                            # run pending migrations, no server
 npx liteb migrate --dry-run                  # what would run

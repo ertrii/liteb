@@ -69,7 +69,7 @@ export interface ModuleOptions extends CommonOptions {
 
 export function createModule(options: ModuleOptions): Plan {
   const id = toKebab(options.name);
-  if (!id) throw new CliError('A module needs a name: liteb create module <name>.');
+  if (!id) throw new CliError('A module needs a name: liteb module <name>.');
 
   const dir = moduleDir(options, id);
   const label = options.label ?? toPascal(id).replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -84,7 +84,7 @@ export function createModule(options: ModuleOptions): Plan {
  * grants them, all by importing from here. The key is written in one place,
  * so a typo anywhere else does not compile instead of surfacing as a 500.
  *
- * \`liteb create endpoint ${id}/<name> --permission ${id}.<key>\` adds a line
+ * \`liteb endpoint ${id}/<name> --permission ${id}.<key>\` adds a line
  * here. The label is what a person reads on a roles screen: write it the way
  * you would say it out loud.
  */
@@ -489,7 +489,7 @@ export const ${name} = contract<${name}>('${target.module}.${target.name}');
     [{ path: `${dir}/contracts/${target.name}.contract.ts`, content }],
     [],
     [
-      `Answer it: liteb create provider ${target.module}/${target.name}`,
+      `Answer it: liteb provider ${target.module}/${target.name}`,
       `A module that CALLS it should list it in \`consumes\`, so a missing provider stops the boot instead of the first request that needs it.`,
     ],
   );
@@ -608,7 +608,7 @@ export const ${name} = event<${name}>('${target.module}.${target.name}');
     [],
     [
       `Announce it: await this.emit(${name}, { id }) from an endpoint, a routine or a provider.`,
-      `React to it from any module: liteb create listener <module>/<name>, then import this token.`,
+      `React to it from any module: liteb listener <module>/<name>, then import this token.`,
     ],
   );
 }
@@ -657,7 +657,7 @@ export const ${collection} = slot<${item}>('${target.module}.${target.name}');
     [],
     [
       `Read it: const filled = this.all(${collection});`,
-      `Fill it from another module: liteb create provider <module>/<name> --slot ${target.name}`,
+      `Fill it from another module: liteb provider <module>/<name> --slot ${target.name}`,
     ],
   );
 }
@@ -689,7 +689,7 @@ export class ${className} {
     [{ path: `${dir}/entities/${target.name}.entity.ts`, content }],
     [],
     [
-      `The table is not created by declaring it: add a migration — liteb create migration ${target.module}/create-${target.name}.`,
+      `The table is not created by declaring it: add a migration — liteb migration ${target.module}/create-${target.name}.`,
     ],
   );
 }
@@ -737,7 +737,7 @@ export class ${className} implements MigrationInterface {
   );
 }
 
-/** Everything `liteb create` can make, for the help text and for tests. */
+/** Everything the CLI can scaffold, for the help text and for tests. */
 export const GENERATORS = {
   module: createModule,
   endpoint: createEndpoint,

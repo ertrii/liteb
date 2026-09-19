@@ -53,10 +53,10 @@ npm install liteb
 npx liteb@alpha init my-app     # only the first command needs the version:
                                 # plain `npx liteb` resolves the `latest` tag,
                                 # which is still 1.x and ships another CLI.
-npx liteb create module billing
-npx liteb create endpoint billing/issue-charge --method post
-npx liteb create entity billing/charge
-npx liteb create migration billing/create-charges
+npx liteb module billing
+npx liteb endpoint billing/issue-charge --method post
+npx liteb entity billing/charge
+npx liteb migration billing/create-charges
 npx liteb build --bytecode
 ```
 
@@ -284,7 +284,7 @@ is particular to **this** module. The folders are found from `dir`:
 | `listeners/*.listener.ts` | the event listeners |
 | `providers/*.provider.ts` | the `Provider` classes: what it answers, what it contributes |
 
-Writing the file is all there is to do. `liteb create entity billing/charge`
+Writing the file is all there is to do. `liteb entity billing/charge`
 writes `entities/charge.entity.ts` and edits **nothing**: the folder is what
 declares it.
 
@@ -786,7 +786,7 @@ deciding who your users are first.
 A project made by `liteb init` has one anyway. `src/config/auth.ts` lets
 EVERYONE through with every permission — not authentication, but enough that
 `this.auth`, `this.auth.assert(...)` and the compiler-checked permission keys
-all work from the first request. So `liteb create` writes the
+all work from the first request. So the scaffold writes the
 `this.auth.assert(...)` line **live**: the gate is in place and open, which is
 the only order in which closing it is a one-line change. A scaffold that ships
 the assertion commented teaches that endpoints are ungated by default, and the

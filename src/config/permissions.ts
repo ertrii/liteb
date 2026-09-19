@@ -14,7 +14,7 @@ import type { permissions as reports } from '../modules/reports/permissions';
  * only carries those spellings into the type system.
  *
  * One block per module, and interface merging joins them. That is why
- * `liteb create module` can add a module by APPENDING here instead of editing
+ * `liteb module` can add a module by APPENDING here instead of editing
  * a list: nothing in this file has to be reopened.
  */
 declare global {

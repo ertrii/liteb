@@ -4,29 +4,49 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0-alpha.2] - 2026-09-18
+## [2.0.0-alpha.3] - 2026-09-18
 
-### Removed
+### Changed
 
-- **Every deprecated name is gone**, in one go rather than carried to 2.0
-  final. `2.0.0-alpha.1` is the only 2.x release in the wild, and keeping two
-  spellings of the same thing costs more — in the docs, in autocomplete, in a
-  shim file per rename — than the one upgrade it saves.
+- **`create` is gone from the command line.** `liteb module billing`,
+  `liteb endpoint billing/issue-charge`, `liteb entity billing/invoice`. The
+  word carried no information: there is no `edit` and no `update` for it to
+  distinguish from, and a CLI that writes files is a CLI whose verbs are the
+  things it writes.
 
-  | Gone | Use |
-  | --- | --- |
-  | `@Module`, `MODULE`, `ModuleOptions.basePath` | `@Group`, `GROUP`, `mount` |
-  | `Task`, `@Schedule`, `SCHEDULE` | `Routine`, `@Cron`, `CRON` |
-  | `loadModuleTasks`, `tasks:` | `loadModuleRoutines`, `routines:` |
-  | `EndpointReader.moduleName` | `.group` |
-  | `provides:`, `contributes:` | a `Provider` class in `providers/` |
-  | `ProviderEntry<T>`, `Contribution<T>`, `ContainerContext` | — |
+  If something that edits rather than writes ever shows up, it is a flag on the
+  same command and not a second noun to type first.
 
-  The container shrank with them: one way to build an implementation instead of
-  three, so `Container.register(moduleId, token, ProviderClass)` and
-  `contribute(moduleId, slot, ProviderClass)` take the class directly and
-  `ContainerContext` no longer exists — a provider gets what it needs on
-  `this`.
+- **The error body follows RFC 9457 (`application/problem+json`).** One shape
+  for every failure, and a media type that tells a client a response is a
+  failure rather than a payload that happens to have a `status` field.
+
+  ```json
+  {
+    "type": "/problems/validation",
+    "title": "Validation failed",
+    "status": 422,
+    "detail": "email must be an email",
+    "code": "schema",
+    "errors": { "email": "must be an email" },
+    "requestId": "9f2c1a7b4e30"
+  }
+  ```
+
+  | Was | Is | Why |
+  | --- | --- | --- |
+  | `message` | `detail` | the RFC's split: `title` is stable and names the KIND of problem, `detail` is about this occurrence |
+  | `identifier` | `code` | unchanged values; branch on this, not on `title` or `type` |
+  | `errorFields` | `errors` | **same purpose**: which FIELD is at fault, so a form puts the message under the right input instead of in a banner |
+  | — | `status`, `title`, `type`, `requestId` | new |
+
+  `errors` is an extension member, which the RFC allows precisely for this. It
+  is the reason the shape exists at all, and nothing about it changed but the
+  name.
+
+  A thrown plain object used to be answered **verbatim**, so one endpoint could
+  reply in a shape no client had a parser for. It now keeps its status and its
+  payload (under `response`) in the same shape as everything else.
 
 ### Added
 
@@ -158,7 +178,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   It is there so the whole mechanism works on the first request: `this.auth`,
   `this.auth.assert(...)`, and the permission keys checked by the compiler. So
-  `liteb create` now writes the assertion **live**:
+  the scaffold now writes the assertion **live**:
 
   ```typescript
   async main() {
@@ -174,7 +194,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   `src/config/permissions.ts` likewise ships with its `declare global` block
   already open rather than as an example in a comment. It is empty until the
-  first module, and `liteb create module` appends one block per module.
+  first module, and `liteb module` appends one block per module.
+
+### Fixed
+
+- **The last lines of an ordered shutdown could be lost.** The file appender
+  writes asynchronously and `shutdown()` called `process.exit(0)` right after
+  logging "Shutdown complete." — so the line somebody reads when a restart went
+  wrong was the one most likely to be missing. It now waits for the flush, and
+  `Logger.flush()` is exported for anything else that ends a process.
+
+- **The log directory was kept relative.** It is resolved to an absolute path
+  once, when configured. The appender opens its file when it WRITES, not when
+  it is configured, so a process that changed directory afterwards quietly
+  started a second log directory somewhere else.
+
+## [2.0.0-alpha.2] - 2026-09-18
+
+### Removed
+
+- **Every deprecated name is gone**, in one go rather than carried to 2.0
+  final. `2.0.0-alpha.1` is the only 2.x release in the wild, and keeping two
+  spellings of the same thing costs more — in the docs, in autocomplete, in a
+  shim file per rename — than the one upgrade it saves.
+
+  | Gone | Use |
+  | --- | --- |
+  | `@Module`, `MODULE`, `ModuleOptions.basePath` | `@Group`, `GROUP`, `mount` |
+  | `Task`, `@Schedule`, `SCHEDULE` | `Routine`, `@Cron`, `CRON` |
+  | `loadModuleTasks`, `tasks:` | `loadModuleRoutines`, `routines:` |
+  | `EndpointReader.moduleName` | `.group` |
+  | `provides:`, `contributes:` | a `Provider` class in `providers/` |
+  | `ProviderEntry<T>`, `Contribution<T>`, `ContainerContext` | — |
+
+  The container shrank with them: one way to build an implementation instead of
+  three, so `Container.register(moduleId, token, ProviderClass)` and
+  `contribute(moduleId, slot, ProviderClass)` take the class directly and
+  `ContainerContext` no longer exists — a provider gets what it needs on
+  `this`.
+
+### Added
 
 - **`liteb create event` and `liteb create slot`**, so every kind of token a
   module publishes has a command and a folder: `contracts/`, `events/` and
@@ -207,37 +266,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and not something a text rewrite can honour.
 
 ### Changed
-
-- **The error body follows RFC 9457 (`application/problem+json`).** One shape
-  for every failure, and a media type that tells a client a response is a
-  failure rather than a payload that happens to have a `status` field.
-
-  ```json
-  {
-    "type": "/problems/validation",
-    "title": "Validation failed",
-    "status": 422,
-    "detail": "email must be an email",
-    "code": "schema",
-    "errors": { "email": "must be an email" },
-    "requestId": "9f2c1a7b4e30"
-  }
-  ```
-
-  | Was | Is | Why |
-  | --- | --- | --- |
-  | `message` | `detail` | the RFC's split: `title` is stable and names the KIND of problem, `detail` is about this occurrence |
-  | `identifier` | `code` | unchanged values; branch on this, not on `title` or `type` |
-  | `errorFields` | `errors` | **same purpose**: which FIELD is at fault, so a form puts the message under the right input instead of in a banner |
-  | — | `status`, `title`, `type`, `requestId` | new |
-
-  `errors` is an extension member, which the RFC allows precisely for this. It
-  is the reason the shape exists at all, and nothing about it changed but the
-  name.
-
-  A thrown plain object used to be answered **verbatim**, so one endpoint could
-  reply in a shape no client had a parser for. It now keeps its status and its
-  payload (under `response`) in the same shape as everything else.
 
 - **A contract's implementation is a class in `providers/`, not a factory in
   the manifest.** `module.ts` is where a module's pieces are wired; it had
@@ -464,12 +492,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   line to it.
 
 ### Fixed
-
-- **The last lines of an ordered shutdown could be lost.** The file appender
-  writes asynchronously and `shutdown()` called `process.exit(0)` right after
-  logging "Shutdown complete." — so the line somebody reads when a restart went
-  wrong was the one most likely to be missing. It now waits for the flush, and
-  `Logger.flush()` is exported for anything else that ends a process.
 
 - **A routine's `this.emit()` reached nobody.** The event bus was never passed
   to the scheduled routine, and `emit` returns quietly when there is none — so

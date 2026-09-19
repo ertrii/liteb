@@ -10,7 +10,7 @@ config file, no registry of what exists. It reads arguments and writes files.
 ```bash
 npx liteb@alpha init my-app     # the only time you need @alpha
 cd my-app
-npx liteb create module billing
+npx liteb module billing
 npm run dev
 ```
 
@@ -26,16 +26,16 @@ different CLI.
 | Command | What it writes or does |
 | --- | --- |
 | [`init [name]`](#liteb-init-name) | A project that runs: `package.json`, `tsconfig.json`, `.env`, entry point |
-| [`create module <name>`](#liteb-create-module-name) | A module: its manifest, its permissions and a first endpoint |
-| [`create endpoint <module>/<name>`](#liteb-create-endpoint-modulename) | An HTTP endpoint |
-| [`create routine <module>/<name>`](#liteb-create-routine-modulename) | Work on a schedule |
-| [`create entity <module>/<name>`](#liteb-create-entity-modulename) | A TypeORM entity |
-| [`create migration <module>/<name>`](#liteb-create-migration-modulename) | A timestamped migration |
-| [`create contract <module>/<name>`](#liteb-create-contract-modulename) | A capability this module publishes |
-| [`create provider <module>/<name>`](#liteb-create-provider-modulename) | The class that answers it |
-| [`create event <module>/<name>`](#liteb-create-event-modulename) | Something this module announces |
-| [`create slot <module>/<name>`](#liteb-create-slot-modulename) | An extension point others may fill |
-| [`create listener <module>/<name>`](#liteb-create-listener-modulename) | A reaction to an event |
+| [`module <name>`](#liteb-module-name) | A module: its manifest, its permissions and a first endpoint |
+| [`endpoint <module>/<name>`](#liteb-endpoint-modulename) | An HTTP endpoint |
+| [`routine <module>/<name>`](#liteb-routine-modulename) | Work on a schedule |
+| [`entity <module>/<name>`](#liteb-entity-modulename) | A TypeORM entity |
+| [`migration <module>/<name>`](#liteb-migration-modulename) | A timestamped migration |
+| [`contract <module>/<name>`](#liteb-contract-modulename) | A capability this module publishes |
+| [`provider <module>/<name>`](#liteb-provider-modulename) | The class that answers it |
+| [`event <module>/<name>`](#liteb-event-modulename) | Something this module announces |
+| [`slot <module>/<name>`](#liteb-slot-modulename) | An extension point others may fill |
+| [`listener <module>/<name>`](#liteb-listener-modulename) | A reaction to an event |
 | [`migrate`](#liteb-migrate) | Runs the pending migrations |
 | [`migrate:status`](#liteb-migratestatus) | What each module declares, and what already ran |
 | [`build`](#liteb-build) | Compiles, optionally to V8 bytecode |
@@ -137,7 +137,7 @@ migration of every endpoint you wrote in the meantime. It says so in the log,
 once, the first time it lets a request through.
 
 `src/config/permissions.ts` starts with its `declare global` block already
-open. It is empty until the first module; `liteb create module` appends one
+open. It is empty until the first module; `liteb module` appends one
 block per module and interface merging joins them, so no line in that file is
 ever reopened.
 
@@ -245,11 +245,11 @@ reads it from there.
 
 ---
 
-## `liteb create module <name>`
+## `liteb module <name>`
 
 ```bash
-npx liteb create module billing
-npx liteb create module reports --optional --label "Reports"
+npx liteb module billing
+npx liteb module reports --optional --label "Reports"
 ```
 
 | Flag | Effect |
@@ -275,13 +275,13 @@ be open.
 
 ---
 
-## `liteb create endpoint <module>/<name>`
+## `liteb endpoint <module>/<name>`
 
 ```bash
-npx liteb create endpoint billing/issue-charge --method post
-npx liteb create endpoint billing/find-one --path ":id"
-npx liteb create endpoint billing/list --permission billing.view
-npx liteb create endpoint public/health --public
+npx liteb endpoint billing/issue-charge --method post
+npx liteb endpoint billing/find-one --path ":id"
+npx liteb endpoint billing/list --permission billing.view
+npx liteb endpoint public/health --public
 ```
 
 | Flag | Effect |
@@ -308,11 +308,11 @@ leaves the line out entirely.
 
 ---
 
-## `liteb create routine <module>/<name>`
+## `liteb routine <module>/<name>`
 
 ```bash
-npx liteb create routine billing/nightly
-npx liteb create routine billing/hourly --cron "0 * * * *"
+npx liteb routine billing/nightly
+npx liteb routine billing/hourly --cron "0 * * * *"
 ```
 
 | Flag | Effect |
@@ -330,11 +330,11 @@ declared with `{ runOnInit: true }`.
 
 ---
 
-## `liteb create entity <module>/<name>`
+## `liteb entity <module>/<name>`
 
 ```bash
-npx liteb create entity billing/charge
-npx liteb create entity billing/charge --table facturacion_cargos
+npx liteb entity billing/charge
+npx liteb entity billing/charge --table facturacion_cargos
 ```
 
 | Flag | Effect |
@@ -350,10 +350,10 @@ installation is. Follow it with `create migration`.
 
 ---
 
-## `liteb create migration <module>/<name>`
+## `liteb migration <module>/<name>`
 
 ```bash
-npx liteb create migration billing/create-charges
+npx liteb migration billing/create-charges
 ```
 
 Writes `migrations/<timestamp>-<name>.ts`. Nothing lists it.
@@ -367,10 +367,10 @@ year would migrate before the dependency it needs.
 
 ---
 
-## `liteb create contract <module>/<name>`
+## `liteb contract <module>/<name>`
 
 ```bash
-npx liteb create contract identity/directory
+npx liteb contract identity/directory
 ```
 
 What other modules may ask this one for. Writes
@@ -383,11 +383,11 @@ works and nothing outside your module moves.
 
 ---
 
-## `liteb create provider <module>/<name>`
+## `liteb provider <module>/<name>`
 
 ```bash
-npx liteb create provider identity/directory              # answers a contract
-npx liteb create provider reports/low-stock --slot badges # fills an extension point
+npx liteb provider identity/directory              # answers a contract
+npx liteb provider reports/low-stock --slot badges # fills an extension point
 ```
 
 | Flag | Effect |
@@ -417,10 +417,10 @@ extension imports that token, never the other way round.
 
 ---
 
-## `liteb create event <module>/<name>`
+## `liteb event <module>/<name>`
 
 ```bash
-npx liteb create event billing/charge-issued
+npx liteb event billing/charge-issued
 ```
 
 Something this module announces, for whoever is listening. Writes
@@ -435,10 +435,10 @@ connection, so they cannot see rows a transaction has not committed yet.
 
 ---
 
-## `liteb create slot <module>/<name>`
+## `liteb slot <module>/<name>`
 
 ```bash
-npx liteb create slot catalog/product-badges
+npx liteb slot catalog/product-badges
 ```
 
 An extension point this module opens for others to fill. Writes
@@ -454,10 +454,10 @@ Read it with `this.all(Token)`. An empty array is a normal answer.
 
 ---
 
-## `liteb create listener <module>/<name>`
+## `liteb listener <module>/<name>`
 
 ```bash
-npx liteb create listener reports/restock-log
+npx liteb listener reports/restock-log
 ```
 
 Reacts to an event another module announced. Writes

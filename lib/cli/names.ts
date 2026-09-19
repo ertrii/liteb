@@ -69,7 +69,7 @@ export function parseTarget(raw: string, what: string): Target {
 
   if (parts.length !== 2) {
     throw new CliError(
-      `Say which module it belongs to: liteb create ${what} <module>/<name> (e.g. "catalog/${toKebab(raw) || 'something'}").`,
+      `Say which module it belongs to: liteb ${what} <module>/<name> (e.g. "catalog/${toKebab(raw) || 'something'}").`,
     );
   }
 

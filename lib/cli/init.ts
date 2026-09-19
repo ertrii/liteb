@@ -117,7 +117,7 @@ export async function createApp() {
       synchronize: false,
     },
 
-    // \`liteb create module <name>\` registers it here.
+    // \`liteb module <name>\` registers it here.
     modules: [],
 
     // THIS application's version — what each module's \`engine\` range is
@@ -228,7 +228,7 @@ logs
  *
  * Each module still declares its own keys, with their labels, in its own
  * \`permissions.ts\`. This file only carries those spellings into the type
- * system, and \`liteb create module\` appends a block per module — interface
+ * system, and \`liteb module\` appends a block per module — interface
  * merging joins them, so nothing below ever has to be reopened.
  *
  * Empty, as it starts, every string is accepted and the run-time check is the
@@ -325,7 +325,7 @@ export default auth;
       // `npx liteb` without a version resolves the `latest` tag, which is a
       // different major with a different CLI. Inside the project it is the
       // local install that answers, so no version is needed here.
-      `Create your first module: npx liteb create module <name>${
+      `Create your first module: npx liteb module <name>${
         modulesDir === 'src/modules' ? '' : ` --dir ${modulesDir}`
       }`,
       `Then: npm run dev`,

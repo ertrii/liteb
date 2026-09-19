@@ -36,7 +36,7 @@ is **not** an application. Dual layout:
   `http/demo.http` is the request-by-request walkthrough.
 - **`test/`** — jest suite. Not published.
 
-- **`bin/` + `lib/cli/`** — the CLI (`npx liteb init`, `liteb create ...`,
+- **`bin/` + `lib/cli/`** — the CLI (`npx liteb init`, `liteb module ...`,
   `liteb migrate`, `liteb build`). It came back in 2.0 **with the redesign the old one needed**:
   templates are TypeScript strings inside the build (the 1.x ones were loose
   `.txt` assets nobody compiled, and they drifted until they generated
