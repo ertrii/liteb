@@ -848,23 +848,28 @@ llama. Un resolutor convierte una petición en un **actor**, y cada endpoint lo 
 como `this.auth`.
 
 ```typescript
-const app = await Liteb.create({
-  db,
-  modules: [identity, billing],
-  auth: async (request, { db }) => {
-    const userId = request.session?.userId; // o un token bearer, o una API key
-    if (!userId) return null; // anónimo
+const auth = defineAuth(async (request, { db }) => {
+  const userId = request.session?.userId; // o un token bearer, o una API key
+  if (!userId) return null; // anónimo
 
-    const user = await db.getRepository(User).findOneBy({ id: userId });
-    if (!user) return null; // borrado a mitad de la sesión
+  const user = await db.getRepository(User).findOneBy({ id: userId });
+  if (!user) return null; // borrado a mitad de la sesión
 
-    return {
-      actor: { userId },
-      permissions: user.role === 'owner' ? ['*'] : ['billing.view'],
-    };
-  },
+  return {
+    actor: { userId },
+    permissions: user.role === 'owner' ? ['*'] : ['billing.view'],
+  };
 });
+
+const app = await Liteb.create({ db, modules: [identity, billing], auth });
 ```
+
+`defineAuth` tipa los argumentos del callback sin anotación y rechaza un
+resultado que haría mentir a `this.auth` — un objeto sin `actor` reporta
+`isAuthenticated` con `actor` en `undefined`, así que el 401 nunca pasa. Dale
+varias estrategias y se prueban en orden, gana la primera que reconoce a quien
+llama: `defineAuth(sessionAuth, bearerAuth, apiKeyAuth)`. El tipo `AuthResolver`
+pelado también sigue sirviendo como `auth`.
 
 Esa es toda la función. liteb no guarda roles ni usuarios: recibe una lista de
 claves por petición y compara cadenas. Qué claves tiene alguien es la regla de
@@ -873,12 +878,12 @@ claves por petición y compara cadenas. Qué claves tiene alguien es la regla de
 El resolutor también recibe `get`, para resolver un contrato en vez de consultar:
 
 ```typescript
-  auth: async (request, { get }) => {
-    const userId = request.session?.userId;
-    if (!userId) return null;
-    const permissions = await get(UserDirectory).permissionsOf(userId);
-    return permissions ? { actor: { userId }, permissions } : null;
-  },
+const auth = defineAuth(async (request, { get }) => {
+  const userId = request.session?.userId;
+  if (!userId) return null;
+  const permissions = await get(UserDirectory).permissionsOf(userId);
+  return permissions ? { actor: { userId }, permissions } : null;
+});
 ```
 
 Vale la pena por UNA razón, y sólo cuando aplica: el resolutor suele vivir fuera

@@ -99,7 +99,7 @@ export type {
   ModulePattern,
   ModuleGlobField,
 } from './modules/module-manifest';
-export { Auth } from './core/auth';
+export { Auth, defineAuth } from './core/auth';
 export { CorsConfigError } from './core/cors';
 export type { CorsConfig } from './core/cors';
 export { schemaDiff, tableOwners } from './modules/schema-diff';

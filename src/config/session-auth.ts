@@ -1,4 +1,4 @@
-import { AuthResolver } from '../../lib';
+import { defineAuth } from '../../lib';
 import { User } from '../modules/identity/entities/user.entity';
 import { PERMISSIONS_BY_ROLE } from './roles';
 
@@ -44,7 +44,7 @@ declare global {
  * application that minds can cache it, but the default should be correct
  * rather than fast.
  */
-const sessionAuth: AuthResolver = async (request, { db }) => {
+const sessionAuth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId;
   if (!userId) return null;
 
@@ -52,6 +52,6 @@ const sessionAuth: AuthResolver = async (request, { db }) => {
   if (!user) return null;
 
   return { actor: { userId }, permissions: PERMISSIONS_BY_ROLE[user.role] };
-};
+});
 
 export default sessionAuth;

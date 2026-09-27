@@ -798,23 +798,28 @@ resolver turns a request into an **actor**, and every endpoint reads it as
 `this.auth`.
 
 ```typescript
-const app = await Liteb.create({
-  db,
-  modules: [identity, billing],
-  auth: async (request, { db }) => {
-    const userId = request.session?.userId;  // or a bearer token, or an API key
-    if (!userId) return null;                // anonymous
+const auth = defineAuth(async (request, { db }) => {
+  const userId = request.session?.userId;  // or a bearer token, or an API key
+  if (!userId) return null;                // anonymous
 
-    const user = await db.getRepository(User).findOneBy({ id: userId });
-    if (!user) return null;                  // deleted mid-session
+  const user = await db.getRepository(User).findOneBy({ id: userId });
+  if (!user) return null;                  // deleted mid-session
 
-    return {
-      actor: { userId },
-      permissions: user.role === 'owner' ? ['*'] : ['billing.view'],
-    };
-  },
+  return {
+    actor: { userId },
+    permissions: user.role === 'owner' ? ['*'] : ['billing.view'],
+  };
 });
+
+const app = await Liteb.create({ db, modules: [identity, billing], auth });
 ```
+
+`defineAuth` types the callback's arguments without an annotation and refuses a
+result that would make `this.auth` lie — an object with no `actor` reports
+`isAuthenticated` while `actor` is `undefined`, so the 401 never happens. Give
+it several strategies and they are tried in order, first one to recognize the
+caller wins: `defineAuth(sessionAuth, bearerAuth, apiKeyAuth)`. The plain
+`AuthResolver` type still works as `auth` too.
 
 That is the whole feature. liteb stores no roles and no users: it receives a
 list of keys per request and compares strings. Which keys somebody holds is
@@ -823,12 +828,12 @@ list of keys per request and compares strings. Which keys somebody holds is
 The resolver also gets `get`, to resolve a contract instead of querying:
 
 ```typescript
-  auth: async (request, { get }) => {
-    const userId = request.session?.userId;
-    if (!userId) return null;
-    const permissions = await get(UserDirectory).permissionsOf(userId);
-    return permissions ? { actor: { userId }, permissions } : null;
-  },
+const auth = defineAuth(async (request, { get }) => {
+  const userId = request.session?.userId;
+  if (!userId) return null;
+  const permissions = await get(UserDirectory).permissionsOf(userId);
+  return permissions ? { actor: { userId }, permissions } : null;
+});
 ```
 
 Worth it for ONE reason, and only when it applies: the resolver usually lives

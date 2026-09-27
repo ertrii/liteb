@@ -151,7 +151,9 @@ export const PERMISSIONS_BY_ROLE: Record<UserRole, string[]> = {
 
 ```typescript
 // src/config/session-auth.ts
-const sessionAuth: AuthResolver = async (request, { db }) => {
+import { defineAuth } from 'liteb';
+
+const sessionAuth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId;
   if (!userId) return null;                 // anonymous
 
@@ -162,7 +164,7 @@ const sessionAuth: AuthResolver = async (request, { db }) => {
     actor: { userId },
     permissions: PERMISSIONS_BY_ROLE[user.role],
   };
-};
+});
 ```
 
 ```typescript
@@ -185,6 +187,33 @@ The session holds **only the user id**. Permissions are read per request, not
 copied in at login, so removing a role takes effect on the next request rather
 than the next sign-in. That costs one lookup per request; cache it if it
 matters, but start correct.
+
+`defineAuth` is what `liteb init` writes and what the examples here use. It
+types the callback's two arguments without annotating anything, and it checks
+the result before an endpoint can read it: an object without an `actor` would
+otherwise leave `this.auth` saying `isAuthenticated` while `actor` is
+`undefined` — the 401 that should have happened never does, and the failure
+turns up later somewhere else. That is a mistake in the code, so it throws a
+500, not a 401.
+
+The `AuthResolver` type is still exported, and `auth:` still takes any plain
+function of that shape. Nothing that already works stops working.
+
+### More than one way in
+
+The resolver is one function, but the ways into an application are plural: a
+cookie for the web, a bearer token for the mobile app, an API key for an
+integration. Pass them in order instead of chaining `if`s inside one body — the
+first one that recognizes the caller wins, and the rest are never called.
+
+```typescript
+export default defineAuth(sessionAuth, bearerAuth, apiKeyAuth);
+```
+
+Each one is an ordinary resolver returning `null` for "not mine", so each stays
+readable on its own and a new kind of client is one more argument. When all of
+them return `null` the call is anonymous, exactly as a single resolver's `null`
+is.
 
 ## 4. Demand a key
 
@@ -464,7 +493,7 @@ The resolver is the only thing that changes. Nothing else in the application
 knows the difference.
 
 ```typescript
-const sessionAuth: AuthResolver = async (request, { db }) => {
+const sessionAuth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId;
   if (!userId) return null;
 
@@ -476,7 +505,7 @@ const sessionAuth: AuthResolver = async (request, { db }) => {
   );
 
   return { actor: { userId }, permissions: rows.map((row) => row.key) };
-};
+});
 ```
 
 To validate the roles screen against what actually exists, feed it

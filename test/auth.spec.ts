@@ -2,7 +2,16 @@ import 'reflect-metadata';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import { Auth, AuthError, defineModule, ForbiddenError, Liteb } from '../lib';
+import {
+  Auth,
+  AuthError,
+  defineAuth,
+  defineModule,
+  ForbiddenError,
+  Liteb,
+} from '../lib';
+import type { AuthContext } from '../lib';
+import type { Request } from 'express';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { testAuthResolver } from './fixtures/auth/actor';
 import { closeTestDb, createTestDb } from './helpers/test-db';
@@ -295,5 +304,103 @@ describe('el resolutor recibe db y contratos', () => {
       .set('x-user', '999');
 
     expect(res.status).toBe(401);
+  });
+});
+
+describe('defineAuth', () => {
+  /**
+   * El resolutor sólo necesita el request y el contexto; acá no hay ni servidor
+   * ni base, así que los dos van falsos y con lo mínimo que se mira.
+   */
+  const pedido = { headers: {} } as unknown as Request;
+  const contexto = {
+    db: {} as never,
+    get: () => {
+      throw new Error('no se usa');
+    },
+  } as unknown as AuthContext;
+
+  it('pasa el request y el contexto tal cual al callback', async () => {
+    const resolver = defineAuth(async (request, context) => {
+      expect(request).toBe(pedido);
+      expect(context).toBe(contexto);
+      return { actor: actorDe(1), permissions: ['billing.read'] };
+    });
+
+    await expect(resolver(pedido, contexto)).resolves.toEqual({
+      actor: { userId: 1 },
+      permissions: ['billing.read'],
+    });
+  });
+
+  it('con varias estrategias se queda con la primera que reconoce', async () => {
+    const llamadas: string[] = [];
+
+    const resolver = defineAuth(
+      async () => {
+        llamadas.push('sesión');
+        return null;
+      },
+      async () => {
+        llamadas.push('token');
+        return { actor: actorDe(7) };
+      },
+      async () => {
+        llamadas.push('api-key');
+        return { actor: actorDe(99) };
+      },
+    );
+
+    await expect(resolver(pedido, contexto)).resolves.toEqual({
+      actor: { userId: 7 },
+    });
+
+    // La tercera no corre: el corto circuito es el punto de encadenarlas.
+    expect(llamadas).toEqual(['sesión', 'token']);
+  });
+
+  it('si ninguna reconoce a nadie, la llamada es anónima', async () => {
+    const resolver = defineAuth(
+      async () => null,
+      // `undefined` también significa "no lo reconozco": un `return` pelado
+      // dentro de un if es la forma más fácil de escribirlo sin querer.
+      async () => undefined,
+    );
+
+    await expect(resolver(pedido, contexto)).resolves.toBeNull();
+  });
+
+  it('un resultado sin actor es error de código, no un 401', async () => {
+    // `isAuthenticated` diría true con `actor` en undefined: el 401 que
+    // correspondía nunca pasa y la falla aparece después, en otra parte.
+    const resolver = defineAuth(async () => ({ permissions: ['*'] }) as never);
+
+    await expect(resolver(pedido, contexto)).rejects.toThrow(
+      /The resolver passed to defineAuth\(\) returned no actor/,
+    );
+    await expect(resolver(pedido, contexto)).rejects.not.toBeInstanceOf(
+      AuthError,
+    );
+  });
+
+  it('permissions como texto en vez de lista también se rechaza', async () => {
+    // `new Set('billing.read')` guarda doce letras y no coincide con ninguna
+    // clave: sin este chequeo el síntoma es "los permisos no funcionan".
+    const resolver = defineAuth(
+      async () => ({ actor: actorDe(1), permissions: 'billing.read' }) as never,
+    );
+
+    await expect(resolver(pedido, contexto)).rejects.toThrow(
+      /returned `permissions` as string, not a list/,
+    );
+  });
+
+  it('nombra cuál de las estrategias devolvió mal', async () => {
+    const resolver = defineAuth(
+      async () => null,
+      async () => ({}) as never,
+    );
+
+    await expect(resolver(pedido, contexto)).rejects.toThrow(/Resolver #2/);
   });
 });

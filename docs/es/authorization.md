@@ -153,7 +153,9 @@ export const PERMISSIONS_BY_ROLE: Record<UserRole, string[]> = {
 
 ```typescript
 // src/config/session-auth.ts
-const sessionAuth: AuthResolver = async (request, { db }) => {
+import { defineAuth } from 'liteb';
+
+const sessionAuth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId;
   if (!userId) return null; // anónimo
 
@@ -164,7 +166,7 @@ const sessionAuth: AuthResolver = async (request, { db }) => {
     actor: { userId },
     permissions: PERMISSIONS_BY_ROLE[user.role],
   };
-};
+});
 ```
 
 ```typescript
@@ -187,6 +189,33 @@ La sesión guarda **sólo el id del usuario**. Los permisos se leen por petició
 no se copian al iniciar sesión, así que quitar un rol tiene efecto en la petición
 siguiente y no en el siguiente ingreso. Eso cuesta una consulta por petición;
 cacheala si te pesa, pero empezá por lo correcto.
+
+`defineAuth` es lo que escribe `liteb init` y lo que usan los ejemplos de acá.
+Tipa los dos argumentos del callback sin necesidad de anotar nada, y revisa el
+resultado antes de que un endpoint lo lea: un objeto sin `actor` dejaría a
+`this.auth` diciendo `isAuthenticated` con `actor` en `undefined` — el 401 que
+correspondía nunca pasa, y la falla aparece después, en otra parte. Eso es un
+error de código, así que lanza un 500, no un 401.
+
+El tipo `AuthResolver` sigue exportado, y `auth:` sigue aceptando cualquier
+función pelada con esa forma. Nada de lo que ya funcionaba deja de funcionar.
+
+### Más de una puerta de entrada
+
+El resolutor es una función, pero las maneras de entrar a una aplicación son
+varias: una cookie para la web, un token bearer para la app móvil, una API key
+para una integración. Pasalas en orden en vez de encadenar `if`s dentro de un
+solo cuerpo — la primera que reconoce a quien llama gana, y las demás no se
+ejecutan.
+
+```typescript
+export default defineAuth(sessionAuth, bearerAuth, apiKeyAuth);
+```
+
+Cada una es un resolutor común que devuelve `null` para decir "no es mío", así
+que cada una se lee sola y un tipo de cliente nuevo es un argumento más. Cuando
+todas devuelven `null` la llamada es anónima, igual que el `null` de un resolutor
+único.
 
 ## 4. Exigir una clave
 
@@ -469,7 +498,7 @@ Lo único que cambia es el resolutor. Nada más en la aplicación nota la
 diferencia.
 
 ```typescript
-const sessionAuth: AuthResolver = async (request, { db }) => {
+const sessionAuth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId;
   if (!userId) return null;
 
@@ -481,7 +510,7 @@ const sessionAuth: AuthResolver = async (request, { db }) => {
   );
 
   return { actor: { userId }, permissions: rows.map((row) => row.key) };
-};
+});
 ```
 
 Para validar la pantalla de roles contra lo que de verdad existe, alimentala con

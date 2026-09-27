@@ -242,8 +242,7 @@ declare global {
 }
 `;
 
-  const authFile = `import type { AuthResolver } from 'liteb';
-import { Logger } from 'liteb';
+  const authFile = `import { defineAuth, Logger } from 'liteb';
 
 let warned = false;
 
@@ -258,6 +257,10 @@ let warned = false;
  * Replace the body with how your application recognizes a caller — a session,
  * a bearer token, an API key — and return \`null\` when it recognizes nobody.
  * That \`null\` is what turns an assertion into a 401.
+ *
+ * \`defineAuth\` also takes SEVERAL strategies, tried in order, for when more
+ * than one kind of client calls the same endpoints:
+ * \`defineAuth(sessionAuth, bearerAuth, apiKeyAuth)\`.
  *
  * \`db\` and \`get\` come in for exactly that: permissions are usually a query,
  * and \`get\` reaches a module's contract when this file must not import that
@@ -277,15 +280,15 @@ let warned = false;
  *   }
  * }
  *
- * const auth: AuthResolver = async (request, { db }) => {
+ * const auth = defineAuth(async (request, { db }) => {
  *   const userId = request.session?.userId;
  *   if (!userId) return null;
  *   const user = await db.getRepository(User).findOneBy({ id: userId });
  *   if (!user) return null;
  *   return { actor: { userId }, permissions: PERMISSIONS_BY_ROLE[user.role] };
- * };
+ * });
  */
-const auth: AuthResolver = async () => {
+const auth = defineAuth(async () => {
   if (!warned) {
     warned = true;
     Logger.warn(
@@ -301,7 +304,7 @@ const auth: AuthResolver = async () => {
     // which src/config/permissions.ts carries into the type system.
     permissions: ['*'],
   };
-};
+});
 
 export default auth;
 `;

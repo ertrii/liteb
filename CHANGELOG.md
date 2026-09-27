@@ -50,6 +50,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`defineAuth(...)`** — the way to write the `auth` resolver.
+
+  ```typescript
+  // src/config/auth.ts
+  export default defineAuth(async (request, { db }) => {
+    const userId = request.session?.userId;
+    if (!userId) return null;
+    const user = await db.getRepository(User).findOneBy({ id: userId });
+    return user ? { actor: { userId }, permissions: roleKeys(user.role) } : null;
+  });
+  ```
+
+  It replaces `const auth: AuthResolver = ...` in the scaffold and the docs, and
+  earns the extra call twice over:
+
+  - **Several ways in, tried in order.** `defineAuth(sessionAuth, bearerAuth,
+    apiKeyAuth)`. The resolver is one function by design, but the ways into an
+    application are plural — a cookie for the web, a token for the mobile app,
+    a key for an integration — and chaining them inside one body meant every
+    project re-invented the order and the short-circuit. The first strategy
+    that returns something other than `null` wins; the rest are not called.
+  - **A result that would make `this.auth` lie is refused.** An object with no
+    `actor` used to leave `isAuthenticated` true while `actor` was `undefined`,
+    so the 401 that should have happened never did and the failure surfaced
+    somewhere else entirely. Same for `permissions` given as a string instead of
+    a list: `new Set('tasks.view')` holds ten letters and matches no key. Both
+    throw a 500, because both are mistakes in the code — answering 401 would
+    send whoever debugs it to look at roles and grants instead of at the
+    resolver.
+
+  The `AuthResolver` type is still exported and `auth:` still accepts any plain
+  function of that shape. Nothing that already worked stops working.
+
 - **`liteb migration:generate <module>/<name>`** — TypeORM's generator, filed by
   module.
 

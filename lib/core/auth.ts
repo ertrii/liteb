@@ -253,3 +253,84 @@ export class Auth {
     throw new AuthError('Unauthorized.');
   }
 }
+
+/**
+ * Packs one or more strategies into the single resolver `Liteb.create()` takes.
+ *
+ * With one argument it is the seam itself, named: the callback's `request` and
+ * `context` are typed without annotating anything, and the result is checked
+ * before it reaches an endpoint.
+ *
+ * With several it is what every application ends up writing by hand. The
+ * resolver is ONE function by design, but the ways into an application are
+ * plural — a cookie session for the web, a bearer token for the mobile app, an
+ * API key for a third-party extension — and chaining them inside a single body
+ * turns the seam into an if/else ladder where order and short-circuiting are
+ * re-invented per project. Here order is the argument order, and the first
+ * strategy that recognizes the caller wins.
+ *
+ * @example
+ * // one strategy
+ * export default defineAuth(async (request, { db }) => {
+ *   const userId = request.session?.userId;
+ *   if (!userId) return null;
+ *   const user = await db.getRepository(User).findOneBy({ id: userId });
+ *   if (!user) return null;
+ *   return { actor: { userId }, permissions: PERMISSIONS_BY_ROLE[user.role] };
+ * });
+ *
+ * @example
+ * // three, tried in order
+ * export default defineAuth(sessionAuth, bearerAuth, apiKeyAuth);
+ *
+ * @param resolver The first strategy. At least one is required.
+ * @param fallbacks Tried in order, only while the previous ones return `null`.
+ */
+export function defineAuth(
+  resolver: AuthResolver,
+  ...fallbacks: AuthResolver[]
+): AuthResolver {
+  const strategies = [resolver, ...fallbacks];
+
+  return async (request, context) => {
+    for (const [index, strategy] of strategies.entries()) {
+      const result = await strategy(request, context);
+      if (result === null || result === undefined) continue;
+      return verify(result, index, strategies.length);
+    }
+
+    return null;
+  };
+}
+
+/**
+ * Refuses a result that would make `this.auth` lie.
+ *
+ * A resolver that returns an object without an `actor` leaves `Auth` in a
+ * state no endpoint can defend against: `isAuthenticated` is true while
+ * `actor` is `undefined`, so the 401 that should have happened never does and
+ * the failure surfaces later, somewhere else. A `permissions` string instead
+ * of a list is the same kind of quiet wrong — `new Set('tasks.view')` holds
+ * ten letters and matches no key.
+ *
+ * Both are mistakes in the code, so both throw a plain `Error` (a 500) rather
+ * than a 401: answering "unauthorized" would send whoever debugs it to look at
+ * roles and grants instead of at the resolver.
+ */
+function verify(result: AuthResult, index: number, total: number): AuthResult {
+  const which = total === 1 ? 'The resolver' : `Resolver #${index + 1}`;
+
+  if (typeof result.actor !== 'object' || result.actor === null) {
+    throw new Error(
+      `${which} passed to defineAuth() returned no actor. Return \`null\` for an anonymous call, or \`{ actor, permissions }\` for a recognized one.`,
+    );
+  }
+
+  if (result.permissions !== undefined && !Array.isArray(result.permissions)) {
+    throw new Error(
+      `${which} passed to defineAuth() returned \`permissions\` as ${typeof result.permissions}, not a list. Use \`['${GRANT_ALL}']\` to grant everything, or a list of the keys the actor holds.`,
+    );
+  }
+
+  return result;
+}
