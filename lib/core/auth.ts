@@ -292,11 +292,23 @@ export function defineAuth(
 ): AuthResolver {
   const strategies = [resolver, ...fallbacks];
 
+  // An indexed loop, not `for...of strategies.entries()`: this runs on every
+  // single request, and `entries()` would allocate two iterators and a
+  // throwaway `[index, strategy]` pair per strategy tried, for nothing.
   return async (request, context) => {
-    for (const [index, strategy] of strategies.entries()) {
-      const result = await strategy(request, context);
+    for (let index = 0; index < strategies.length; index += 1) {
+      const result = await strategies[index](request, context);
       if (result === null || result === undefined) continue;
-      return verify(result, index, strategies.length);
+      if (result.actor === null || typeof result.actor !== 'object') {
+        throw noActor(index, strategies.length);
+      }
+      if (
+        result.permissions !== undefined &&
+        !Array.isArray(result.permissions)
+      ) {
+        throw badPermissions(index, strategies.length, result.permissions);
+      }
+      return result;
     }
 
     return null;
@@ -316,21 +328,30 @@ export function defineAuth(
  * Both are mistakes in the code, so both throw a plain `Error` (a 500) rather
  * than a 401: answering "unauthorized" would send whoever debugs it to look at
  * roles and grants instead of at the resolver.
+ *
+ * The two checks are inlined at the call site and only these builders run, so
+ * the happy path costs two comparisons and allocates no message.
  */
-function verify(result: AuthResult, index: number, total: number): AuthResult {
-  const which = total === 1 ? 'The resolver' : `Resolver #${index + 1}`;
+function noActor(index: number, total: number): Error {
+  const name = which(index, total);
 
-  if (typeof result.actor !== 'object' || result.actor === null) {
-    throw new Error(
-      `${which} passed to defineAuth() returned no actor. Return \`null\` for an anonymous call, or \`{ actor, permissions }\` for a recognized one.`,
-    );
-  }
+  return new Error(
+    `${name} passed to defineAuth() returned no actor. Return \`null\` for an anonymous call, or \`{ actor, permissions }\` for a recognized one.`,
+  );
+}
 
-  if (result.permissions !== undefined && !Array.isArray(result.permissions)) {
-    throw new Error(
-      `${which} passed to defineAuth() returned \`permissions\` as ${typeof result.permissions}, not a list. Use \`['${GRANT_ALL}']\` to grant everything, or a list of the keys the actor holds.`,
-    );
-  }
+function badPermissions(
+  index: number,
+  total: number,
+  permissions: unknown,
+): Error {
+  const name = which(index, total);
 
-  return result;
+  return new Error(
+    `${name} passed to defineAuth() returned \`permissions\` as ${typeof permissions}, not a list. Use \`['${GRANT_ALL}']\` to grant everything, or a list of the keys the actor holds.`,
+  );
+}
+
+function which(index: number, total: number): string {
+  return total === 1 ? 'The resolver' : `Resolver #${index + 1}`;
 }
