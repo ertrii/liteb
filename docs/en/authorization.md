@@ -1,4 +1,4 @@
-| 500 `Unknown permission` | The key is in no manifest. With `declarePermissions` this is nearly always a string literal somebody typed instead of importing the set. || Which keys **exist** | the module's `permissions.ts` | the module |# Authorization
+# Authorization
 
 Who is making the request, and what they are allowed to do.
 
@@ -229,7 +229,14 @@ They are different on purpose. Reading the status tells you where to look.
 ## 401 — nobody is signed in
 
 ```json
-{ "message": "...", "response": null, "errorFields": {}, "identifier": "unauthorized" }
+{
+  "type": "/problems/unauthorized",
+  "title": "Not authenticated",
+  "status": 401,
+  "detail": "Unauthorized.",
+  "code": "unauthorized",
+  "requestId": "6eac410efc74"
+}
 ```
 
 The resolver returned `null` and an endpoint demanded something. Tells the
@@ -238,7 +245,15 @@ client: authenticate and try again.
 ## 403 — signed in, not allowed
 
 ```json
-{ "message": "Missing permission: tasks.assign.", "response": null, "errorFields": {}, "identifier": "forbidden" }
+{
+  "type": "/problems/forbidden",
+  "title": "Not allowed",
+  "status": 403,
+  "detail": "Missing permission: tasks.assign.",
+  "code": "forbidden",
+  "errors": { "permissions": "tasks.assign" },
+  "requestId": "6eac410efc74"
+}
 ```
 
 Tells the client: do not bother retrying. Look at the role, the grant, or the

@@ -1,0 +1,1340 @@
+# liteb — la versión larga
+
+> El README es el resumen. Esto es todo: el razonamiento detrás de cada
+> decisión, el fallo que cada una evita, y las partes que sólo importan cuando
+> ya estás adentro.
+
+Liteb es un framework de backend liviano y simple. Su objetivo principal es
+facilitar el desarrollo de APIs modernas con una configuración mínima y sin
+abandonar las buenas prácticas. Está inspirado en la arquitectura y la facilidad
+de uso de frameworks como NestJS: organización modular, manejo intuitivo de
+rutas, integración con la base de datos a través de TypeORM y soporte para
+trabajo programado.
+
+Con Liteb podés definir rápido los módulos y los endpoints de tu API, asociar
+middlewares y validaciones de esquema, y manejar trabajo recurrente. El framework
+prioriza la facilidad de uso, el consumo bajo de recursos y una curva de
+aprendizaje corta, sin resignar la potencia que hace falta para construir
+aplicaciones robustas y escalables.
+
+Este proyecto está pensado para quien busca una alternativa simple y rápida para
+levantar servicios de backend sin el peso de configuraciones complejas,
+manteniendo una estructura sólida y extensible.
+
+## Requisitos
+
+- **Node.js >= 20**
+- **PostgreSQL** (o cualquier base soportada por TypeORM) alcanzable al arrancar
+- `reflect-metadata` lo carga el framework — no hace falta que lo importes
+
+## Instalación
+
+```bash
+npm install liteb
+```
+
+`liteb` se apoya en unas pocas dependencias que ponés vos: `typeorm`, `express`,
+`class-validator` y `typescript`. Agregá `express-session` sólo si tu resolutor
+de autenticación usa sesiones por cookie — el framework ya no depende de él.
+
+## Estado de las funciones
+
+| Función                        | Estado |
+| ------------------------------ | ------ |
+| Ruteo                          | ✔      |
+| Validación de esquema          | ✔      |
+| Rutinas programadas            | ✔      |
+| Documentación (Swagger/OpenAPI)| ✔      |
+| Respuestas que no son JSON     | ✔      |
+| Archivos estáticos             | ✔      |
+| Manejo de cookies              | ✔      |
+| Variables de entorno           | ✔      |
+| Pruebas                        | ✔      |
+| Logging configurable           | ✔      |
+| Apagado ordenado               | ✔      |
+| Módulos instalables            | ✔      |
+| Contratos entre módulos        | ✔      |
+| Migraciones por módulo         | ✔      |
+| Costura de autenticación       | ✔      |
+| Eventos entre módulos          | ✔      |
+| Puntos de extensión (slots)    | ✔      |
+| CLI de andamiaje               | ✔      |
+
+## Línea de comandos
+
+```bash
+npx liteb@alpha init my-app     # sólo el primer comando necesita la versión:
+                                # `npx liteb` a secas resuelve la etiqueta `latest`,
+                                # que sigue siendo 1.x y trae otro CLI.
+npx liteb module billing
+npx liteb endpoint billing/issue-charge --method post
+npx liteb entity billing/charge
+npx liteb migration billing/create-charges
+npx liteb build --bytecode
+```
+
+Un módulo es una **forma**: un manifiesto, globs que tienen que coincidir, un
+índice de migraciones, claves de permiso con el id del módulo por prefijo. Cada
+una de esas cosas es un lugar donde estar a una convención de distancia y
+enterarte al arrancar — o no enterarte nunca, porque un glob de `routes` que no
+coincide con nada arranca limpio y contesta 404. El CLI escribe la forma; el
+código lo escribís vos.
+
+| Comando | Qué escribe |
+| --- | --- |
+| `init [name]` | Un proyecto que corre: `package.json`, `tsconfig.json`, `.env`, punto de entrada — y `npm install` (`--skip-install` para parar antes) |
+| `module <name>` | `module.ts`, su archivo de permisos y un primer endpoint |
+| `endpoint <module>/<name>` | Un endpoint (`--method`, `--path`, `--group`, `--public`) |
+| `routine <module>/<name>` | Trabajo con horario (`--cron`) |
+| `contract <module>/<name>` | Una capacidad que este módulo publica: token y forma |
+| `provider <module>/<name>` | La clase que la responde (`--slot` para llenar un punto de extensión) |
+| `event <module>/<name>` | Algo que este módulo anuncia |
+| `slot <module>/<name>` | Un punto de extensión que otros pueden llenar |
+| `listener <module>/<name>` | Un oyente |
+| `entity <module>/<name>` | Una entidad (`--table`) |
+| `migration <module>/<name>` | Una migración con sello de tiempo |
+| `migrate` | Corre las migraciones pendientes sin levantar el servidor (`--dry-run`, `--entry`) |
+| `migrate:status` | Qué declara cada módulo, y qué de eso ya corrió |
+| `build` | `tsc` + los archivos que nunca fueron TypeScript (`--bytecode`, `--out`, `--project`) |
+
+Banderas compartidas: `--dir <path>` (dónde viven los módulos, `src/modules` por
+defecto), `--from <specifier>` (de dónde importa liteb el código generado) y
+`--force`.
+
+> Cada comando y cada bandera, con lo que escribe y por qué:
+> [docs/cli.md](./cli.md).
+
+Dos cosas que **no** hace, a propósito:
+
+- No conoce tu aplicación: ni base de datos, ni archivo de configuración, ni
+  registro de lo que existe. Lee argumentos y escribe archivos.
+- Edita archivos que no escribió **sólo** donde la forma es segura — agregar el
+  módulo a `modules: []` en el punto de entrada, agregar una clave al literal
+  `declarePermissions({ ... })`. Cualquier cosa menos segura se imprime como
+  instrucción. Un andamiaje que destroza en silencio un archivo que escribiste es
+  peor que uno que te dice qué agregar.
+
+Fijate qué pocas son. La mayoría de los generadores escribe un archivo y no edita
+nada, porque la [disposición estándar](#la-disposición-estándar) es lo que lo
+registra — no hay lista que mantener sincronizada.
+
+> El CLI de 1.x se borró porque sus plantillas eran assets sueltos que nadie
+> compilaba, y se fueron separando hasta generar decoradores que el framework ya
+> no tenía. Estas plantillas son parte de la misma compilación que todo lo demás,
+> y `test/cli.spec.ts` anda un módulo y lo **arranca** — una plantilla que deja
+> de coincidir con el framework hace fallar la suite.
+
+## Definir endpoints
+
+Cada endpoint es **su propia clase**, que extiende `Endpoint` e implementa
+`main()`. Los metadatos de ruteo vienen de decoradores; la clase la descubre el
+glob `routes` del módulo al que pertenece (ver [Módulos](#módulos)).
+
+```typescript
+import { Endpoint, Group, HttpGet, Params, NotFoundError } from 'liteb';
+import { IsUUID } from 'class-validator';
+
+class UserParams {
+  @IsUUID()
+  id: string;
+}
+
+@Group('users')
+@HttpGet(':id')
+@Params(UserParams)
+export class GetUserApi extends Endpoint<UserParams> {
+  // `this.db` está disponible en los inicializadores de campo.
+  private readonly repo = this.db.getRepository(User);
+
+  async main() {
+    const user = await this.repo.findOneBy({ id: this.params.id });
+    if (!user) throw new NotFoundError('User not found');
+    return user; // se serializa como JSON con el estado `this.httpStatus` (200 por defecto)
+  }
+}
+```
+
+- **Ciclo de vida**: `previous()` → `main()`. `previous()` es opcional y corre
+  sobre la misma instancia, con `params`, `body`, `query` y `auth` ya puestos —
+  lanzar desde ahí saltea `main()`, que es lo que lo convierte en una guarda. No
+  hay ganchos `error()` ni `final()`: lanzá la clase de error correcta y el
+  framework la mapea, y envolvé en `this.db.transaction(cb)` el trabajo que tiene
+  que confirmarse o revertirse entero.
+- **El estado de la petición** (`this.params`, `this.body`, `this.query`,
+  `this.request`, `this.response`, `this.file(s)`) se inyecta por petición.
+- **Errores**: lanzá un error del framework para obtener un estado HTTP mapeado —
+  `NotFoundError` (404), `AuthError` (401), `ForbiddenError` (403),
+  `CustomerError` (406), `SchemaError` (422), `CustomError(status, ...)`.
+  Cualquier otro valor lanzado se vuelve un 500. Las rutas sin coincidencia
+  contestan la misma forma con 404. Ver [Fallos](#fallos).
+- **Quién pregunta** está en `this.auth` (ver [Autenticación](#autenticación)).
+
+### Transacciones
+
+No hay gancho de transacción ni decorador de transacción. Usá el de TypeORM:
+
+```typescript
+async main() {
+  return this.db.transaction(async (manager) => {
+    const charge = await manager.save(Charge, { ... });
+    await manager.update(Subscription, id, { lastChargeId: charge.id });
+    return charge;
+  });
+}
+```
+
+Confirmar, revertir y liberar son el contrato del callback, así que no se pueden
+olvidar. Repartirlos entre ganchos del ciclo de vida — `startTransaction` en un
+método, `commit` en otro, `rollback` en un tercero — esconde los límites de la
+transacción del código que depende de ellos; por eso esos ganchos ya no están.
+
+### Decoradores de verbo HTTP
+
+| Decorador     | Método HTTP |
+| ------------- | ----------- |
+| `@HttpGet`    | GET         |
+| `@HttpPost`   | POST        |
+| `@HttpPut`    | PUT         |
+| `@HttpDelete` | DELETE      |
+| `@HttpPatch`  | PATCH       |
+| `@HttpQuery`  | QUERY       |
+
+**Sobre `@HttpQuery`**: QUERY es un método seguro e idempotente que (a diferencia
+de GET) permite cuerpo — útil para búsquedas cuyos criterios no entran en la
+query string. Declará los criterios con `@Body`. Tené en cuenta que QUERY es un
+borrador de la IETF (`draft-ietf-httpbis-safe-method-w-body`): necesita un Node
+cuyo parser HTTP lo reconozca, puede no estar soportado por proxies o CDNs, y
+queda fuera de la especificación OpenAPI. Si el runtime no soporta el verbo, la
+ruta se saltea con una línea de log clara en vez de tirar abajo el arranque.
+
+### El grupo: @Group
+
+Una ruta cuelga del **id del módulo** que la cargó. No hace falta ningún
+decorador para eso, que es el caso común:
+
+```typescript
+// module.ts declara id: 'catalog'
+@HttpGet(':id')                            // /api/catalog/:id
+```
+
+`@Group` reemplaza el prefijo cuando la URL no tiene que llevar el id del módulo
+— porque un módulo sirve más de un recurso (`identity` sirviendo `auth` **y**
+`users`), o porque varios módulos aportan al mismo prefijo:
+
+```typescript
+@Group('products')                         // /api/products/:id
+```
+
+Las dos identidades están separadas a propósito: el id del módulo nombra la
+UNIDAD INSTALABLE (permisos, `requires`, la fila en `_modules`), el grupo nombra
+la URL. Renombrar una no tiene que renombrar la otra.
+
+> `@Module` era el nombre viejo de este decorador: significaba "grupo de rutas"
+> en 1.x, antes de que "módulo" pasara a significar la unidad instalable. Se
+> eliminaron él y su opción `basePath` — la opción ahora es `mount`.
+
+### Dónde se monta un grupo
+
+`Liteb.create({ basePath: '/api' })` prefija cada ruta. Un grupo puede decir que
+cuelga de otro lado:
+
+```typescript
+@Group('products')                         // /api/products
+@Group('products', { mount: '/' })         // /products
+@Group('checkout', { mount: '/shop' })     // /shop/checkout
+```
+
+El reemplazo es por GRUPO — por decorador `@Group` — y no por aplicación ni por
+módulo, porque ahí es donde cae la división de verdad: en un monolito que sirve
+páginas y una API, el mismo módulo tiene endpoints JSON que van bajo `/api` y una
+página que no. `/api/products/page` no es una URL que alguien enlazaría.
+
+Dos consecuencias:
+
+- Las rutas bajo prefijos distintos no se pueden tapar entre sí, así que no hace
+  falta `@Priority` entre ellas.
+- El mapa de rutas (`router.log`) imprime la URL real de cada una, así que un
+  grupo que terminó en un lugar inesperado se ve al arrancar.
+
+### Esquema, middleware y prioridad
+
+```typescript
+@Group('users')
+@HttpPost()
+@Body(CreateUserDto)          // validado con class-validator antes de main()
+@Use(requireAuth)             // una función (req, res, next)
+@Priority(1)                  // se registra antes que las rutas `:param` del mismo módulo
+export class CreateUserApi extends Endpoint<null, CreateUserDto> {
+  main() {
+    return { created: this.body.name };
+  }
+}
+```
+
+`@Use` toma una **función** middleware `(req, res, next)` — una función puede
+poner cabeceras y elegir el estado, y por eso no hay una clase base para eso.
+
+## Módulos
+
+Un módulo es una unidad que se puede instalar, encender y apagar: declara sus
+propias entidades, migraciones, rutas, rutinas, permisos y los contratos que
+publica. `_modules` registra qué está instalado y qué está encendido, así que
+apagar un módulo quita sus rutas y detiene sus rutinas **sin tocar sus datos**.
+
+```typescript
+// modules/billing/module.ts
+import { contract, defineModule } from 'liteb';
+
+export interface BillingService {
+  issueCharge(input: IssueChargeInput): Promise<Charge>;
+}
+export const BillingService = contract<BillingService>('billing.service');
+
+export default defineModule({
+  id: 'billing',
+  version: '1.0.0',
+  core: true, // un módulo core no se puede apagar
+  engine: '^2.0.0', // rango de host que soporta
+  requires: ['identity'], // se comprueba al arrancar
+  dir: __dirname, // la carpeta desde la que se encuentra todo
+
+  permissions: [{ key: 'billing.view', label: 'View billing' }],
+});
+```
+
+Un manifiesto es donde las piezas se **enlazan**, y nada más: sin rutas, porque
+las carpetas son la disposición de abajo, y sin implementación, porque eso es una
+clase en `providers/`.
+
+### La disposición estándar
+
+El manifiesto de arriba no lista ninguna ruta, y ese es el punto: lo que dice es
+lo que tiene de particular **este** módulo. Las carpetas se encuentran desde
+`dir`:
+
+| Carpeta | Qué carga liteb de ahí |
+| --- | --- |
+| `entities/*.entity.ts` | las clases decoradas, para el DataSource |
+| `migrations/*.ts` | las clases de migración |
+| `endpoints/*.endpoint.ts` | los endpoints, montados bajo el id del módulo |
+| `routines/*.routine.ts` | las rutinas programadas |
+| `listeners/*.listener.ts` | los oyentes de eventos |
+| `providers/*.provider.ts` | las clases `Provider`: qué responde, qué aporta |
+
+Escribir el archivo es todo lo que hay que hacer. `liteb entity billing/charge`
+escribe `entities/charge.entity.ts` y no edita **nada**: la carpeta es lo que lo
+declara.
+
+Sólo se toman las entidades decoradas y las clases de migración. Un enum, un DTO
+o un helper exportado del mismo archivo se ignoran, así que una carpeta puede
+tener lo que va con ella.
+
+Otras dos carpetas son convención sin ser globs, porque no hay nada que descubrir
+en ellas — un token se importa por nombre:
+
+| Carpeta | Qué va adentro |
+| --- | --- |
+| `contracts/*.contract.ts` | los contratos que este módulo publica |
+| `events/*.event.ts` · `slots/*.slot.ts` | los eventos que anuncia, los puntos de extensión que abre |
+
+Juntas son la cara pública del módulo: los únicos archivos que otro módulo
+importa alguna vez — y la razón por la que `liteb init` escribe un alias de
+rutas, porque esas son las rutas profundas:
+
+```typescript
+import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+//                            ^ src/modules/, sin importar qué tan hondo estés
+```
+
+Un alias de `paths` existe **sólo en tiempo de compilación**: `tsc` lo
+typechequea y después emite `require("@/…")` tal cual, algo de lo que Node nunca
+oyó hablar. `liteb build` los reescribe a rutas relativas en la salida, y
+`npm run dev` los resuelve con `tsconfig-paths`. Si cambiás el alias en
+`tsconfig.json`, cambiá el script `dev` con él.
+
+**Nombrar un campo dice otra cosa**, y sólo para ese campo:
+
+```typescript
+export default defineModule({
+  id: 'billing',
+  version: '1.0.0',
+  dir: __dirname,
+
+  // Una disposición DDD: los endpoints están en otro lado. Entidades,
+  // migraciones, rutinas y oyentes siguen viniendo de las carpetas estándar.
+  routes: './presentation/controllers/**/*.controller.ts',
+});
+```
+
+Dos reglas que conviene conocer:
+
+- **Todo cuelga de `dir`.** Sin él no hay contra qué resolver — un glob caería
+  sobre el directorio de trabajo que el proceso haya tenido — así que liteb no
+  aplica ningún valor por defecto, y el módulo tiene que listar sus entidades a
+  mano. Siempre `dir: __dirname`.
+- **Un `[]` explícito significa "ninguno".** `entities: []` es un autor diciendo
+  que este módulo no tiene entidades, así que no se aplica ningún valor por
+  defecto.
+
+Un glob que ESCRIBISTE y no encuentra nada se reporta al arrancar; uno por
+defecto que no encuentra nada, no, porque un módulo sin rutinas es un módulo
+común.
+
+Arrancá la aplicación desde sus módulos. `Liteb.create` es dueño del DataSource,
+porque TypeORM necesita las entidades de todos los módulos cuando se construye la
+conexión:
+
+```typescript
+const app = await Liteb.create({
+  db: { type: 'postgres', host, database },
+  modules: [identity, billing, inventory],
+  version: '2.0.0', // se comprueba contra el `engine` de cada módulo
+  basePath: '/api', // prefijo de las rutas de los módulos
+});
+
+await app.start(4000);
+```
+
+Cuatro opciones más, todas política que la aplicación posee y liteb sólo monta:
+`cors`, `auth`, `docs` (la interfaz OpenAPI generada) y `health`. Mirá
+[la guía del CLI](./cli.md#liteb-init-name) para lo que `liteb init` deja
+cableado.
+
+### Fallos
+
+Todo fallo contesta la misma forma, como `application/problem+json`
+([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)) — que además es cómo un
+cliente distingue un fallo de una carga que por casualidad tiene un campo
+`status`:
+
+```json
+{
+  "type": "/problems/validation",
+  "title": "Validation failed",
+  "status": 422,
+  "detail": "The request body is not valid",
+  "code": "schema",
+  "errors": { "email": "must be an email" },
+  "requestId": "9f2c1a7b4e30"
+}
+```
+
+- **`title` es estable y nombra el TIPO de problema; `detail` es sobre esta
+  ocurrencia.** Mostrá `detail`, agrupá por `title`.
+- **Ramificá sobre `code`**, no sobre `title` ni `type`. Sus valores son el enum
+  `ErrorIdentifier`: `schema`, `customer`, `not_found`, `internal`,
+  `unauthorized`, `forbidden`, `custom`.
+- **`errors` dice de qué CAMPO es el problema**, así un formulario puede poner el
+  mensaje debajo del input correcto en vez de en un cartel. Es un miembro de
+  extensión, que la RFC permite justamente para esto, y es la razón por la que la
+  forma existe.
+- **`requestId`** es el mismo id que lleva la cabecera de la respuesta y con el
+  que se escribió cada línea de log de esa petición.
+
+`CustomError(status, message, payload)` pone `payload` bajo `response`, para el
+caso en que el cliente necesita datos sobre el fallo y no sólo palabras.
+
+### Un id por petición
+
+Se lee de `x-request-id` o se genera, se devuelve en la respuesta, y está en
+**cada línea de log escrita mientras se atiende esa petición** — la línea de
+acceso, lo que registre un endpoint, lo que registre un proveedor o un oyente
+bien adentro:
+
+```
+GET /api/products 200 4.4 ms - 139 [44e9e203a52f]
+[44e9e203a52f] restock del producto 12 falló, revirtiendo
+```
+
+Llega a esas líneas internas por `AsyncLocalStorage` y no pasándolo hacia abajo,
+porque las líneas que vale la pena correlacionar se escriben donde nadie recibió
+nada. En un endpoint es `this.requestId`; en cualquier otro lado,
+`currentRequestId()`.
+
+Conviene ponerlo en lo que registres — una fila de auditoría, un trabajo que
+encolás, una llamada a otro servicio — porque es lo que ata "un usuario dice que
+falló" con las líneas que dicen por qué.
+
+Una cabecera entrante es entrada del cliente: se acepta sólo si coincide con
+`[A-Za-z0-9._:-]{1,128}` y si no, se reemplaza por un id generado, porque un
+salto de línea en una cabecera se convertiría en una entrada de log falsificada.
+Se reemplaza en vez de sanearse — un id a medio limpiar no es el que tiene quien
+llama, así que no correlacionaría nada.
+
+```typescript
+requestId: { header: 'x-correlation-id' } // si tu gateway ya manda uno
+```
+
+### Salud
+
+```typescript
+health: { path: '/health' } // 200 mientras puede atender, 503 mientras no
+```
+
+Sin autenticación y fuera de `basePath`, porque eso es lo que puede leer un
+balanceador, un runtime de contenedores o un chequeo de disponibilidad. Fuera del
+log de accesos: una sonda cada pocos segundos si no entierra cada petición real.
+
+El chequeo de la base es un **viaje de ida y vuelta**, no `isInitialized` — esa
+bandera sigue en true después de que se cae la conexión, porque el pool sólo se
+entera cuando alguien pregunta, así que un chequeo que la lee reporta `pass`
+durante la única caída para la que existe. Y contesta 503 **apenas empieza el
+apagado**, antes de que el servidor deje de aceptar, que es la ventana que un
+balanceador necesita para drenar.
+
+```json
+{ "status": "pass", "uptime": 1284 }
+{ "status": "fail", "uptime": 1284, "checks": { "database": "fail" } }
+```
+
+Flaco a propósito: una sonda no puede autenticarse, así que las versiones y las
+cantidades de módulos serían el mapa de tu instalación para quien lo encuentre.
+`details: true` los agrega, para cuando está detrás de una puerta.
+
+#### Tus propios chequeos
+
+liteb sólo sabe lo suyo: que el proceso está arriba y que la base contesta. Si
+una cola tiene que estar conectada, un proveedor de pagos alcanzable o una caché
+caliente, eso es conocimiento que el framework no puede adivinar — así que lo
+recibe:
+
+```typescript
+health: {
+  path: '/health',
+  checks: {
+    queue: () => bridge.isConnected(),
+    payments: async () => (await gateway.ping()).ok,
+  },
+}
+```
+
+`true` pasa. **Lanzar cuenta como `fail`**, porque una dependencia caída se suele
+anunciar lanzando, y este es el único lugar donde una excepción es una respuesta
+y no un fallo. Un solo `fail` pone todo el endpoint en 503 y nombra al culpable
+en `checks`.
+
+Corren todos en paralelo en cada petición, así que la sonda espera al más lento y
+no la suma — igual, mantenelos baratos. Un chequeo que se cuelga se corta en
+`timeout` (2 s por defecto) y cuenta como `fail`: una sonda que nunca contesta le
+llega a un balanceador como un problema de red y no como una instancia enferma.
+`server` y `database` son nombres de liteb y se rechazan al arrancar, así que un
+chequeo de la aplicación nunca puede reemplazar en silencio la respuesta de la
+base.
+
+Esta es la costura que `/readyz` iba a ser. No se parte en `/livez` y `/readyz`
+porque esa división sólo rinde cuando una plataforma trata a las dos distinto
+—reiniciar vs. sacar de rotación— y liteb tiene una sola respuesta honesta para
+dar en cualquiera de los dos casos.
+
+Al arrancar lee `_modules`, resuelve el grafo de dependencias, corre las
+migraciones pendientes de cada módulo **en orden de dependencias**, registra los
+contratos, y monta sólo lo que está encendido. Cualquier fallo ahí detiene el
+arranque: servir a medio montar es peor que no arrancar.
+
+### Enviar un módulo compilado, o como paquete
+
+Los globs de `routes` y `routines` son **agnósticos de la extensión**.
+Escribilos como quieras — `'./endpoints/*.endpoint.ts'`,
+`'./endpoints/*.endpoint.js'` o `'./endpoints/*.endpoint'` — y liteb busca `.ts`,
+`.js`, `.cjs`, `.mjs` y `.jsc`. Vos declarás *qué* archivos; la extensión no es
+tu problema.
+
+Eso es lo que hace que **un solo manifiesto** funcione en cuatro lugares:
+
+- desde el código en desarrollo (`.ts`)
+- desde una compilación que le enviás al servidor de un cliente (`.js`)
+- desde `node_modules`, cuando el módulo se publica como paquete
+- desde una compilación a **bytecode de V8** (`.jsc`), para una instalación que
+  no controlás
+
+```typescript
+import billing from '@acme/liteb-billing'; // un módulo que escribió otro
+
+const app = await Liteb.create({ db, modules: [identity, billing] });
+```
+
+Si un árbol de código y su compilación conviven, se carga sólo uno de cada
+archivo (`.ts` gana, `.jsc` pierde contra cualquier cosa legible), así que las
+rutas nunca se registran dos veces. Los archivos `*.d.ts` se saltean.
+
+#### Cargar un módulo compilado a bytecode de V8
+
+`npx liteb build --bytecode` compila el proyecto, copia lo que nunca fue
+TypeScript (plantillas, archivos estáticos) y convierte cada `.js` en un `.jsc`
+con la caché de código de V8, borrando el archivo legible. liteb los carga como
+cualquier otro archivo de módulo — **siempre que la aplicación registre la
+extensión primero**:
+
+```javascript
+require('bytenode'); // registra Module._extensions['.jsc']
+const app = await Liteb.create({ db, modules: [identity, catalog] });
+```
+
+liteb **no** depende de bytenode, y no compila nada: qué es un archivo `.jsc`
+depende de la compilación de Node que lo produjo, y esa es una decisión de la
+aplicación, no del framework.
+
+`npm run demo:bytecode` hace todo el recorrido sobre la app de ejemplo — la
+compila, borra cada `.js`, arranca desde los `.jsc` e imprime el mapa de rutas —
+así que lo que dice esta página es algo que podés correr. Conviene saber esto
+antes de planificar alrededor:
+
+- Un `.jsc` queda **atado a la versión de Node/V8 que lo produjo**. Otra versión
+  falla con `Invalid or incompatible cached data`, así que el runtime tiene que
+  viajar con la compilación.
+- Es **opacidad, no cifrado**. La lógica deja de leerse como código fuente, pero
+  los literales de cadena, los identificadores y los nombres de propiedades y
+  clases sobreviven en la caché — y también todo lo que nunca fue JavaScript:
+  plantillas, migraciones SQL, archivos estáticos, variables de entorno.
+
+### Llamar a otro módulo
+
+Un módulo alcanza a otro por su contrato, nunca importándolo — que es lo que
+permite que el proveedor cambie o se reemplace sin tocar a quienes lo llaman.
+
+```typescript
+@Group('sales')
+@HttpPost('/')
+export default class CreateSale extends Endpoint<never, CreateSaleDto> {
+  async main() {
+    const billing = this.get(BillingService);
+    const charge = await billing.issueCharge({ ... });
+    return { chargeId: charge.id };
+  }
+}
+```
+
+Declaralo en el manifiesto para que un proveedor faltante detenga el arranque en
+vez de fallar en la primera petición que lo necesitó:
+
+```typescript
+consumes: [BillingService],
+```
+
+Las rutinas tienen el mismo `this.get()`.
+
+#### Las dos mitades
+
+Un contrato está partido en dos a propósito, y viven en carpetas distintas.
+
+```typescript
+// billing/contracts/billing-service.contract.ts — la promesa
+export interface BillingService {
+  issueCharge(input: IssueChargeInput): Promise<Charge>;
+}
+export const BillingService = contract<BillingService>('billing.service');
+```
+
+```typescript
+// billing/providers/billing-service.provider.ts — cómo se cumple
+@Provides(BillingService)
+export class BillingServiceProvider extends Provider implements BillingService {
+  private readonly charges = this.db.getRepository(Charge);
+
+  async issueCharge(input: IssueChargeInput) { ... }
+}
+```
+
+El consumidor importa el **archivo del contrato** y nunca el proveedor. Nada
+lista al proveedor: la carpeta es lo que lo registra y el decorador dice qué
+contrato responde.
+
+- **`this.db`, `this.get()`, `this.all()` y `this.emit()`** se inyectan antes de
+  construir la instancia, así que un inicializador de campo ya puede alcanzar un
+  repositorio — igual que un endpoint, una rutina o un oyente.
+- **Se construye al primer uso, y después se reutiliza.** Un contrato que nadie
+  llama no cuesta nada, y el arranque no se cuelga por algo que necesita un solo
+  endpoint.
+- **Exactamente un proveedor.** Dos módulos respondiendo el mismo contrato es un
+  error al arrancar, porque si no quien llama recibiría uno de los dos según el
+  orden de carga.
+- Dos implementaciones pidiéndose entre sí se reportan por nombre en vez de
+  agotar la pila.
+- Un `Provider` sin decorador se saltea con un aviso: un archivo a medio escribir
+  no es una instalación rota.
+
+### Puntos de extensión
+
+Tres formas en que los módulos se encuentran, y no son intercambiables:
+
+| | Quién responde | Quién lee |
+| --- | --- | --- |
+| **Contrato** (`get`) | exactamente uno | quien llama, y espera la respuesta |
+| **Evento** (`emit`) | cualquier cantidad de oyentes | nadie — no hay respuesta |
+| **Slot** (`all`) | cualquier cantidad de contribuciones | el módulo que lo abrió |
+
+Un slot es donde se enchufa una extensión de terceros: el anfitrión no sabe qué
+va a existir, así que declara la forma y enumera lo que esté instalado.
+
+```typescript
+// catalog abre el punto
+export interface ProductBadge {
+  id: string;
+  for(product: { id: number; stock: number }): string | null;
+}
+export const ProductBadges = slot<ProductBadge>('catalog.product-badges');
+```
+
+```typescript
+// cualquier módulo lo llena, sin que catalog cambie — providers/low-stock-badge.provider.ts
+@Contributes(ProductBadges)
+export class LowStockBadge extends Provider implements ProductBadge {
+  readonly id = 'low-stock';
+  for(product) {
+    return product.stock < 10 ? 'Low stock' : null;
+  }
+}
+```
+
+```typescript
+// catalog lee a quien haya aparecido
+const badges = this.all(ProductBadges);
+```
+
+**Mirá la dirección.** El módulo que ABRE el slot es del que dependen las
+extensiones: `catalog` no sabe nada de quién lo llena, mientras que un
+contribuyente importa su token. Al revés, el core dependería de sus propias
+extensiones y ninguna se podría quitar.
+
+- Una contribución es un `Provider` como cualquier otro — misma carpeta, misma
+  inyección — y `@Contributes` toma un slot donde `@Provides` toma un contrato.
+  Pasar uno donde va el otro falla en el decorador, con la diferencia explicada.
+- **Sólo los módulos encendidos contribuyen**, así que apagar una extensión quita
+  lo que agregó.
+- Un arreglo vacío es una respuesta normal: un slot que nadie llenó es una función
+  que nadie instaló.
+- Se construyen en la primera lectura y se cachean, y una contribución que pide su
+  propio slot se reporta en vez de agotar la pila.
+- El orden es el de dependencias, así que es estable entre arranques.
+
+### Permisos
+
+Un módulo declara el vocabulario de lo que se puede gatear adentro:
+
+```typescript
+permissions: [
+  { key: 'billing.view', label: 'View billing' },
+  { key: 'billing.void', label: 'Void a charge' },
+],
+```
+
+Las claves **tienen** que llevar el id del módulo por prefijo. Todos los módulos,
+incluido uno que escribió otra persona, comparten un único espacio de permisos, y
+el prefijo es lo que impide que dos reclamen la misma clave.
+
+Después los endpoints las exigen (ver [Autenticación](#autenticación)), y la
+aplicación arma su pantalla de "quién puede qué" desde el catálogo en vez de un
+archivo central que alguien tiene que acordarse de editar:
+
+```typescript
+app.permissions();
+// [{ key: 'billing.view', label: 'View billing', moduleId: 'billing' }, ...]
+```
+
+**Una clave que ningún módulo instalado declara se rechaza**, con un `Error`
+común (500) y una sugerencia — no con un 403. Un 403 mandaría a quien depura a
+mirar roles y concesiones cuando el problema es un typo:
+
+```
+Unknown permission "billing.veiw": no installed module declares it.
+Add it to that module's "permissions" in defineModule().
+Did you mean: billing.view, billing.void?
+```
+
+La comprobación corre **antes** del 401, así que una clave no declarada aparece
+en la primera petición aunque sigas siendo anónimo. Los módulos instalados pero
+apagados igual aportan sus claves: apagar decide qué corre, no qué existe.
+
+### Eventos entre módulos
+
+Un contrato es una llamada: le pedís algo a un módulo en particular y esperás. Un
+evento es un anuncio: *esto pasó*, y reacciona quien le importe.
+
+```typescript
+// catalog/module.ts — quien emite exporta el token, nada más
+export interface ProductRestocked {
+  productId: number;
+  quantity: number;
+}
+export const ProductRestocked = event<ProductRestocked>(
+  'catalog.product.restocked',
+);
+```
+
+```typescript
+// en un endpoint o una rutina de `catalog`
+await this.emit(ProductRestocked, { productId, quantity });
+```
+
+```typescript
+// reports/listeners/restock-log.listener.ts
+@On(ProductRestocked)
+export class RestockLog extends Listener<ProductRestocked> {
+  async on(payload: ProductRestocked) {
+    await this.get(UserDirectory).nameOf(payload.userId);
+  }
+}
+```
+
+El archivo va en la carpeta `listeners/` del módulo, igual que una rutina va en
+`routines/`. No hay nada que declarar.
+
+Las reglas que evitan que un evento se convierta en una llamada con pasos de
+más:
+
+- **Un oyente que lanza no hace fallar a quien emitió.** El fallo se registra con
+  el módulo y el evento; la petición sigue. Si el resultado le importa a quien
+  llama, lo que quiere es un contrato, no un evento.
+- **Un evento que nadie escucha es normal**, no un error.
+- Los oyentes corren en paralelo y `emit()` resuelve cuando todos terminaron.
+- **Sólo los módulos encendidos reaccionan.** Apagar un módulo detiene también
+  sus efectos secundarios, o "apagado" sería mentira.
+- Un oyente que **declara** su parámetro de carga se chequea contra el token, así
+  que un campo renombrado no puede llegar en silencio a un manejador que todavía
+  espera el viejo. (Uno que ignora la carga compila contra cualquier token — no
+  puede malinterpretar lo que nunca lee.)
+
+**OJO:** los oyentes leen en su propia conexión. Emitir dentro de
+`db.transaction()` significa que no van a ver las filas sin confirmar — emitá
+*después* de que confirme, o poné lo que necesitan en la carga.
+
+### Encender y apagar
+
+Un módulo nuevo se instala **apagado** salvo que sea core, así que una
+actualización nunca enciende algo que nadie pidió.
+
+```typescript
+const store = new ModuleStore(dataSource);
+await store.enable('inventory'); // tiene efecto en el próximo arranque
+await store.disable('inventory');
+await store.list();
+```
+
+## Probar una compilación local
+
+Para probar una versión sin publicar contra tu propio proyecto:
+
+```bash
+cd liteb && npm run build && npm pack       # -> liteb-<version>.tgz
+cd ../tu-proyecto && npm install ../liteb/liteb-<version>.tgz
+```
+
+Un tarball se parece más a lo que npm instala de verdad que `npm link`, que
+resuelve por enlaces simbólicos y puede esconder un archivo faltante o una
+entrada `files` mal puesta.
+
+## Autenticación
+
+> Paso a paso, con recetas y una tabla de diagnóstico:
+> [docs/authorization.md](./authorization.md).
+
+`auth` es **opcional** para el framework: un endpoint que nunca lee `this.auth`
+no necesita resolutor, y una API de endpoints simples se levanta sin decidir
+primero quiénes son tus usuarios.
+
+Un proyecto hecho con `liteb init` igual tiene uno. `src/config/auth.ts` deja
+pasar a TODOS con todos los permisos — no es autenticación, pero alcanza para que
+`this.auth`, `this.auth.assert(...)` y las claves chequeadas por el compilador
+funcionen desde la primera petición. Por eso el andamiaje escribe la línea
+`this.auth.assert(...)` **viva**: la puerta está puesta y abierta, que es el único
+orden en el que cerrarla es un cambio de una línea. Un andamiaje que entrega la
+aserción comentada enseña que un endpoint es abierto por defecto, y el día que
+alguien escriba autenticación de verdad, todos los endpoints escritos hasta ahí
+siguen abiertos. `--public` deja la línea afuera para los que sí tienen que
+estarlo.
+
+Cuando sí la querés: los endpoints nunca se enteran de cómo se identificó a quien
+llama. Un resolutor convierte una petición en un **actor**, y cada endpoint lo lee
+como `this.auth`.
+
+```typescript
+const app = await Liteb.create({
+  db,
+  modules: [identity, billing],
+  auth: async (request, { db }) => {
+    const userId = request.session?.userId; // o un token bearer, o una API key
+    if (!userId) return null; // anónimo
+
+    const user = await db.getRepository(User).findOneBy({ id: userId });
+    if (!user) return null; // borrado a mitad de la sesión
+
+    return {
+      actor: { userId },
+      permissions: user.role === 'owner' ? ['*'] : ['billing.view'],
+    };
+  },
+});
+```
+
+Esa es toda la función. liteb no guarda roles ni usuarios: recibe una lista de
+claves por petición y compara cadenas. Qué claves tiene alguien es la regla de
+**tu** aplicación, donde sea que la guardes.
+
+El resolutor también recibe `get`, para resolver un contrato en vez de consultar:
+
+```typescript
+  auth: async (request, { get }) => {
+    const userId = request.session?.userId;
+    if (!userId) return null;
+    const permissions = await get(UserDirectory).permissionsOf(userId);
+    return permissions ? { actor: { userId }, permissions } : null;
+  },
+```
+
+Vale la pena por UNA razón, y sólo cuando aplica: el resolutor suele vivir fuera
+de los módulos, así que consultar directo significa importar una entidad de las
+entrañas de un módulo. Está bien mientras seas dueño de todos los módulos; deja
+de estarlo cuando uno viene instalado de otro lado, o se supone que se puede
+reemplazar. La demo bajo `src/` usa el contrato para mostrar esto, lo que hace
+que el caso simple parezca más difícil de lo que es — empezá con `db`.
+
+Declará la forma del actor **una vez**, en cualquier parte de tu app, y queda
+tipada en todos lados:
+
+```typescript
+declare global {
+  namespace LitebAuth {
+    interface Actor {
+      userId: number;
+      tenant: string;
+    }
+  }
+}
+```
+
+Después, dentro de un endpoint:
+
+```typescript
+this.auth.actor.userId; // tipado; lanza AuthError (401) si es anónimo
+this.auth.optional; // Actor | null, para endpoints abiertos a todos
+this.auth.isAuthenticated; // boolean
+this.auth.can('billing.void'); // boolean, false si es anónimo
+this.auth.assert('billing.void'); // 401 si es anónimo, 403 si tiene sesión y no alcanza
+```
+
+Notas:
+
+- `this.auth.actor` **lanza a propósito**. Leer a quien llama y comprobar que
+  existía eran dos pasos que había que escribir juntos todas las veces, y
+  olvidarse del segundo fallaba en silencio. Usá `optional` donde anónimo es un
+  caso válido.
+- 401 y 403 no son intercambiables: 401 le dice a un cliente que se autentique,
+  403 le dice que no se moleste. `assert()` elige el correcto.
+- Las claves de permiso son las que los módulos declaran en su manifiesto. `*` da
+  todo.
+- El resolutor corre una vez por petición, antes de `previous()`, así que
+  mantenelo barato. Lanzar desde ahí es legítimo — un token mal formado es un 401
+  — y se mapea por el manejo de errores normal.
+- Recibe `{ db, get }` como segundo argumento. Sin eso, una aplicación cuyos
+  permisos viven en la base tenía que cerrar sobre un singleton de DataSource
+  importado, o copiarlos a la sesión al iniciar y dejarlos envejecer — un rol
+  revocado seguiría funcionando hasta el próximo ingreso.
+- `this.auth` es **estado por petición**: como `params` y `body`, no se puede leer
+  desde un constructor ni desde un inicializador de campo.
+- Sin resolutor, leer `this.auth.actor` levanta un `Error` común (500), no un 401:
+  una app que nunca cableó la autenticación tiene un bug, no un visitante no
+  autorizado.
+
+## Arranque
+
+`Liteb.create()` es la única forma de construir una aplicación, y **los módulos
+son la única forma de montar algo**. No hay una API para montar por globs: una
+ruta o una rutina pertenece a un módulo, o no existe.
+
+```typescript
+import { Liteb } from 'liteb';
+import identity from './modules/identity/module';
+import billing from './modules/billing/module';
+
+const app = await Liteb.create({
+  db: { type: 'postgres' /* ... */ }, // o un DataSource que ya tenés
+  modules: [identity, billing],
+  version: '3.0.0',
+  basePath: '/api',
+});
+
+await app.start(5000);
+```
+
+`start()`:
+
+- falla rápido si no se puede alcanzar la base (lanza, así que el proceso sale
+  con código distinto de cero y tu orquestador lo reinicia);
+- aborta si el grafo de módulos está roto o una migración falla — servir a medio
+  montar es peor que no arrancar;
+- registra manejadores de `SIGTERM`/`SIGINT` para un **apagado ordenado**
+  (detiene las rutinas, drena las peticiones en vuelo, cierra la base). También
+  lo podés disparar con `app.shutdown()`, o con `app.close()` para detener sin
+  terminar el proceso.
+
+Un arreglo `modules` vacío se permite pero avisa al arrancar: la app no va a
+servir nada más allá de lo que hayas montado a mano por `getApp()`.
+
+### CORS
+
+liteb es dueño del mecanismo CORS — las cabeceras, el preflight, el orden — y vos
+sos dueño de la política, la misma división que con `auth`:
+
+```typescript
+Liteb.create({
+  cors: {
+    origin: ['https://app.example.com'], // exacto, con esquema y puerto
+    credentials: true, // cookies; obliga a una lista explícita
+  },
+});
+```
+
+Si se omite, no se manda ninguna cabecera CORS, que es lo correcto para una API a
+la que ningún navegador llama entre orígenes.
+
+`origin: true` permite a cualquiera y sólo es válido SIN credenciales — un
+navegador rechaza `Access-Control-Allow-Origin: *` en una petición que lleva
+cookies, así que liteb rechaza esa combinación al arrancar en vez de dejar que te
+la encuentres en una consola.
+
+Un origen que no está en la lista sencillamente no recibe la cabecera, y la
+petición pasa: eso es lo que dice el estándar, y mantiene funcionando a quienes
+llaman servidor a servidor. Quien bloquea es el navegador, y liteb registra el
+rechazo para que quede rastro de este lado también. Se monta antes que todo lo
+demás, así que un preflight nunca llega a una ruta y las cabeceras están también
+en una respuesta con error.
+
+### Versionado de la API
+
+No hay decorador de versión. Versioná por **módulo**: un módulo `billing-v2` con
+sus propios endpoints `@Group('billing/v2')` corre al lado de `billing`, y se
+puede encender o apagar por su cuenta.
+
+## Swagger / OpenAPI
+
+Liteb genera una especificación OpenAPI 3.0.3 directamente de los decoradores que
+ya usás para rutear — sin anotaciones aparte, sin un paso de compilación extra.
+Se activa con una sola opción:
+
+```typescript
+const app = await Liteb.create({
+  // ...
+  docs: {
+    path: '/docs',
+    info: {
+      title: 'My API',
+      version: '1.0.0',
+      description: 'Optional Markdown description',
+    },
+  },
+});
+```
+
+Esto monta:
+
+- `GET /docs` → la interfaz interactiva de Swagger
+- `GET /docs.json` → el JSON OpenAPI 3 crudo
+
+Si se omite, no se expone nada. `liteb init` la enciende, y queda encendida en
+todos los entornos — pero publica la forma completa de tu API a cualquiera que
+encuentre la URL, así que ponela detrás de tu propia puerta, o sacá la opción, si
+no es lo que querés. No hay una segunda forma de encenderla: es una opción de la
+aplicación, decidida donde se deciden todas las demás.
+
+### Qué se documenta automáticamente
+
+| Fuente | Resultado en la especificación |
+| --- | --- |
+| `@Group(name)` o el id del módulo, + `@HttpGet`/`@HttpPost`/... | ruta + método HTTP |
+| `@Body(Dto)` | `requestBody` (JSON) referenciando un esquema reutilizable |
+| `@Params(Dto)` | parámetros de ruta tipados (siempre obligatorios) |
+| `@Query(Dto)` | parámetros de query tipados (la obligatoriedad la decide `@IsOptional`) |
+| `:foo` en la ruta sin `@Params` | se infiere como parámetro de ruta `string` |
+| el grupo | etiqueta por defecto del endpoint |
+| `@ApiHidden()` | excluido (montado, pero fuera de la especificación) |
+| `@HttpQuery` | excluido (QUERY no es una operación de OpenAPI) |
+
+Los DTO se convierten en JSON Schema con
+[`class-validator-jsonschema`](https://github.com/epiphone/class-validator-jsonschema).
+Decoradores como `@IsString`, `@IsEnum`, `@IsUUID`, `@IsOptional`, `@MinLength`,
+etc. se mapean a sus equivalentes de OpenAPI sin configuración, así que lo que ya
+validás también queda documentado.
+
+### Documentación más rica (opcional)
+
+Cuatro decoradores extra te dejan pulir la salida. Son totalmente opcionales —
+sin ellos igual obtenés una especificación válida.
+
+```typescript
+import {
+  Endpoint,
+  Body,
+  Group,
+  HttpPost,
+  ApiTag,
+  ApiSummary,
+  ApiDescription,
+  ApiResponse,
+} from 'liteb';
+import { IsEmail, IsString, MinLength } from 'class-validator';
+
+class CreateUserDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+}
+
+class UserDto {
+  @IsString()
+  id: string;
+
+  @IsEmail()
+  email: string;
+}
+
+class ErrorDto {
+  @IsString()
+  message: string;
+}
+
+@Group('users')
+@HttpPost()
+@Body(CreateUserDto)
+@ApiTag('users')
+@ApiSummary('Create a user')
+@ApiDescription('Creates a new user. Email must be unique.')
+@ApiResponse(201, { description: 'Created', Schema: UserDto })
+@ApiResponse(409, { description: 'Email already in use', Schema: ErrorDto })
+export class CreateUserApi extends Endpoint<null, CreateUserDto> {
+  async main() {
+    // ...tu lógica
+  }
+}
+```
+
+| Decorador | Para qué |
+| --- | --- |
+| `@ApiTag(...names)` | Agrupa endpoints bajo una o más etiquetas (reemplaza la etiqueta por defecto del módulo). |
+| `@ApiSummary(text)` | Resumen corto de una línea, que se ve en la lista de endpoints. |
+| `@ApiDescription(text)` | Descripción más larga (soporta Markdown). |
+| `@ApiResponse(status, { description?, Schema? })` | Documenta códigos de estado adicionales y la forma de su respuesta. Apilá los que necesites. |
+| `@ApiHidden()` | Monta el endpoint pero lo deja fuera de la especificación — una página, un webhook, una ruta interna. |
+
+### Limitaciones actuales
+
+- Sólo se documentan cuerpos `application/json` — `multipart/form-data` y
+  `application/x-www-form-urlencoded` todavía no se generan solos.
+- No se emiten `securitySchemes`, así que los endpoints se muestran sin
+  autenticación en la interfaz.
+- La especificación se construye una vez cuando corre `start()` (no por
+  petición).
+
+## Logging
+
+`Liteb.create()` escribe `logs/` al lado del proceso, y la consola recibe todo de
+cualquier manera. No hay nada que encender: quien tiene que descubrir una opción
+antes de poder leer lo que hizo su aplicación, no la lee nunca.
+
+```
+logs/
+├─ app.log        todos los niveles, en un solo hilo cronológico
+├─ info.log
+├─ warn.log
+├─ error.log
+└─ router.log     el mapa de rutas — el único con algo adentro al arrancar
+```
+
+Los cinco existen desde el primer arranque, vacíos. **Un `error.log` vacío dice
+que no pasó nada malo; uno que falta no dice nada**, y te manda a averiguar por
+qué nunca se creó.
+
+`app.log` es el neutral y es donde se lee qué pasó — los archivos separados son
+para grepear una clase de cosa. El mapa de rutas queda afuera: es un mapa, no una
+cronología, y serían cincuenta líneas de arranque delante de lo primero que
+importa.
+
+La opción existe para moverlo, renombrar un archivo o sacar uno:
+
+```typescript
+logs: { dir: '/var/log/app' }         // a otro lado
+logs: { dir: null }                   // sólo consola — lo que quiere un contenedor
+logs: { files: { error: 'errores' } } // errores.log
+logs: { files: { info: false } }      // sin info.log
+logs: { level: 'off' }                // callar todo, y no escribir archivos
+```
+
+Sacar `info`, `warn` o `error` no pierde nada — esas líneas siguen en `app.log` y
+en la consola — así que se trata de qué querés grepear aparte. `router` es la
+excepción: no está en ningún otro archivo, así que `false` significa que no hay
+mapa, y cae a la consola.
+
+`dir: null` es la respuesta para contenedores: adentro de uno el disco no es donde
+nadie lee logs, y los archivos se van con el contenedor.
+
+Las variables de entorno no reemplazan nada de lo que pasó la aplicación, y están
+para el mismo caso del contenedor:
+
+| Variable          | Descripción |
+| ----------------- | ----------- |
+| `LITEB_LOG_DIR`   | Directorio para los archivos, cuando la aplicación no nombra uno. |
+| `LITEB_LOG_LEVEL` | `trace` \| `debug` \| `info` \| `warn` \| `error` \| `off` (por defecto `trace`). |
+
+`off` no escribe ningún archivo — crearlos para un logger que no dice nada
+dejaría una carpeta de archivos vacíos después de cada corrida de pruebas. Y si el
+directorio no se puede crear (permisos, sistema de archivos de sólo lectura),
+liteb degrada a la consola en vez de no arrancar.
+
+### El mapa de rutas (`router.log`)
+
+Cada arranque escribe las rutas en el orden en que se montaron:
+
+```
+[MAP] /api — registration order; the first match answers
+#01 auto GET    /api/auth/me  (MeEndpoint)
+#06 p1   GET    /api/products/page  (ProductsPageEndpoint)
+#07 p1   GET    /api/products/export  (ExportProductsEndpoint)
+#08 p2   GET    /api/products/:id  (GetProductEndpoint)
+#10 auto GET    /api/products  (ListProductsEndpoint)
+```
+
+Contesta una sola pregunta: **qué ruta gana**. Express hace coincidir en orden de
+registro, así que `/products/:id` montada antes que `/products/page` se traga la
+página y el manejador recibe la cadena literal `"page"` — un bug que parece un
+problema de datos. `#nn` es la posición en todo el montaje, y `p1`/`auto` es el
+`@Priority` que la puso ahí (`auto` = ninguno declarado, que es el caso normal).
+Va a parar a `router.log`; con `dir: null` — o `files: { router: false }` — va a
+la consola, porque perder el mapa en silencio es peor que imprimirlo.
+
+## Respuestas que no son JSON
+
+`main()` normalmente devuelve datos y liteb los serializa. Cuando la respuesta es
+una página, un documento o un archivo, devolvé una de las **salidas**:
+
+```typescript
+import { csv, file, pdf, view } from 'liteb';
+
+@Group('clients')
+@HttpGet()
+@Query(ListClientsDto)
+export class ListClientsApi extends Endpoint<null, null, ListClientsDto> {
+  async main() {
+    const clients = await this.db.getRepository(Client).find();
+
+    if (this.query.format === 'csv') {
+      return csv(clients, {
+        filename: 'Clientes.csv',
+        columns: [
+          { key: 'name', header: 'Nombre' },
+          { key: 'createdAt', header: 'Alta' },
+        ],
+      });
+    }
+
+    return { clients }; // los datos planos siguen siendo JSON
+  }
+}
+```
+
+La decisión se toma **dentro de `main()`, con los datos en la mano** — el mismo
+endpoint puede contestar JSON o un archivo según lo que le pidan. (Hasta 2.0 esto
+era `@Template`, un decorador de clase que se leía al arrancar, así que un
+endpoint era "una vista" o no lo era, para siempre, y PDF o CSV no tenían nada
+que usar.)
+
+| Salida | Qué hace |
+| --- | --- |
+| `view(template, data?)` | Renderiza una plantilla y manda el HTML. Una plantilla que falla al renderizar vuelve con el contrato de error de liteb, no con una página de stack de Express. |
+| `pdf(content, options?)` | `application/pdf`. Se muestra en el navegador por defecto; `download: true` lo guarda. liteb no construye el documento — pasale los bytes de lo que sea que los produjo. |
+| `csv(rows, options?)` | Arma el archivo desde una lista de filas. `columns` elige qué campos salen y sus encabezados; se escribe un BOM por defecto para que una planilla lea bien los acentos. |
+| `file(content, options?)` | El caso general — cualquier tipo MIME. `pdf` y `csv` son esto con los valores por defecto puestos. |
+
+`content` puede ser un `Buffer`, un `Uint8Array`, una cadena o un **stream**, que
+se canaliza en vez de acumularse en memoria. Los nombres de archivo con acentos se
+mandan saneados y también en UTF-8 (RFC 5987), así que sobreviven a clientes
+viejos.
+
+Las plantillas siguen necesitando un motor y una ruta raíz:
+
+```typescript
+await liteb.setTemplates('pug', './views'); // o 'ejs'
+```
+
+A las páginas suele convenirles `@ApiHidden()` para que queden fuera de la
+especificación OpenAPI.
+
+## Rutinas
+
+Trabajo que la aplicación hace por su cuenta, con reloj. La tercera puerta de
+entrada, al lado de un endpoint (contesta una petición) y un oyente (reacciona a
+un evento): a una rutina no la llama nadie, la llama el horario.
+
+```typescript
+import { Cron, Routine } from 'liteb';
+
+@Cron('0 * * * *', { timezone: 'America/Lima' }) // cada hora
+export class HourlyReport extends Routine {
+  start(now: Date | 'manual' | 'init') {
+    // this.db, this.get(Contract) y this.emit(Event) funcionan acá
+  }
+}
+```
+
+El archivo va en la carpeta `routines/` del módulo y eso es todo. Sólo los
+módulos **encendidos** arrancan sus rutinas, y todo se detiene en el apagado
+ordenado.
+
+Dos cosas que conviene saber:
+
+- **Poné la `timezone`.** Sin ella la expresión se lee en la zona horaria de la
+  máquina donde haya terminado el proceso, que es cómo una rutina de "las 7"
+  corre a las 2 de la mañana en un servidor en otro país.
+- **`now` no siempre es un `Date`.** Es `'init'` cuando la rutina se declaró con
+  `{ runOnInit: true }` y corrió al arrancar, y `'manual'` para un tic que no
+  programó nadie. Ramificá sobre él cuando la primera corrida tenga que ser
+  distinta.
+
+> Se renombró desde `Task` / `@Schedule`. "Task" es el sustantivo más común del
+> software de gestión — una orden de trabajo, un caso, un pendiente — y una
+> aplicación con su propia entidad `Task` tenía que aliasear una de las dos en
+> cada archivo que usaba ambas. Los nombres viejos se eliminaron.
+
+## Configuración por entorno
+
+`ConfigService` lee de `process.env` (carga un archivo `.env` al importarse, con
+`dotenv`):
+
+```typescript
+import { ConfigService } from 'liteb';
+
+ConfigService.get('DB_HOST');
+ConfigService.mode(); // 'development' | 'production', desde NODE_ENV
+```
+
+Las variables que tu app necesita (host de la base, credenciales, puerto, etc.)
+las definís vos y se las pasás a tu `DataSource` de TypeORM; liteb no exige
+ningún nombre en particular más allá de los de logging de arriba.
+
+## Aplicación de ejemplo
+
+[`src/`](https://github.com/ertrii/liteb/tree/main/src) es una aplicación 2.x
+chica pero completa, y
+[`http/demo.http`](https://github.com/ertrii/liteb/tree/main/http/demo.http)
+recorre todo el flujo petición por petición — 401 vs 403, validación,
+transacciones, un módulo opcional que arranca apagado.
+
+Tres módulos, a propósito:
+
+| Módulo | | Qué muestra |
+| --- | --- | --- |
+| `identity` | core | Entidad + migración con datos de siembra, login/logout/me, un contrato que otros módulos consumen, permisos |
+| `catalog` | core | `requires`, DTO de validación, `@Priority` bien usado, una página con `view()`, una exportación con `csv()`, `db.transaction()` para dos escrituras que tienen que caer juntas |
+| `reports` | opcional | Se instala **apagado**; consume dos contratos sin importar ninguno de los dos módulos; una rutina que sólo corre mientras está encendido |
+
+```bash
+cp .env.template .env      # completá DB_* y SECRET_KEY
+npm run dev                # las migraciones corren al arrancar; se siembran dos usuarios
+npm run modules -- list    # qué está instalado y encendido
+npm run modules -- enable reports
+```
+
+Está cubierta por `test/demo-app.spec.ts`, que arranca esos mismos tres módulos
+contra un Postgres dentro del proceso. El código de ejemplo que nadie corre deja
+de ser un ejemplo.

@@ -46,7 +46,7 @@ different CLI.
 | [`migrate:status`](#liteb-migratestatus) | What each module declares, and what already ran |
 | [`build`](#liteb-build) | Compiles, optionally to V8 bytecode |
 
-Every `create` command takes the same three flags:
+Every generator takes the same three flags:
 
 | Flag | Default | What it is |
 | --- | --- | --- |
@@ -82,9 +82,9 @@ you can find them, and the CLI is what keeps them consistent.
 Only two edits touch a file the generator did not write, and both have a shape
 certain enough to do without parsing TypeScript:
 
-- `create module` adds the module to `modules: [ ]` in `src/index.ts`, and
+- `liteb module` adds the module to `modules: [ ]` in `src/index.ts`, and
   appends a block to `src/config/permissions.ts`.
-- `create endpoint --permission` adds the key to the module's
+- `liteb endpoint --permission` adds the key to the module's
   `declarePermissions({ ... })`.
 
 Anything less certain is printed as an instruction instead. A scaffolder that
@@ -352,7 +352,7 @@ looks.
 
 **Declaring an entity does not create its table.** liteb does not turn
 `synchronize` on for you — every table comes from a migration, which is what an
-installation is. Follow it with `create migration`.
+installation is. Follow it with `liteb migration:generate`.
 
 ---
 

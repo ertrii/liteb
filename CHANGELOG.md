@@ -288,7 +288,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `slots/`. Neither is globbed by liteb — a token is imported by name — which
   is exactly why the CLI is what keeps those folders consistent.
 
-- **[docs/cli.md](docs/cli.md)**: every command, every flag, what each one
+- **[docs/cli.md](docs/en/cli.md)**: every command, every flag, what each one
   writes, and the handful of things that cost an evening if you get them wrong.
 
 - **A path alias for module imports.** `liteb init` writes

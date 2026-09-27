@@ -69,16 +69,16 @@ writes the shape; you write the code.
 | Command | What it writes |
 | --- | --- |
 | `init [name]` | A project that runs: `package.json`, `tsconfig.json`, `.env`, entry point — and `npm install` (`--skip-install` to stop before it) |
-| `create module <name>` | `module.ts`, its permissions file and a first endpoint |
-| `create endpoint <module>/<name>` | An endpoint (`--method`, `--path`, `--group`, `--public`) |
-| `create routine <module>/<name>` | Work on a schedule (`--cron`) |
-| `create contract <module>/<name>` | A capability this module publishes: token and shape |
-| `create provider <module>/<name>` | The class that answers it (`--slot` to fill an extension point) |
-| `create event <module>/<name>` | Something this module announces |
-| `create slot <module>/<name>` | An extension point others may fill |
-| `create listener <module>/<name>` | A listener |
-| `create entity <module>/<name>` | An entity (`--table`) |
-| `create migration <module>/<name>` | A timestamped migration |
+| `module <name>` | `module.ts`, its permissions file and a first endpoint |
+| `endpoint <module>/<name>` | An endpoint (`--method`, `--path`, `--group`, `--public`) |
+| `routine <module>/<name>` | Work on a schedule (`--cron`) |
+| `contract <module>/<name>` | A capability this module publishes: token and shape |
+| `provider <module>/<name>` | The class that answers it (`--slot` to fill an extension point) |
+| `event <module>/<name>` | Something this module announces |
+| `slot <module>/<name>` | An extension point others may fill |
+| `listener <module>/<name>` | A listener |
+| `entity <module>/<name>` | An entity (`--table`) |
+| `migration <module>/<name>` | A timestamped migration |
 | `migrate` | Runs pending migrations without starting the server (`--dry-run`, `--entry`) |
 | `migrate:status` | What each module declares, and what of it already ran |
 | `build` | `tsc` + the files that were never TypeScript (`--bytecode`, `--out`, `--project`) |

@@ -44,9 +44,15 @@ is **not** an application. Dual layout:
   module and BOOTS it against PGlite. If a template stops matching the
   framework, the suite fails. **Do not turn the templates back into assets.**
 
-- **`README.md`** is the short version, on purpose; **`docs/guide.md`** is the
+- **`README.md`** is the short version, on purpose; **`docs/en/guide.md`** is the
   long one. Only the README ships in the tarball (`files`). Put the reasoning in
   the guide, not in the README.
+
+- **`docs/` is split by language**: `docs/en/` is the source, `docs/es/` is the
+  translation, same three filenames on both sides, and `docs/README.md` is the
+  index. **English is what matches the code** — change it first, then bring the
+  Spanish page across in the same commit. Code, identifiers and the framework's
+  own JSDoc stay English on both sides; only the prose is translated.
 
 Comments and JSDoc are in **English**: they ship inside the `.d.ts`.
 
