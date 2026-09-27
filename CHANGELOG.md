@@ -83,6 +83,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The `AuthResolver` type is still exported and `auth:` still accepts any plain
   function of that shape. Nothing that already worked stops working.
 
+- **`cacheAuth(resolver, { key, ttl })`** — remembers what the resolver
+  answered, per caller.
+
+  ```typescript
+  export const auth = cacheAuth(defineAuth(sessionAuth), {
+    key: (request) => request.session?.userId ?? null,
+    ttl: 15_000,
+  });
+
+  auth.invalidate(userId); // signing out, a role change, a suspension
+  ```
+
+  The resolver runs on every request and usually queries. Measured through a
+  whole HTTP request against an in-process Postgres, that query was about 40% of
+  the request — a fixed tax paid on the cheap reads that are most of an API.
+
+  What it costs is freshness, so the trade is explicit: `ttl` is required
+  because it is the one number that decides how stale an authorization decision
+  may be, and `invalidate` exists because the TTL is the floor and not the
+  contract. Off by default; `liteb init` still ships no cache.
+
+  Three things it refuses to cache, each because caching it is a bug: a `null`
+  key, a `null` result (that is how somebody signs in and stays anonymous until
+  the TTL runs out) and a resolver that threw. Requests arriving while a
+  resolution is in flight wait on it, so a cold cache and eight parallel calls
+  still run the resolver once. No timer: entries expire when read and the least
+  recently used one is dropped at `max`.
+
+  Two limits, both documented: the cached result is shared, so the actor must be
+  treated as immutable; and the cache lives in one process, so with more than
+  one replica `invalidate` does not reach the others and the guarantee drops
+  back to the TTL.
+
 - **`liteb migration:generate <module>/<name>`** — TypeORM's generator, filed by
   module.
 

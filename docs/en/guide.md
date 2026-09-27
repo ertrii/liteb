@@ -821,6 +821,11 @@ it several strategies and they are tried in order, first one to recognize the
 caller wins: `defineAuth(sessionAuth, bearerAuth, apiKeyAuth)`. The plain
 `AuthResolver` type still works as `auth` too.
 
+The resolver runs on every request, and in most applications it queries. Once
+that shows up in a measurement, `cacheAuth` remembers the answer per caller with
+an explicit `invalidate` for the paths that change what somebody may do — see
+[Caching what the resolver answered](./authorization.md#caching-what-the-resolver-answered).
+
 That is the whole feature. liteb stores no roles and no users: it receives a
 list of keys per request and compares strings. Which keys somebody holds is
 **your** application's rule, wherever you keep it.

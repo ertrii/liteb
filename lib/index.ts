@@ -100,6 +100,8 @@ export type {
   ModuleGlobField,
 } from './modules/module-manifest';
 export { Auth, defineAuth } from './core/auth';
+export { cacheAuth } from './core/auth-cache';
+export type { AuthCacheOptions, CachedAuthResolver } from './core/auth-cache';
 export { CorsConfigError } from './core/cors';
 export type { CorsConfig } from './core/cors';
 export { schemaDiff, tableOwners } from './modules/schema-diff';

@@ -260,7 +260,9 @@ let warned = false;
  *
  * \`defineAuth\` also takes SEVERAL strategies, tried in order, for when more
  * than one kind of client calls the same endpoints:
- * \`defineAuth(sessionAuth, bearerAuth, apiKeyAuth)\`.
+ * \`defineAuth(sessionAuth, bearerAuth, apiKeyAuth)\`. And once a real resolver
+ * shows up in a measurement, \`cacheAuth\` wraps it — read its docs first, it
+ * trades freshness for the lookup and needs an \`invalidate\` wired in.
  *
  * \`db\` and \`get\` come in for exactly that: permissions are usually a query,
  * and \`get\` reaches a module's contract when this file must not import that

@@ -185,8 +185,9 @@ Three things about the return value:
 
 The session holds **only the user id**. Permissions are read per request, not
 copied in at login, so removing a role takes effect on the next request rather
-than the next sign-in. That costs one lookup per request; cache it if it
-matters, but start correct.
+than the next sign-in. That costs one lookup per request. Start there, and
+reach for *Caching what the resolver answered* below only once it shows up in a
+measurement.
 
 `defineAuth` is what `liteb init` writes and what the examples here use. It
 types the callback's two arguments without annotating anything, and it checks
@@ -214,6 +215,65 @@ Each one is an ordinary resolver returning `null` for "not mine", so each stays
 readable on its own and a new kind of client is one more argument. When all of
 them return `null` the call is anonymous, exactly as a single resolver's `null`
 is.
+
+### Caching what the resolver answered
+
+That one lookup per request is a fixed tax, paid on the cheap reads that are
+most of an API too. Measured through a whole HTTP request against an in-process
+Postgres, it was about 40% of the request.
+
+`cacheAuth` remembers the answer per caller:
+
+```typescript
+// src/config/auth.ts
+export const auth = cacheAuth(defineAuth(sessionAuth, bearerAuth), {
+  key: (request) => request.session?.userId ?? null, // null = resolve fresh
+  ttl: 15_000,
+  max: 5_000, // optional, defaults to 5000
+});
+```
+
+```typescript
+// wherever what somebody may do changes: signing out, a role, a suspension
+auth.invalidate(userId);
+```
+
+**`invalidate` is not optional.** The TTL is the floor, not the contract:
+without the call, a revoked role keeps working until it expires. liteb cannot
+make the call for you, because it does not know where your roles change.
+
+**Key on the identity, not the credential.** The user id, not the session id: a
+role change is then one call and every device that user is signed in on
+refreshes, instead of you enumerating their sessions. Reading it from the
+session also keeps remote sign-out immediate for free — a session destroyed
+server-side loads no `userId`, so the key is `null` and the cache is never
+consulted.
+
+Three things it refuses to cache, each because caching it is a bug:
+
+| Not cached | Why |
+| --- | --- |
+| a `null` key | there is nothing to index the request by |
+| a `null` result | it is how somebody signs in and stays anonymous until the TTL runs out |
+| a resolver that threw | a malformed credential is a 401 every time, not a remembered one |
+
+Requests that arrive while a resolution is in flight wait on it instead of
+starting their own, so a screen firing eight calls at once against a cold cache
+still runs the resolver once — which is the moment you wanted the cache for.
+
+There is no timer. Entries expire when they are next read and the least recently
+used one is dropped at `max`, so nothing here keeps a process alive or needs
+shutting down.
+
+Two limits to know before turning it on:
+
+- **The result is shared between requests.** Treat the actor as immutable.
+  Writing to `this.auth.actor` was already a mistake; with a cache it is one
+  that other requests can see.
+- **It lives in one process.** With more than one replica, `invalidate` in one
+  does not reach the others and the guarantee quietly drops back to the TTL.
+  Run one process, or keep the TTL short enough that you would accept it as the
+  only guarantee.
 
 ## 4. Demand a key
 

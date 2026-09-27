@@ -871,6 +871,12 @@ varias estrategias y se prueban en orden, gana la primera que reconoce a quien
 llama: `defineAuth(sessionAuth, bearerAuth, apiKeyAuth)`. El tipo `AuthResolver`
 pelado también sigue sirviendo como `auth`.
 
+El resolutor corre en cada petición y en la mayoría de las aplicaciones
+consulta. Cuando eso aparezca en una medición, `cacheAuth` recuerda la respuesta
+por llamante, con un `invalidate` explícito para los caminos que cambian lo que
+alguien puede hacer — mirá
+[Cachear lo que contestó el resolutor](./authorization.md#cachear-lo-que-contestó-el-resolutor).
+
 Esa es toda la función. liteb no guarda roles ni usuarios: recibe una lista de
 claves por petición y compara cadenas. Qué claves tiene alguien es la regla de
 **tu** aplicación, donde sea que la guardes.

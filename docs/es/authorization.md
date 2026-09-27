@@ -187,8 +187,9 @@ Tres cosas sobre lo que devuelve:
 
 La sesión guarda **sólo el id del usuario**. Los permisos se leen por petición,
 no se copian al iniciar sesión, así que quitar un rol tiene efecto en la petición
-siguiente y no en el siguiente ingreso. Eso cuesta una consulta por petición;
-cacheala si te pesa, pero empezá por lo correcto.
+siguiente y no en el siguiente ingreso. Eso cuesta una consulta por petición.
+Empezá por ahí, y recurrí a *Cachear lo que contestó el resolutor*, más abajo,
+sólo cuando aparezca en una medición.
 
 `defineAuth` es lo que escribe `liteb init` y lo que usan los ejemplos de acá.
 Tipa los dos argumentos del callback sin necesidad de anotar nada, y revisa el
@@ -216,6 +217,65 @@ Cada una es un resolutor común que devuelve `null` para decir "no es mío", as�
 que cada una se lee sola y un tipo de cliente nuevo es un argumento más. Cuando
 todas devuelven `null` la llamada es anónima, igual que el `null` de un resolutor
 único.
+
+### Cachear lo que contestó el resolutor
+
+Esa consulta por petición es un impuesto fijo, y se paga también en las
+lecturas baratas que son la mayoría de una API. Medido sobre una petición HTTP
+completa contra un Postgres en proceso, era cerca del 40 % de la petición.
+
+`cacheAuth` recuerda la respuesta por llamante:
+
+```typescript
+// src/config/auth.ts
+export const auth = cacheAuth(defineAuth(sessionAuth, bearerAuth), {
+  key: (request) => request.session?.userId ?? null, // null = resolver de nuevo
+  ttl: 15_000,
+  max: 5_000, // opcional, por defecto 5000
+});
+```
+
+```typescript
+// donde cambie lo que alguien puede hacer: cerrar sesión, un rol, una baja
+auth.invalidate(userId);
+```
+
+**`invalidate` no es opcional.** El TTL es el piso, no el contrato: sin esa
+llamada, un rol revocado sigue funcionando hasta que venza. liteb no puede
+hacerla por vos, porque no sabe dónde cambian tus roles.
+
+**La key va sobre la identidad, no sobre la credencial.** El id del usuario, no
+el de la sesión: así un cambio de rol es una sola llamada y se refrescan todos
+los dispositivos donde esté conectado, en vez de tener que enumerar sus
+sesiones. Sacarla de la sesión además deja el cierre remoto inmediato gratis —
+una sesión destruida del lado del servidor no carga ningún `userId`, la key es
+`null` y la caché no se consulta.
+
+Tres cosas que se niega a cachear, cada una porque cachearla es un error:
+
+| No se cachea | Por qué |
+| --- | --- |
+| una key `null` | no hay con qué indexar la petición |
+| un resultado `null` | es como alguien inicia sesión y sigue anónimo hasta que venza el TTL |
+| un resolutor que lanzó | una credencial mal formada es un 401 siempre, no uno recordado |
+
+Las peticiones que llegan mientras una resolución está en vuelo esperan esa, en
+vez de arrancar la suya: una pantalla que dispara ocho llamadas a la vez con la
+caché fría corre el resolutor una sola vez — que es justo el momento para el que
+querías la caché.
+
+No hay ningún temporizador. Las entradas vencen cuando se las lee y al llegar a
+`max` se suelta la menos usada, así que nada de esto mantiene vivo un proceso ni
+hay que apagarlo.
+
+Dos límites para saber antes de encenderla:
+
+- **El resultado se comparte entre peticiones.** Tratá el actor como inmutable.
+  Escribir en `this.auth.actor` ya era un error; con caché es uno que ven las
+  otras peticiones.
+- **Vive en un solo proceso.** Con más de una réplica, `invalidate` en una no
+  llega a las otras y la garantía baja en silencio al TTL. Corré un proceso, o
+  dejá el TTL lo bastante corto como para aceptarlo como única garantía.
 
 ## 4. Exigir una clave
 
