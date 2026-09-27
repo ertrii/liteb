@@ -88,13 +88,18 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
     expect(
       applyEdit('export default {}', {
         path: 'x',
-        arrayEntry: { field: 'entities', value: 'Product', importLine: 'import x' },
+        arrayEntry: {
+          field: 'entities',
+          value: 'Product',
+          importLine: 'import x',
+        },
       }),
     ).toBeNull();
   });
 
   it('agrega al arreglo y trae su import', () => {
-    const source = "import { defineModule } from 'liteb';\n\nexport default defineModule({\n  entities: [],\n});\n";
+    const source =
+      "import { defineModule } from 'liteb';\n\nexport default defineModule({\n  entities: [],\n});\n";
     const after = applyEdit(source, {
       path: 'x',
       arrayEntry: {
@@ -105,7 +110,9 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
     });
 
     expect(after).toContain('entities: [Product]');
-    expect(after).toContain("import { Product } from './entities/product.entity';");
+    expect(after).toContain(
+      "import { Product } from './entities/product.entity';",
+    );
   });
 
   it('el índice de migraciones deja de ser un módulo vacío al llegar la primera', () => {
@@ -146,7 +153,9 @@ describe('liteb init', () => {
 
     const permisos = busca('src/config/permissions.ts');
     expect(permisos).toContain('declare global {');
-    expect(permisos).toContain('interface Permissions extends PermissionsOf<{}> {}');
+    expect(permisos).toContain(
+      'interface Permissions extends PermissionsOf<{}> {}',
+    );
 
     const auth = busca('src/config/auth.ts');
     // Deja pasar a todos, y lo dice en voz alta una vez.
@@ -244,7 +253,9 @@ describe('un módulo generado y puesto a andar', () => {
     const desde = lineas.findIndex((line) =>
       line.includes('Delete this once the SQL above is written'),
     );
-    const hasta = lineas.findIndex((line, i) => i > desde && line.trim() === ');');
+    const hasta = lineas.findIndex(
+      (line, i) => i > desde && line.trim() === ');',
+    );
     lineas.splice(desde - 1, hasta - desde + 2);
 
     fs.writeFileSync(
@@ -278,7 +289,9 @@ describe('un módulo generado y puesto a andar', () => {
         permission: 'inventory.count',
       }),
     );
-    scaffold(createEntity({ target: 'inventory/item', modulesDir, from: 'liteb' }));
+    scaffold(
+      createEntity({ target: 'inventory/item', modulesDir, from: 'liteb' }),
+    );
     scaffold(
       createEndpoint({
         target: 'inventory/ping',
@@ -292,9 +305,15 @@ describe('un módulo generado y puesto a andar', () => {
     scaffold(
       createRoutine({ target: 'inventory/nightly', modulesDir, from: 'liteb' }),
     );
-    scaffold(createListener({ target: 'inventory/audit', modulesDir, from: 'liteb' }));
     scaffold(
-      createMigration({ target: 'inventory/create-items', modulesDir, from: 'liteb' }),
+      createListener({ target: 'inventory/audit', modulesDir, from: 'liteb' }),
+    );
+    scaffold(
+      createMigration({
+        target: 'inventory/create-items',
+        modulesDir,
+        from: 'liteb',
+      }),
     );
     // Lo que hace un autor a continuación: escribir el SQL y sacar el freno.
     // Sin eso el andamiaje se niega a correr, a propósito — una migración
@@ -308,7 +327,11 @@ describe('un módulo generado y puesto a andar', () => {
       createProvider({ target: 'inventory/stock', modulesDir, from: 'liteb' }),
     );
     scaffold(
-      createEvent({ target: 'inventory/item-added', modulesDir, from: 'liteb' }),
+      createEvent({
+        target: 'inventory/item-added',
+        modulesDir,
+        from: 'liteb',
+      }),
     );
     scaffold(
       createSlot({ target: 'inventory/labels', modulesDir, from: 'liteb' }),
@@ -354,7 +377,11 @@ describe('un módulo generado y puesto a andar', () => {
     expect(app.permissions()).toEqual([
       { key: 'inventory.view', label: 'View inventory', moduleId: 'inventory' },
       // La segunda la declaró `create endpoint --permission`.
-      { key: 'inventory.count', label: 'Count inventory', moduleId: 'inventory' },
+      {
+        key: 'inventory.count',
+        label: 'Count inventory',
+        moduleId: 'inventory',
+      },
     ]);
   });
 
@@ -404,7 +431,7 @@ describe('un módulo generado y puesto a andar', () => {
     );
 
     expect(endpoint).toMatch(/^\s*this\.auth\.assert\('inventory\.view'\);/m);
-    expect(endpoint).not.toContain("// this.auth.assert(");
+    expect(endpoint).not.toContain('// this.auth.assert(');
   });
 
   it('las claves se declaran en UN lugar, y el manifiesto lo referencia', () => {
@@ -466,14 +493,16 @@ describe('un módulo generado y puesto a andar', () => {
     // El framework no exige `auth`: un endpoint que nunca toca `this.auth` no
     // necesita a nadie que resuelva. Lo que cambió es el andamiaje, no la
     // regla — y `--public` es cómo se pide un endpoint que de verdad lo es.
-    const abierto = read(
-      `${modulesDir}/inventory/endpoints/ping.endpoint.ts`,
-    );
+    const abierto = read(`${modulesDir}/inventory/endpoints/ping.endpoint.ts`);
     expect(abierto).not.toContain('this.auth');
 
     const sinAuth = await Liteb.create({
       db,
-      modules: [require(path.join(workspace, modulesDir, 'inventory/module.ts')).default],
+      modules: [
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require(path.join(workspace, modulesDir, 'inventory/module.ts'))
+          .default,
+      ],
       version: '1.0.0',
       basePath: '/api',
     });
@@ -494,9 +523,9 @@ describe('un módulo generado y puesto a andar', () => {
 
     expect(manifest).not.toContain('entities:');
     expect(manifest).not.toContain('item.entity');
-    expect(inventory.entities.map((entity) => (entity as Function).name)).toEqual(
-      ['Item'],
-    );
+    expect(
+      inventory.entities.map((entity) => (entity as Function).name),
+    ).toEqual(['Item']);
   });
 
   it('la migración corrió y quedó anotada en el registro del módulo', async () => {
@@ -512,7 +541,9 @@ describe('un módulo generado y puesto a andar', () => {
   it('el módulo quedó registrado en el punto de entrada, sin editar a mano', () => {
     const entry = read('src/index.ts');
 
-    expect(entry).toContain("import inventory from './modules/inventory/module';");
+    expect(entry).toContain(
+      "import inventory from './modules/inventory/module';",
+    );
     expect(entry).toContain('modules: [inventory]');
   });
 

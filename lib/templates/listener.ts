@@ -35,7 +35,6 @@ export abstract class Listener<P = unknown> {
     return this.container.get(token);
   }
 
-
   /**
    * Everything the installed modules contributed to an extension point.
    *

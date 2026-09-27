@@ -42,7 +42,9 @@ describe('la app de ejemplo (src/)', () => {
     // Las entidades se pasan a mano A PROPÓSITO: `create()` solo las agrega
     // cuando recibe OPCIONES de conexión. Si le das un DataSource ya
     // construido, sus entidades son asunto tuyo — como aquí.
-    db = await createTestDb(collectModuleEntities([identity, catalog, reports]));
+    db = await createTestDb(
+      collectModuleEntities([identity, catalog, reports]),
+    );
     app = await Liteb.create({
       db,
       modules: [identity, catalog, reports],
@@ -51,10 +53,16 @@ describe('la app de ejemplo (src/)', () => {
       auth: headerAuth,
       // Como en src/index.ts.
       health: { path: '/health' },
-      docs: { path: '/docs', info: { title: 'Liteb Demo API', version: '2.0.0' } },
+      docs: {
+        path: '/docs',
+        info: { title: 'Liteb Demo API', version: '2.0.0' },
+      },
     });
     // Igual que src/index.ts: las vistas viven dentro del módulo que las usa.
-    await app.setTemplates('pug', path.join(__dirname, '../src/modules/*/views'));
+    await app.setTemplates(
+      'pug',
+      path.join(__dirname, '../src/modules/*/views'),
+    );
     await app.start(0);
   });
 
@@ -64,8 +72,12 @@ describe('la app de ejemplo (src/)', () => {
   });
 
   it('las migraciones de cada módulo crearon sus tablas y sembraron datos', async () => {
-    const users = await db.query('select username, role from demo_users order by id');
-    const products = await db.query('select name from demo_products order by id');
+    const users = await db.query(
+      'select username, role from demo_users order by id',
+    );
+    const products = await db.query(
+      'select name from demo_products order by id',
+    );
 
     expect(users).toEqual([
       { username: 'owner', role: 'owner' },
@@ -190,7 +202,9 @@ describe('la app de ejemplo (src/)', () => {
       .send({ quantity: 10 });
 
     expect(res.status).toBe(404);
-    const despues = await db.query('select count(*) as n from demo_stock_moves');
+    const despues = await db.query(
+      'select count(*) as n from demo_stock_moves',
+    );
     expect(despues).toEqual(antes);
   });
 
@@ -240,7 +254,7 @@ describe('la app de ejemplo (src/)', () => {
     expect(res.type).toBe('text/csv');
     // El nombre del archivo lleva acento: viaja saneado y en UTF-8.
     expect(res.headers['content-disposition']).toBe(
-      "attachment; filename=\"Cat_logo de productos.csv\"; filename*=UTF-8''Cat%C3%A1logo%20de%20productos.csv",
+      'attachment; filename="Cat_logo de productos.csv"; filename*=UTF-8\'\'Cat%C3%A1logo%20de%20productos.csv',
     );
     const texto = res.text.replace(/^﻿/, '');
     expect(texto.split('\r\n')[0]).toBe('Producto,Precio,Stock');

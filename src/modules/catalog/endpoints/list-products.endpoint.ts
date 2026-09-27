@@ -6,7 +6,11 @@ import { ProductBadges } from '../slots/product-badges.slot';
 @Group('products')
 @HttpGet()
 @Query(ListProductsQuery)
-export class ListProductsEndpoint extends Endpoint<null, null, ListProductsQuery> {
+export class ListProductsEndpoint extends Endpoint<
+  null,
+  null,
+  ListProductsQuery
+> {
   private readonly products = this.db.getRepository(Product);
 
   async main() {

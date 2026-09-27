@@ -67,8 +67,9 @@ describe('resolveModules — grafos inválidos', () => {
   });
 
   it('rechaza una dependencia que no está instalada', () => {
-    expect(() => resolveModules([mod('billing', { requires: ['ghost'] })]))
-      .toThrow(/requires "ghost", which is not installed/);
+    expect(() =>
+      resolveModules([mod('billing', { requires: ['ghost'] })]),
+    ).toThrow(/requires "ghost", which is not installed/);
   });
 
   it('nombra el ciclo que encontró', () => {
@@ -85,7 +86,9 @@ describe('resolveModules — grafos inválidos', () => {
     const a = mod('a', { requires: ['b'] });
     const b = mod('b', { requires: ['a'] });
 
-    expect(() => resolveModules([a, b])).toThrow(/Dependency cycle: a -> b -> a/);
+    expect(() => resolveModules([a, b])).toThrow(
+      /Dependency cycle: a -> b -> a/,
+    );
   });
 
   it('el error es un ModuleResolutionError y dice de qué módulo se trata', () => {
@@ -118,15 +121,17 @@ describe('resolveModules — compatibilidad con el anfitrión', () => {
     // Durante el desarrollo el anfitrión vive en 2.0.0-dev.N: si las
     // prereleases no contaran, ningún módulo cargaría.
     const billing = mod('billing', { engine: '^2.0.0' });
-    expect(ids(resolveModules([billing], { hostVersion: '2.0.0-dev.0' })))
-      .toEqual(['billing']);
+    expect(
+      ids(resolveModules([billing], { hostVersion: '2.0.0-dev.0' })),
+    ).toEqual(['billing']);
   });
 
   it('ignorar la prerelease no ablanda el resto del rango', () => {
     // 3.0.0-alpha se compara como 3.0.0, que sigue quedando fuera de ^2.0.0.
     const billing = mod('billing', { engine: '^2.0.0' });
-    expect(() => resolveModules([billing], { hostVersion: '3.0.0-alpha.1' }))
-      .toThrow(/needs a host matching "\^2.0.0"/);
+    expect(() =>
+      resolveModules([billing], { hostVersion: '3.0.0-alpha.1' }),
+    ).toThrow(/needs a host matching "\^2.0.0"/);
   });
 
   it('sin hostVersion no se comprueba nada', () => {
@@ -135,14 +140,15 @@ describe('resolveModules — compatibilidad con el anfitrión', () => {
   });
 
   it('un módulo sin engine acepta cualquier anfitrión', () => {
-    expect(ids(resolveModules([mod('billing')], { hostVersion: '3.0.0' })))
-      .toEqual(['billing']);
+    expect(
+      ids(resolveModules([mod('billing')], { hostVersion: '3.0.0' })),
+    ).toEqual(['billing']);
   });
 
   it('rechaza una versión de anfitrión inválida', () => {
-    expect(() => resolveModules([mod('billing')], { hostVersion: '3' })).toThrow(
-      /not a valid semver version/,
-    );
+    expect(() =>
+      resolveModules([mod('billing')], { hostVersion: '3' }),
+    ).toThrow(/not a valid semver version/);
   });
 });
 
@@ -157,17 +163,23 @@ describe('resolveModules — habilitados', () => {
   });
 
   it('un módulo core entra aunque no esté en la lista', () => {
-    const order = resolveModules([mod('billing', { core: true }), mod('news')], {
-      enabled: ['news'],
-    });
+    const order = resolveModules(
+      [mod('billing', { core: true }), mod('news')],
+      {
+        enabled: ['news'],
+      },
+    );
 
     expect(ids(order)).toEqual(['billing', 'news']);
   });
 
   it('una lista vacía deja solo los core', () => {
-    const order = resolveModules([mod('billing', { core: true }), mod('news')], {
-      enabled: [],
-    });
+    const order = resolveModules(
+      [mod('billing', { core: true }), mod('news')],
+      {
+        enabled: [],
+      },
+    );
 
     expect(ids(order)).toEqual(['billing']);
   });
@@ -193,7 +205,8 @@ describe('resolveModules — habilitados', () => {
     const identity = mod('identity');
     const news = mod('news', { requires: ['identity'] });
 
-    expect(ids(resolveModules([identity, news], { enabled: ['identity'] })))
-      .toEqual(['identity']);
+    expect(
+      ids(resolveModules([identity, news], { enabled: ['identity'] })),
+    ).toEqual(['identity']);
   });
 });

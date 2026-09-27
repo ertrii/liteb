@@ -2,11 +2,18 @@ import 'reflect-metadata';
 import path from 'path';
 import { describe, expect, it } from '@jest/globals';
 import type { DataSource } from 'typeorm';
-import { buildContainer, Container, contract, defineModule, Provider } from '../lib';
+import {
+  buildContainer,
+  Container,
+  contract,
+  defineModule,
+  Provider,
+} from '../lib';
 import { PaymentMethod, PaymentMethods } from './fixtures/pagos/shared';
 
 const fakeDb = {} as DataSource;
-const pagos = (nombre: string) => path.join(__dirname, 'fixtures/pagos', nombre);
+const pagos = (nombre: string) =>
+  path.join(__dirname, 'fixtures/pagos', nombre);
 
 describe('ranuras de extensión', () => {
   it('una ranura que nadie llenó devuelve vacío, no falla', async () => {

@@ -49,7 +49,13 @@ const news = () =>
 
 /** Un módulo cuyo índice de migraciones no exporta nada. */
 const sinMigraciones = () =>
-  defineModule({ id: 'vacio', version: '1.0.0', core: true, dir, migrations: {} });
+  defineModule({
+    id: 'vacio',
+    version: '1.0.0',
+    core: true,
+    dir,
+    migrations: {},
+  });
 
 describe('app.migrate()', () => {
   let db: DataSource;

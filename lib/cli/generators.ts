@@ -47,7 +47,9 @@ const moduleDir = (options: CommonOptions, id: string): string =>
 
 /** How deep a file inside a module sits, for a relative import of the demo. */
 const relativeFrom = (from: string, depth: number): string =>
-  from.startsWith('.') ? `${'../'.repeat(depth)}${from.replace(/^\.\//, '')}` : from;
+  from.startsWith('.')
+    ? `${'../'.repeat(depth)}${from.replace(/^\.\//, '')}`
+    : from;
 
 export interface ModuleOptions extends CommonOptions {
   name: string;
@@ -72,7 +74,8 @@ export function createModule(options: ModuleOptions): Plan {
   if (!id) throw new CliError('A module needs a name: liteb module <name>.');
 
   const dir = moduleDir(options, id);
-  const label = options.label ?? toPascal(id).replace(/([a-z])([A-Z])/g, '$1 $2');
+  const label =
+    options.label ?? toPascal(id).replace(/([a-z])([A-Z])/g, '$1 $2');
   const from = relativeFrom(options.from, 2);
 
   const permissionsFile = `import { declarePermissions } from '${from}';
@@ -166,7 +169,9 @@ export default defineModule({
         arrayEntry: {
           field: 'modules',
           value: variable,
-          importLine: `import ${variable} from '${importPath.startsWith('.') ? importPath : `./${importPath}`}';`,
+          importLine: `import ${variable} from '${
+            importPath.startsWith('.') ? importPath : `./${importPath}`
+          }';`,
         },
       },
       {
@@ -224,7 +229,9 @@ declare global {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Permissions
       extends PermissionsOf<
-        typeof import('${from.startsWith('.') ? from : `./${from}`}').permissions
+        typeof import('${
+          from.startsWith('.') ? from : `./${from}`
+        }').permissions
       > {}
   }
 }
@@ -278,7 +285,9 @@ export function createEndpoint(options: EndpointOptions): Plan {
   const decorator = HTTP_DECORATORS[method];
   if (!decorator) {
     throw new CliError(
-      `"${method}" is not an HTTP method liteb mounts. Use one of: ${Object.keys(HTTP_DECORATORS).join(', ')}.`,
+      `"${method}" is not an HTTP method liteb mounts. Use one of: ${Object.keys(
+        HTTP_DECORATORS,
+      ).join(', ')}.`,
     );
   }
 
@@ -291,7 +300,9 @@ export function createEndpoint(options: EndpointOptions): Plan {
   const permission =
     options.permission === false
       ? null
-      : { key: asked ? (options.permission as string) : `${target.module}.view` };
+      : {
+          key: asked ? (options.permission as string) : `${target.module}.view`,
+        };
 
   // A key that no module declares is a 500, not a 403 — on purpose, because it
   // is a typo and not a missing grant. So asking for one here has to DECLARE
@@ -360,7 +371,8 @@ export function createEndpoint(options: EndpointOptions): Plan {
  */
 function permissionLabel(key: string): string {
   const parts = key.split('.');
-  if (parts.length < 2) return toPascal(key).replace(/([a-z])([A-Z])/g, '$1 $2');
+  if (parts.length < 2)
+    return toPascal(key).replace(/([a-z])([A-Z])/g, '$1 $2');
   const action = parts[parts.length - 1];
   const subject = parts.slice(0, -1).join(' ').replace(/-/g, ' ');
   return `${action.charAt(0).toUpperCase()}${action.slice(1)} ${subject}`;
@@ -671,7 +683,8 @@ export function createEntity(options: EntityOptions): Plan {
   const target = parseTarget(options.target, 'entity');
   const dir = moduleDir(options, target.module);
   const className = toPascal(target.name);
-  const table = options.table ?? `${toSnake(target.module)}_${toSnake(target.name)}`;
+  const table =
+    options.table ?? `${toSnake(target.module)}_${toSnake(target.name)}`;
 
   const content = `import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 

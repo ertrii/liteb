@@ -51,7 +51,9 @@ function resolveEntry(options: LoadOptions): string {
   throw new CliError(
     options.entry
       ? `No "${options.entry}" here.`
-      : `Could not find the entry point (tried ${candidates.join(', ')}). Pass --entry <file>.`,
+      : `Could not find the entry point (tried ${candidates.join(
+          ', ',
+        )}). Pass --entry <file>.`,
   );
 }
 
@@ -87,7 +89,10 @@ export async function loadApp(options: LoadOptions): Promise<Liteb> {
 
   if (typeof createApp !== 'function') {
     throw new CliError(
-      `${path.relative(options.root, entry)} does not export createApp().\n${CONTRACT}`,
+      `${path.relative(
+        options.root,
+        entry,
+      )} does not export createApp().\n${CONTRACT}`,
     );
   }
 
@@ -95,7 +100,10 @@ export async function loadApp(options: LoadOptions): Promise<Liteb> {
 
   if (!app || typeof app.migrate !== 'function') {
     throw new CliError(
-      `createApp() in ${path.relative(options.root, entry)} must return what Liteb.create() gives back.`,
+      `createApp() in ${path.relative(
+        options.root,
+        entry,
+      )} must return what Liteb.create() gives back.`,
     );
   }
 

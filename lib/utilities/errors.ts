@@ -1,5 +1,4 @@
 import { HttpStatus } from '../interfaces/http-status';
-import { Logger } from './logger';
 import { ErrorIdentifier } from '../interfaces/type-error';
 
 export class SchemaError<T = Record<string, string>> {
@@ -21,7 +20,6 @@ export class CustomerError<T = Record<string, string>> {
     public fieldsError: Partial<Record<keyof T, string>> = {},
   ) {}
 }
-
 
 export class NotFoundError {
   identifier = ErrorIdentifier.NOT_FOUND;

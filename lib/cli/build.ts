@@ -73,11 +73,19 @@ export async function runBuild(options: BuildOptions): Promise<BuildResult> {
 
   // `tsc` type-checks a path alias and then emits it verbatim, which Node has
   // never heard of. Without this the build throws on its first require.
-  const aliases = readAliases(root, project, out, assetsDir, emittedUnderAssets);
+  const aliases = readAliases(
+    root,
+    project,
+    out,
+    assetsDir,
+    emittedUnderAssets,
+  );
   const rewritten = applyAliases(out, aliases);
   if (rewritten > 0) {
     log(
-      `Resolved ${aliases.map((a) => a.prefix).join(', ')} in ${rewritten} file(s).`,
+      `Resolved ${aliases
+        .map((a) => a.prefix)
+        .join(', ')} in ${rewritten} file(s).`,
     );
   }
 
@@ -149,7 +157,9 @@ function copyAssets(from: string, to: string): number {
 
 /** Every `.js` becomes a `.jsc`, and the readable one is removed. */
 function toBytecode(dir: string): number {
-  let bytenode: { compileFile(args: { filename: string; output: string }): void };
+  let bytenode: {
+    compileFile(args: { filename: string; output: string }): void;
+  };
   try {
     // Required lazily and never declared as a dependency: an application that
     // ships readable JavaScript should not install a bytecode compiler.

@@ -50,14 +50,10 @@ export function readAliases(
   }
 
   const configPath = path.resolve(root, project);
-  const parsed = ts.getParsedCommandLineOfConfigFile(
-    configPath,
-    {},
-    {
-      ...ts.sys,
-      onUnRecoverableConfigFileDiagnostic: () => undefined,
-    } as never,
-  );
+  const parsed = ts.getParsedCommandLineOfConfigFile(configPath, {}, {
+    ...ts.sys,
+    onUnRecoverableConfigFileDiagnostic: () => undefined,
+  } as never);
 
   const paths = parsed?.options.paths;
   if (!paths) return [];

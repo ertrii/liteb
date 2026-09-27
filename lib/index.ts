@@ -37,8 +37,14 @@ export type {
   OpenAPIDocument,
 } from './services/openapi-generator';
 export { defineModule } from './modules/define-module';
-export { MODULE_LAYOUT, ModuleDefinitionError } from './modules/module-manifest';
-export { resolveModules, ModuleResolutionError } from './modules/resolve-modules';
+export {
+  MODULE_LAYOUT,
+  ModuleDefinitionError,
+} from './modules/module-manifest';
+export {
+  resolveModules,
+  ModuleResolutionError,
+} from './modules/resolve-modules';
 export { reconcileModules } from './modules/reconcile-modules';
 export { ModuleStore } from './modules/module-store';
 export {

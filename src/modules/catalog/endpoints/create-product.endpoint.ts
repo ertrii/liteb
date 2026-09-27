@@ -1,10 +1,4 @@
-import {
-  Body,
-  Endpoint,
-  HttpPost,
-  HttpStatus,
-  Group,
-} from '../../../../lib';
+import { Body, Endpoint, HttpPost, HttpStatus, Group } from '../../../../lib';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { Product } from '../entities/product.entity';
 

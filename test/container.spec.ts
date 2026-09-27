@@ -86,7 +86,11 @@ describe('Container', () => {
     }
 
     const container = new Container(fakeDb);
-    container.register('a', Clock, clockClass(() => '12:00'));
+    container.register(
+      'a',
+      Clock,
+      clockClass(() => '12:00'),
+    );
     container.register('b', Greeter, Saludo);
 
     expect(container.get(Greeter).hello()).toBe('hola, son las 12:00');
@@ -103,10 +107,18 @@ describe('Container', () => {
 
   it('rechaza dos módulos proveyendo el mismo contrato', () => {
     const container = new Container(fakeDb);
-    container.register('a', Clock, clockClass(() => 'a'));
+    container.register(
+      'a',
+      Clock,
+      clockClass(() => 'a'),
+    );
 
     expect(() =>
-      container.register('b', Clock, clockClass(() => 'b')),
+      container.register(
+        'b',
+        Clock,
+        clockClass(() => 'b'),
+      ),
     ).toThrow(/provided by both "a" and "b"/);
   });
 
@@ -180,7 +192,11 @@ describe('Container', () => {
 
   it('dice quién provee cada contrato', () => {
     const container = new Container(fakeDb);
-    container.register('billing', Clock, clockClass(() => 'x'));
+    container.register(
+      'billing',
+      Clock,
+      clockClass(() => 'x'),
+    );
 
     expect(container.providerOf(Clock)).toBe('billing');
     expect(container.providerOf(Greeter)).toBeNull();

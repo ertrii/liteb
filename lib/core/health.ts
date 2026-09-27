@@ -138,7 +138,9 @@ export function buildHealth(
   const taken = custom.find(([name]) => RESERVED.includes(name));
   if (taken) {
     throw new Error(
-      `Health check "${taken[0]}" uses a name liteb reserves (${RESERVED.join(', ')}). Rename it.`,
+      `Health check "${taken[0]}" uses a name liteb reserves (${RESERVED.join(
+        ', ',
+      )}). Rename it.`,
     );
   }
 

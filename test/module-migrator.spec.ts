@@ -1,4 +1,11 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from '@jest/globals';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from '@jest/globals';
 import { DataSource, QueryRunner } from 'typeorm';
 import { defineModule } from '../lib/modules/define-module';
 import {
@@ -38,16 +45,20 @@ describe('orderMigrations', () => {
     class Vieja9000 {}
     class Nueva10000 {}
 
-    expect(orderMigrations([Nueva10000, Vieja9000], 'm').map((m) => m.name))
-      .toEqual(['Vieja9000', 'Nueva10000']);
+    expect(
+      orderMigrations([Nueva10000, Vieja9000], 'm').map((m) => m.name),
+    ).toEqual(['Vieja9000', 'Nueva10000']);
   });
 
   it('acepta sellos de tiempo reales de 13 dígitos', () => {
     class Vieja1780449821400 {}
     class Nueva1788700000000 {}
 
-    expect(orderMigrations([Nueva1788700000000, Vieja1780449821400], 'm')
-      .map((m) => m.name)).toEqual(['Vieja1780449821400', 'Nueva1788700000000']);
+    expect(
+      orderMigrations([Nueva1788700000000, Vieja1780449821400], 'm').map(
+        (m) => m.name,
+      ),
+    ).toEqual(['Vieja1780449821400', 'Nueva1788700000000']);
   });
 
   it('exige sello de tiempo en vez de adivinar el orden', () => {
@@ -61,9 +72,9 @@ describe('orderMigrations', () => {
     class UnaCosa1000 {}
     class OtraCosa1000 {}
 
-    expect(() => orderMigrations([UnaCosa1000, OtraCosa1000], 'billing')).toThrow(
-      /share the timestamp 1000, so their order is undefined/,
-    );
+    expect(() =>
+      orderMigrations([UnaCosa1000, OtraCosa1000], 'billing'),
+    ).toThrow(/share the timestamp 1000, so their order is undefined/);
   });
 
   it('sin migraciones devuelve una lista vacía', () => {

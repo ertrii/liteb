@@ -22,7 +22,13 @@ import slash from 'slash';
  * because what a `.jsc` file is depends on the Node that produced it, and a
  * framework has no business deciding that for its consumer.
  */
-export const MODULE_EXTENSIONS = ['.ts', '.js', '.cjs', '.mjs', '.jsc'] as const;
+export const MODULE_EXTENSIONS = [
+  '.ts',
+  '.js',
+  '.cjs',
+  '.mjs',
+  '.jsc',
+] as const;
 
 /**
  * Turns a module's glob into an absolute one, resolved against the module's own
@@ -163,6 +169,10 @@ export function readExportsSync(
   for (const pattern of patterns) {
     for (const file of readFilesSync(pattern, dir)) {
       result.files.push(file);
+      // Synchronous, and that is the point: this runs at the same moment a
+      // top-of-file `import` would have, so the DataSource is built knowing
+      // every module's entities.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       result.exported.push(...Object.values(require(file)));
     }
   }

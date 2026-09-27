@@ -51,7 +51,9 @@ describe('archivos de log', () => {
 
   afterAll(closeTestDb);
 
-  const levantar = async (logs?: Parameters<typeof Liteb.create>[0]['logs']) => {
+  const levantar = async (
+    logs?: Parameters<typeof Liteb.create>[0]['logs'],
+  ) => {
     app = await Liteb.create({
       db,
       modules: [site],

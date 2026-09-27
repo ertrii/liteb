@@ -99,6 +99,10 @@ export function ApiResponse(
  */
 export function ApiHidden() {
   return function (target: new () => Endpoint<any, any, any>) {
-    Reflect.defineMetadata(API_HIDDEN, { hidden: true } as ApiHiddenMetadata, target);
+    Reflect.defineMetadata(
+      API_HIDDEN,
+      { hidden: true } as ApiHiddenMetadata,
+      target,
+    );
   };
 }

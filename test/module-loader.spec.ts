@@ -18,8 +18,13 @@ const billingDir = path.join(__dirname, 'fixtures/modules/billing');
 
 describe('resolveModulePattern', () => {
   it('resuelve contra la carpeta del módulo, no contra el cwd', () => {
-    const resolved = resolveModulePattern('./controllers/*.ts', '/modules/billing');
-    expect(resolved).toBe(path.resolve('/modules/billing', './controllers/*.ts'));
+    const resolved = resolveModulePattern(
+      './controllers/*.ts',
+      '/modules/billing',
+    );
+    expect(resolved).toBe(
+      path.resolve('/modules/billing', './controllers/*.ts'),
+    );
   });
 
   it('deja intacto un patrón absoluto', () => {

@@ -37,5 +37,11 @@
   // misma línea que `liteb init` escribe en el tsconfig que genera.
   "ts-node": { "require": ["tsconfig-paths/register"] },
   "compileOnSave": true,
-  "include": ["./src", "jest.config.ts", "./lib"]
+  // `./test` is in here so the suite is TYPECHECKED, not only run: a broken
+  // regex in a spec used to surface as a jest failure at the end instead of a
+  // compiler error at once. It is also what lets ESLint read types there.
+  "include": ["./src", "./lib", "./test", "jest.config.ts"],
+  // Projects the CLI scaffolds during the tests: written by the generators,
+  // resolved against their own node_modules, and not ours to compile.
+  "exclude": ["node_modules", "dist", "types", "build", "test/.generated"]
 }

@@ -177,7 +177,7 @@ describe('csv()', () => {
     const res = await send(csv(filas, { filename: 'Catálogo.csv' }));
 
     expect(res.headers['Content-Disposition']).toBe(
-      "attachment; filename=\"Cat_logo.csv\"; filename*=UTF-8''Cat%C3%A1logo.csv",
+      'attachment; filename="Cat_logo.csv"; filename*=UTF-8\'\'Cat%C3%A1logo.csv',
     );
   });
 

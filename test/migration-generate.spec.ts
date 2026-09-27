@@ -134,7 +134,10 @@ describe('migration:generate', () => {
 
   it('avisa cuando toca tablas de otro módulo, sin decidir por vos', async () => {
     const diff = {
-      up: ['CREATE TABLE "gen_users" ()', 'ALTER TABLE "gen_invoices" ADD x int'],
+      up: [
+        'CREATE TABLE "gen_users" ()',
+        'ALTER TABLE "gen_invoices" ADD x int',
+      ],
       down: [],
     };
 
@@ -212,7 +215,9 @@ describe('una migración sin escribir', () => {
         await runner.query(`
           -- what this migration creates
         `);
-        throw new Error('CreateUsers1000 has no SQL yet: write it, or delete the file.');
+        throw new Error(
+          'CreateUsers1000 has no SQL yet: write it, or delete the file.',
+        );
       }
       public async down(): Promise<void> {}
     }

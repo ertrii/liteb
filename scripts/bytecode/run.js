@@ -57,7 +57,10 @@ async function main() {
   require('reflect-metadata');
   const { DataSource } = require('typeorm');
   const { PGliteDriver } = require('typeorm-pglite');
-  const { Liteb, Logger, collectModuleEntities } = require(path.join(out, 'lib'));
+  const { Liteb, Logger, collectModuleEntities } = require(path.join(
+    out,
+    'lib',
+  ));
 
   require(path.join(out, 'src/config/session-auth')); // amplía LitebAuth.Actor
   const modules = ['identity', 'catalog', 'reports'].map(
@@ -101,13 +104,18 @@ async function main() {
   const answers = [
     ['GET /api/products', await get(port, '/api/products', headers)],
     ['GET /api/products/page', await get(port, '/api/products/page', headers)],
-    ['GET /api/products/export', await get(port, '/api/products/export', headers)],
+    [
+      'GET /api/products/export',
+      await get(port, '/api/products/export', headers),
+    ],
   ];
 
   console.log('\n=== Respuestas');
   for (const [name, res] of answers) {
     console.log(
-      `${name.padEnd(24)} ${res.status} ${String(res.type).split(';')[0].padEnd(16)} ${JSON.stringify(res.body.slice(0, 60))}`,
+      `${name.padEnd(24)} ${res.status} ${String(res.type)
+        .split(';')[0]
+        .padEnd(16)} ${JSON.stringify(res.body.slice(0, 60))}`,
     );
   }
 
@@ -116,7 +124,9 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 1200));
 
   console.log('\n=== Mapa de rutas (.bytecode/logs/router.log)');
-  console.log(fs.readFileSync(path.join(out, 'logs/router.log'), 'utf8').trim());
+  console.log(
+    fs.readFileSync(path.join(out, 'logs/router.log'), 'utf8').trim(),
+  );
 
   process.exit(0);
 }

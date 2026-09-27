@@ -84,7 +84,10 @@ export default class EndpointReader {
       ['query', QUERY_METHOD],
     ];
     for (const [method, KEY] of MethodKeys) {
-      const metadata = Reflect.getMetadata(KEY, this.EndpointClass) as HTTPMetadata;
+      const metadata = Reflect.getMetadata(
+        KEY,
+        this.EndpointClass,
+      ) as HTTPMetadata;
       if (metadata) {
         this.pathname = metadata.path;
         this.method = method;
@@ -104,7 +107,10 @@ export default class EndpointReader {
   };
 
   private getUse = () => {
-    const useDefine = Reflect.getMetadata(USE, this.EndpointClass) as UseMetadata;
+    const useDefine = Reflect.getMetadata(
+      USE,
+      this.EndpointClass,
+    ) as UseMetadata;
     if (useDefine) {
       this.MiddlewareClass = useDefine.middleware;
     }

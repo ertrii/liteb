@@ -1,4 +1,10 @@
-import { Body, CustomerError, Endpoint, HttpPost, Group } from '../../../../lib';
+import {
+  Body,
+  CustomerError,
+  Endpoint,
+  HttpPost,
+  Group,
+} from '../../../../lib';
 import { LoginDto } from '../dto/login.dto';
 import { User } from '../entities/user.entity';
 import { verifyPassword } from '../services/password';

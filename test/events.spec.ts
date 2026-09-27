@@ -13,7 +13,7 @@ import {
   On,
 } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
-import { Registrado, visto } from './fixtures/events/shared';
+import { visto } from './fixtures/events/shared';
 
 const fakeDb = {} as DataSource;
 

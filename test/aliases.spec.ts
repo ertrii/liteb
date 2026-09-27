@@ -22,9 +22,7 @@ describe('rewriteAliases', () => {
 
     expect(
       rewriteAliases(code, '/out/modules/reports/endpoints/s.js', aliases),
-    ).toBe(
-      `const x = require("../../identity/contracts/user.contract");`,
-    );
+    ).toBe(`const x = require("../../identity/contracts/user.contract");`);
   });
 
   it('desde la raíz de la salida queda con ./', () => {
@@ -54,7 +52,9 @@ describe('el propio repo', () => {
     );
 
     if (!raw.includes('"paths"')) return;
-    expect(raw).toContain('"ts-node": { "require": ["tsconfig-paths/register"] }');
+    expect(raw).toContain(
+      '"ts-node": { "require": ["tsconfig-paths/register"] }',
+    );
   });
 });
 
@@ -126,10 +126,7 @@ describe('liteb build (de punta a punta)', () => {
 
     const result = await runBuild({ root, out: 'build' });
 
-    const emitido = fs.readFileSync(
-      path.join(result.out, 'index.js'),
-      'utf8',
-    );
+    const emitido = fs.readFileSync(path.join(result.out, 'index.js'), 'utf8');
     expect(emitido).not.toContain('@/identity');
 
     // La prueba de verdad: requerirlo.

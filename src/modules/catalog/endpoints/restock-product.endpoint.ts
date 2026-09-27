@@ -38,7 +38,9 @@ export class RestockProductEndpoint extends Endpoint<ProductIdDto, RestockDto> {
 
       product.stock += quantity;
       await manager.save(product);
-      await manager.save(manager.create(StockMove, { productId, quantity, userId }));
+      await manager.save(
+        manager.create(StockMove, { productId, quantity, userId }),
+      );
 
       return { id: product.id, stock: product.stock };
     });

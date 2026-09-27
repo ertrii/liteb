@@ -36,9 +36,7 @@ async function main() {
         console.log('Nothing installed yet — start the app once.');
       }
       for (const row of rows) {
-        console.log(
-          `${row.enabled ? 'on ' : 'off'}  ${row.id}@${row.version}`,
-        );
+        console.log(`${row.enabled ? 'on ' : 'off'}  ${row.id}@${row.version}`);
       }
       return;
     }

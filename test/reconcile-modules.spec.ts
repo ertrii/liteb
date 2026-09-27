@@ -103,10 +103,10 @@ describe('reconcileModules — encendidos', () => {
 
 describe('reconcileModules — huérfanos', () => {
   it('reporta un módulo cuyo código desapareció', () => {
-    const result = reconcileModules([mod('news')], [
-      stored('news'),
-      stored('legacy-thing'),
-    ]);
+    const result = reconcileModules(
+      [mod('news')],
+      [stored('news'), stored('legacy-thing')],
+    );
 
     expect(result.orphaned).toEqual([
       { id: 'legacy-thing', version: '1.0.0', enabled: true },
@@ -114,7 +114,10 @@ describe('reconcileModules — huérfanos', () => {
   });
 
   it('nunca lo da por habilitado', () => {
-    const result = reconcileModules([], [stored('legacy-thing', '1.0.0', true)]);
+    const result = reconcileModules(
+      [],
+      [stored('legacy-thing', '1.0.0', true)],
+    );
 
     expect(result.enabledIds).toEqual([]);
     expect(result.orphaned).toHaveLength(1);

@@ -19,7 +19,9 @@ export class EchoQueryDto {
 @Query(EchoQueryDto)
 export class EchoApi extends Endpoint<null, null, EchoQueryDto> {
   async main() {
-    await new Promise((resolve) => setTimeout(resolve, Number(this.query.delay)));
+    await new Promise((resolve) =>
+      setTimeout(resolve, Number(this.query.delay)),
+    );
     return { value: this.query.value };
   }
 }

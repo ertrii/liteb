@@ -80,7 +80,9 @@ describe('contratos entre módulos', () => {
     });
 
     // sales lo requiere, así que la falla llega antes: el grafo no resuelve.
-    await expect(app.start(0)).rejects.toThrow(/requires "billing", which is disabled/);
+    await expect(app.start(0)).rejects.toThrow(
+      /requires "billing", which is disabled/,
+    );
   });
 
   it('no arranca si nadie provee el contrato que se consume', async () => {

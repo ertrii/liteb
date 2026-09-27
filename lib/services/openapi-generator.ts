@@ -87,14 +87,12 @@ function paramsFromSchema(
 ): OpenAPIParameter[] {
   if (!schema?.properties) return [];
   const required: string[] = schema.required || [];
-  return Object.entries(schema.properties).map(
-    ([name, propSchema]) => ({
-      name,
-      in: location,
-      required: location === 'path' ? true : required.includes(name),
-      schema: propSchema,
-    }),
-  );
+  return Object.entries(schema.properties).map(([name, propSchema]) => ({
+    name,
+    in: location,
+    required: location === 'path' ? true : required.includes(name),
+    schema: propSchema,
+  }));
 }
 
 export interface OpenAPIGroup {
@@ -142,11 +140,7 @@ export class OpenAPIGenerator {
         // produce an invalid document, so it is omitted from the spec.
         if (reader.method === 'query') continue;
 
-        const url = fullPath(
-          group.basePath,
-          reader.group,
-          reader.pathname,
-        );
+        const url = fullPath(group.basePath, reader.group, reader.pathname);
         paths[url] = paths[url] || {};
 
         const tags =

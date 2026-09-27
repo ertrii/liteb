@@ -8,7 +8,7 @@ import { contract, ContractError } from '../lib/modules/container';
 import { slot } from '../lib/modules/slots';
 import { Provider } from '../lib/templates/provider';
 import { Contributes, Provides } from '../lib/decorators/provides.decorator';
-import { Badges, built, Clock, Greeter } from './fixtures/proveedores/shared';
+import { Badges, built, Greeter } from './fixtures/proveedores/shared';
 
 /**
  * La implementación de un contrato es una CLASE en `providers/`, y el token
@@ -49,9 +49,9 @@ describe('proveedores por carpeta', () => {
     // patrón.
     const container = await buildContainer([demo], fakeDb);
 
-    expect((container.get(Greeter) as unknown as { sawDb: boolean }).sawDb).toBe(
-      true,
-    );
+    expect(
+      (container.get(Greeter) as unknown as { sawDb: boolean }).sawDb,
+    ).toBe(true);
   });
 
   it('sigue construyéndose al primer uso, y una sola vez', async () => {

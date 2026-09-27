@@ -160,8 +160,12 @@ describe('aislamiento de estado por petición', () => {
   // requests to the SAME endpoint overwrote each other and both ended up seeing
   // the last one's data.
   it('dos peticiones concurrentes no se pisan el query', async () => {
-    const lenta = request(app()).get('/api/eco').query({ value: 'a', delay: '60' });
-    const rapida = request(app()).get('/api/eco').query({ value: 'b', delay: '0' });
+    const lenta = request(app())
+      .get('/api/eco')
+      .query({ value: 'a', delay: '60' });
+    const rapida = request(app())
+      .get('/api/eco')
+      .query({ value: 'b', delay: '0' });
 
     const [resA, resB] = await Promise.all([lenta, rapida]);
 

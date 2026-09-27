@@ -15,6 +15,10 @@
     "build": "npm run clear && npx tsc -p ./tsconfig.build.json --declarationDir ./types",
     "clear": "rimraf ./dist ./types",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "modules": "ts-node ./src/scripts/modules.ts",
     "prepublishOnly": "node ./scripts/publish-guard.js && npm run build",
     "demo:bytecode": "node ./scripts/bytecode/run.js"

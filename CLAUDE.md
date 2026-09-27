@@ -78,11 +78,27 @@ npm run dev     # nodemon → ts-node ./src/index.ts (needs PostgreSQL)
 npm run build   # clears dist/ + types/, then tsc -p tsconfig.build.json
 npm run clear   # rimraf ./dist ./types
 npm test        # jest, with --experimental-vm-modules (PGlite needs it)
+npm run lint    # eslint . --ext .ts  (formatting included, see below)
+npm run lint:fix
+npm run format  # prettier --write .  (json, css, html too)
 npm run modules -- list | enable <id> | disable <id>   # ModuleStore CLI (demo)
 npm pack        # tarball, to install into a consumer project
 ```
 
 Single file: `npx jest test/<file>.spec.ts`. Single test: `npx jest -t "name"`.
+
+**One config, four files, no overlap.** `.editorconfig` is the shape of a file
+for any editor; `.prettierrc` repeats the same values for the formatter;
+`.eslintrc.js` extends `plugin:prettier/recommended`, which turns off every
+stylistic ESLint rule and reports what Prettier would change — so `npm run lint`
+covers formatting too, and `lint:fix` does both in one pass. The
+`prettier/prettier` rule takes **no options**: settings live in `.prettierrc`
+and nowhere else. `.gitattributes` pins the working tree to LF, which is what
+keeps a Windows checkout from making the formatter want to rewrite every line
+of half the repo.
+
+`tsconfig.json` includes `./test`, so the specs are typechecked by
+`npx tsc --noEmit` and ESLint can read types in them.
 
 `npm run build` **clears first on purpose**. Without it the tarball kept files
 from deleted modules, and a consumer could deep-import 1.x code no longer in the

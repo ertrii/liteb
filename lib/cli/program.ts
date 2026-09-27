@@ -75,7 +75,9 @@ export function buildProgram(): Command {
 
   program
     .command('init [name]')
-    .description('A project that runs: package.json, tsconfig, .env, entry point')
+    .description(
+      'A project that runs: package.json, tsconfig, .env, entry point',
+    )
     .option('--skip-install', 'write the files and stop')
     .option('--dir <path>', 'where modules will live', 'src/modules')
     .action((name: string | undefined, flags) => {
@@ -120,7 +122,9 @@ export function buildProgram(): Command {
   common(
     program
       .command('module <name>')
-      .description('A module: its manifest, its permissions and a first endpoint')
+      .description(
+        'A module: its manifest, its permissions and a first endpoint',
+      )
       .option('--label <text>', 'human name, for a "modules" screen')
       .option(
         '--entry <file>',
@@ -151,7 +155,10 @@ export function buildProgram(): Command {
       .description('An HTTP endpoint inside a module')
       .option('--method <verb>', 'get, post, put, patch, delete, query', 'get')
       .option('--path <path>', 'path under the group, e.g. ":id"')
-      .option('--group <name>', 'route prefix (@Group); defaults to the module id')
+      .option(
+        '--group <name>',
+        'route prefix (@Group); defaults to the module id',
+      )
       .option(
         '--permission <key>',
         'assert this key instead of the module default, declaring it too',
@@ -194,7 +201,9 @@ export function buildProgram(): Command {
   common(
     program
       .command('contract <module/name>')
-      .description('A capability this module publishes: the token and the shape'),
+      .description(
+        'A capability this module publishes: the token and the shape',
+      ),
   ).action((target, flags) => {
     report(
       createContract({ target, modulesDir: flags.dir, from: flags.from }),
@@ -206,7 +215,10 @@ export function buildProgram(): Command {
     program
       .command('provider <module/name>')
       .description('The class that answers a contract, found by its folder')
-      .option('--slot <name>', 'fill an extension point instead of answering a contract'),
+      .option(
+        '--slot <name>',
+        'fill an extension point instead of answering a contract',
+      ),
   ).action((target, flags) => {
     report(
       createProvider({
@@ -299,15 +311,16 @@ export function buildProgram(): Command {
         if (pending.length > 0) {
           throw new CliError(
             `${pending.length} migration(s) have not run yet, so the diff would repeat what they already do.
-` +
-              `Run them first: liteb migrate`,
+` + `Run them first: liteb migrate`,
           );
         }
 
         const diff = await app.pendingSchema();
         if (flags.print) {
           if (diff.up.length === 0) {
-            console.log('Nothing to generate: the database already matches the entities.');
+            console.log(
+              'Nothing to generate: the database already matches the entities.',
+            );
             return;
           }
           diff.up.forEach((query) => console.log(`  ${query}`));
@@ -341,7 +354,9 @@ export function buildProgram(): Command {
 
         if (ran.length === 0) {
           console.log(
-            flags.dryRun ? 'Nothing pending.' : 'Nothing to migrate: everything already ran.',
+            flags.dryRun
+              ? 'Nothing pending.'
+              : 'Nothing to migrate: everything already ran.',
           );
           return;
         }
@@ -407,7 +422,10 @@ ${mod.module}  (${state})`);
     .option('--out <dir>', 'where the build goes', 'build')
     .option('--assets <dir>', 'folder holding what was never TypeScript', 'src')
     .option('--bytecode', 'compile to .jsc and delete the readable .js')
-    .option('--only <dir>', 'limit the bytecode step to this part of the output')
+    .option(
+      '--only <dir>',
+      'limit the bytecode step to this part of the output',
+    )
     .action(async (flags) => {
       const result = await runBuild({
         root: process.cwd(),
@@ -418,7 +436,9 @@ ${mod.module}  (${state})`);
         bytecodeDir: flags.only,
         log: (message) => console.log(message),
       });
-      console.log(`\nBuild at ${path.relative(process.cwd(), result.out) || '.'}`);
+      console.log(
+        `\nBuild at ${path.relative(process.cwd(), result.out) || '.'}`,
+      );
       if (flags.bytecode) {
         console.log(
           'Remember: the application must require("bytenode") before start(), and the .jsc is tied to this Node version.',

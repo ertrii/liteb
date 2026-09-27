@@ -39,7 +39,9 @@ const toMigrations = (migrations: ModuleMigrations | undefined): Function[] => {
   const values = Array.isArray(migrations)
     ? migrations
     : Object.values(migrations);
-  return values.filter((value): value is Function => typeof value === 'function');
+  return values.filter(
+    (value): value is Function => typeof value === 'function',
+  );
 };
 
 /**
@@ -87,7 +89,9 @@ const isEntity = (value: unknown): value is ModuleEntity => {
   // TypeORM's decorators register here the moment the file is required, which
   // has just happened. An enum, a DTO or a plain class exported from the same
   // folder is not in this list.
-  return getMetadataArgsStorage().tables.some((table) => table.target === value);
+  return getMetadataArgsStorage().tables.some(
+    (table) => table.target === value,
+  );
 };
 
 /**
@@ -124,8 +128,14 @@ const loadFromGlobs = <T>(
   if (found.length === 0 && !globs.implicit) {
     Logger.warn(
       files.length === 0
-        ? `Module "${id}": "${field}" (${globs.patterns.join(', ')}) matched no files. Check the glob and "dir".`
-        : `Module "${id}": "${field}" matched ${files.length} file(s), none of which exports a${field === 'entities' ? 'n entity' : ' migration'}.`,
+        ? `Module "${id}": "${field}" (${globs.patterns.join(
+            ', ',
+          )}) matched no files. Check the glob and "dir".`
+        : `Module "${id}": "${field}" matched ${
+            files.length
+          } file(s), none of which exports a${
+            field === 'entities' ? 'n entity' : ' migration'
+          }.`,
     );
   }
 
@@ -234,7 +244,10 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     fail(`Module "${id}" needs a "version".`, id);
   }
   if (!semver.valid(manifest.version)) {
-    fail(`Module "${id}": "${manifest.version}" is not a valid semver version.`, id);
+    fail(
+      `Module "${id}": "${manifest.version}" is not a valid semver version.`,
+      id,
+    );
   }
 
   if (manifest.engine !== undefined) {
@@ -293,7 +306,10 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
   }
   for (const token of consumes) {
     if (!token?.id) {
-      fail(`Module "${id}": every consumed entry must be a contract token.`, id);
+      fail(
+        `Module "${id}": every consumed entry must be a contract token.`,
+        id,
+      );
     }
   }
 

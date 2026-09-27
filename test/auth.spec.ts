@@ -2,13 +2,7 @@ import 'reflect-metadata';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import {
-  Auth,
-  AuthError,
-  defineModule,
-  ForbiddenError,
-  Liteb,
-} from '../lib';
+import { Auth, AuthError, defineModule, ForbiddenError, Liteb } from '../lib';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { testAuthResolver } from './fixtures/auth/actor';
 import { closeTestDb, createTestDb } from './helpers/test-db';
@@ -84,7 +78,9 @@ describe('Auth (sin servidor)', () => {
   });
 
   it('assert separa 401 de 403', () => {
-    expect(() => crearAuth(null, true).assert('billing.view')).toThrow(AuthError);
+    expect(() => crearAuth(null, true).assert('billing.view')).toThrow(
+      AuthError,
+    );
 
     const auth = crearAuth(
       { actor: actorDe(1), permissions: ['billing.view'] },
@@ -154,7 +150,9 @@ describe('Auth (extremo a extremo)', () => {
   });
 
   it('un resolutor que lanza se mapea como cualquier otro error', async () => {
-    const res = await request(app()).get('/api/yo/actual').set('x-user', 'roto');
+    const res = await request(app())
+      .get('/api/yo/actual')
+      .set('x-user', 'roto');
 
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({
@@ -236,7 +234,7 @@ describe('el resolutor recibe db y contratos', () => {
   });
 
   let liteb: Liteb;
-  let visto: { db: boolean } = { db: false };
+  const visto: { db: boolean } = { db: false };
 
   beforeAll(async () => {
     const db = await createTestDb();

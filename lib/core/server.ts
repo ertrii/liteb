@@ -43,11 +43,15 @@ export class RouterOption {
 morgan.format('liteb', (tokens, request, response) => {
   const status = response.headersSent ? response.statusCode : undefined;
   const colour =
-    status === undefined ? 0
-    : status >= 500 ? 31
-    : status >= 400 ? 33
-    : status >= 300 ? 36
-    : 32;
+    status === undefined
+      ? 0
+      : status >= 500
+      ? 31
+      : status >= 400
+      ? 33
+      : status >= 300
+      ? 36
+      : 32;
   const id = (request as { requestId?: string }).requestId;
 
   return [

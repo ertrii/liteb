@@ -14,10 +14,7 @@ import { ErrorType } from '../interfaces/type-error';
 import { Routine } from '../templates/routine';
 import InterpreterRoutine from './interpreter-routine';
 import path from 'path';
-import {
-  OpenAPIGenerator,
-  OpenAPIInfo,
-} from '../services/openapi-generator';
+import { OpenAPIGenerator, OpenAPIInfo } from '../services/openapi-generator';
 import { ResolvedModule } from '../modules/module-manifest';
 import { ModuleStore } from '../modules/module-store';
 import { AppliedMigration, ModuleMigrator } from '../modules/module-migrator';
@@ -390,9 +387,7 @@ export default class Liteb extends Server {
    * @param write `false` computes the same answer without recording anything,
    * for a dry run.
    */
-  private prepareModules = async (
-    write = true,
-  ): Promise<ResolvedModule[]> => {
+  private prepareModules = async (write = true): Promise<ResolvedModule[]> => {
     const store = new ModuleStore(this.dbSource);
     await store.ensureTable();
 
@@ -651,7 +646,9 @@ export default class Liteb extends Server {
     }> = [];
     for (const loaded of this.loadedModules) {
       if (loaded.readers.length === 0) continue;
-      for (const [basePath, endpointReaders] of this.byBasePath(loaded.readers)) {
+      for (const [basePath, endpointReaders] of this.byBasePath(
+        loaded.readers,
+      )) {
         resolvedGroups.push({ basePath, endpointReaders });
       }
     }

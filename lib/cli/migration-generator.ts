@@ -21,7 +21,9 @@ const escape = (sql: string): string =>
   sql.replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 
 const statements = (queries: string[]): string =>
-  queries.map((query) => `    await runner.query(\`${escape(query)}\`);`).join('\n');
+  queries
+    .map((query) => `    await runner.query(\`${escape(query)}\`);`)
+    .join('\n');
 
 /**
  * Turns TypeORM's diff into a migration in the module that owns what changed.
@@ -111,5 +113,9 @@ ${statements(options.diff.down)}
     );
   }
 
-  return plan([{ path: `${dir}/migrations/${stamp}-${target.name}.ts`, content }], [], hints);
+  return plan(
+    [{ path: `${dir}/migrations/${stamp}-${target.name}.ts`, content }],
+    [],
+    hints,
+  );
 }

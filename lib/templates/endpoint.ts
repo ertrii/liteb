@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 import { HttpStatus } from '../interfaces/http-status';
-import { ErrorType } from '../interfaces/type-error';
 import { Auth } from '../core/auth';
 import type { EventBus, EventToken } from '../modules/events';
 import type { Container, Contract } from '../modules/container';

@@ -33,6 +33,8 @@ if (prerelease && tag !== channel) {
 }
 
 if (!prerelease && tag && tag !== 'latest') {
-  console.error(`\nRefusing to publish the stable ${version} under "${tag}".\n`);
+  console.error(
+    `\nRefusing to publish the stable ${version} under "${tag}".\n`,
+  );
   process.exit(1);
 }

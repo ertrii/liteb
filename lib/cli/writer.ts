@@ -28,10 +28,14 @@ export function apply(target: Plan, options: WriteOptions): WriteResult {
   const absolute = (file: string) => path.resolve(options.root, file);
 
   if (!options.force) {
-    const existing = target.files.filter((file) => fs.existsSync(absolute(file.path)));
+    const existing = target.files.filter((file) =>
+      fs.existsSync(absolute(file.path)),
+    );
     if (existing.length > 0) {
       throw new CliError(
-        `Already there: ${existing.map((file) => file.path).join(', ')}. Use --force to overwrite.`,
+        `Already there: ${existing
+          .map((file) => file.path)
+          .join(', ')}. Use --force to overwrite.`,
       );
     }
   }
@@ -86,7 +90,8 @@ export function applyEdit(source: string, edit: FileEdit): string | null {
     const cleaned = /^\s*export\s/.test(edit.append)
       ? source.replace(/^export \{\};\r?\n/m, '')
       : source;
-    const separator = cleaned.endsWith('\n') || cleaned.length === 0 ? '' : '\n';
+    const separator =
+      cleaned.endsWith('\n') || cleaned.length === 0 ? '' : '\n';
     return `${cleaned}${separator}${edit.append}\n`;
   }
 

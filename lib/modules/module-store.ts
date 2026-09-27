@@ -59,7 +59,9 @@ export class ModuleStore {
 
   async list(): Promise<ModuleState[]> {
     const rows: Array<{ id: string; version: string; enabled: boolean }> =
-      await this.db.query('select id, version, enabled from _modules order by id');
+      await this.db.query(
+        'select id, version, enabled from _modules order by id',
+      );
 
     return rows.map((row) => ({
       id: row.id,

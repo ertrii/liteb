@@ -1,4 +1,8 @@
-import { ModuleDefinitionError, ModuleEntity, ResolvedModule } from './module-manifest';
+import {
+  ModuleDefinitionError,
+  ModuleEntity,
+  ResolvedModule,
+} from './module-manifest';
 
 /**
  * Gathers the entities contributed by every module, for the DataSource.

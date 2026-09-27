@@ -45,8 +45,16 @@ describe('collectModuleEntities', () => {
 
   it('incluye las de un módulo que podría estar apagado', () => {
     // Apagar decide qué CORRE, no si los datos siguen alcanzables.
-    const encendido = defineModule({ id: 'a', version: '1.0.0', entities: [Charge] });
-    const apagado = defineModule({ id: 'b', version: '1.0.0', entities: [Invoice] });
+    const encendido = defineModule({
+      id: 'a',
+      version: '1.0.0',
+      entities: [Charge],
+    });
+    const apagado = defineModule({
+      id: 'b',
+      version: '1.0.0',
+      entities: [Invoice],
+    });
 
     expect(collectModuleEntities([encendido, apagado])).toHaveLength(2);
   });

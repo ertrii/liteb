@@ -22,7 +22,9 @@ describe('defineModule — identidad', () => {
   });
 
   it('exige un id', () => {
-    expect(() => defineModule({ ...base, id: '' })).toThrow(ModuleDefinitionError);
+    expect(() => defineModule({ ...base, id: '' })).toThrow(
+      ModuleDefinitionError,
+    );
   });
 
   it.each(['Billing', 'customer_portal', '1billing', 'customer-', 'cliente ñ'])(
@@ -73,8 +75,9 @@ describe('defineModule — versiones', () => {
 
 describe('defineModule — dependencias', () => {
   it('conserva las dependencias declaradas', () => {
-    expect(defineModule({ ...base, requires: ['identity', 'customers'] }).requires)
-      .toEqual(['identity', 'customers']);
+    expect(
+      defineModule({ ...base, requires: ['identity', 'customers'] }).requires,
+    ).toEqual(['identity', 'customers']);
   });
 
   it('un módulo no puede requerirse a sí mismo', () => {
@@ -120,13 +123,19 @@ describe('defineModule — permisos', () => {
 
   it('exige una clave con puntos', () => {
     expect(() =>
-      defineModule({ ...base, permissions: [{ key: 'billing', label: 'Ver' }] }),
+      defineModule({
+        ...base,
+        permissions: [{ key: 'billing', label: 'Ver' }],
+      }),
     ).toThrow(/not a dotted lowercase key/);
   });
 
   it('exige una etiqueta', () => {
     expect(() =>
-      defineModule({ ...base, permissions: [{ key: 'billing.view', label: '' }] }),
+      defineModule({
+        ...base,
+        permissions: [{ key: 'billing.view', label: '' }],
+      }),
     ).toThrow(/needs a non-empty "label"/);
   });
 
@@ -148,14 +157,15 @@ describe('defineModule — aportes', () => {
   class Invoice {}
 
   it('rechaza la misma entidad dos veces', () => {
-    expect(() =>
-      defineModule({ ...base, entities: [Charge, Charge] }),
-    ).toThrow(/the same entity is listed twice/);
+    expect(() => defineModule({ ...base, entities: [Charge, Charge] })).toThrow(
+      /the same entity is listed twice/,
+    );
   });
 
   it('conserva las entidades declaradas', () => {
-    expect(defineModule({ ...base, entities: [Charge, Invoice] }).entities)
-      .toHaveLength(2);
+    expect(
+      defineModule({ ...base, entities: [Charge, Invoice] }).entities,
+    ).toHaveLength(2);
   });
 
   it('normaliza un glob suelto a un arreglo', () => {
@@ -181,8 +191,9 @@ describe('defineModule — aportes', () => {
 
   it('acepta migraciones ya en arreglo', () => {
     class CreateCharges {}
-    expect(defineModule({ ...base, migrations: [CreateCharges] }).migrations)
-      .toEqual([CreateCharges]);
+    expect(
+      defineModule({ ...base, migrations: [CreateCharges] }).migrations,
+    ).toEqual([CreateCharges]);
   });
 });
 

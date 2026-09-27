@@ -70,8 +70,8 @@ export function buildCors(config: CorsConfig): RequestHandler {
     typeof config.origin === 'string' && config.origin !== '*'
       ? [config.origin]
       : Array.isArray(config.origin)
-        ? config.origin
-        : null;
+      ? config.origin
+      : null;
 
   if (list && list.length === 0) {
     // Almost always an env var that arrived empty, and the symptom is every
@@ -94,7 +94,9 @@ export function buildCors(config: CorsConfig): RequestHandler {
           if (list.includes(origin)) return callback(null, true);
 
           Logger.warn(
-            `CORS: refused origin ${origin}. Allowed: ${list.join(', ') || '(none)'}`,
+            `CORS: refused origin ${origin}. Allowed: ${
+              list.join(', ') || '(none)'
+            }`,
           );
           // `false`, not an error: omit the header and let the browser decide.
           callback(null, false);

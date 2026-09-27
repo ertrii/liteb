@@ -118,7 +118,7 @@ export function configureLogger(options: LoggerOptions = {}) {
   let dir =
     options.dir !== undefined
       ? options.dir
-      : (process.env.LITEB_LOG_DIR ?? 'logs');
+      : process.env.LITEB_LOG_DIR ?? 'logs';
 
   // A logger that says nothing has no files to say it in. Without this, every
   // test run and every `level: 'off'` process would leave a directory of empty
@@ -166,7 +166,9 @@ export function configureLogger(options: LoggerOptions = {}) {
 
   /** Console, the neutral file, and this level's own file, in that order. */
   const levelled = (key: keyof LogFiles) =>
-    ['console', 'app', key].filter((name) => name === 'console' || appenders[name]);
+    ['console', 'app', key].filter(
+      (name) => name === 'console' || appenders[name],
+    );
 
   const router = appenders.router ? ['router'] : ['console'];
 

@@ -41,7 +41,10 @@ const modules = () => [
   }),
 ];
 
-const actor = () => ({ actor: {} as LitebAuth.Actor, permissions: ['billing.view'] });
+const actor = () => ({
+  actor: {} as LitebAuth.Actor,
+  permissions: ['billing.view'],
+});
 
 describe('PermissionRegistry', () => {
   it('junta lo que declara cada módulo, con su dueño', () => {
@@ -85,9 +88,9 @@ describe('Auth con registro', () => {
   });
 
   it('el mensaje nombra las candidatas del módulo', () => {
-    expect(() => crearAuth(actor(), true, registro()).can('billing.veiw')).toThrow(
-      /Did you mean: billing.view, billing.void/,
-    );
+    expect(() =>
+      crearAuth(actor(), true, registro()).can('billing.veiw'),
+    ).toThrow(/Did you mean: billing.view, billing.void/);
   });
 
   it('can también valida: devolver false callado es el mismo bug', () => {
