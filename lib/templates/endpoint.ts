@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 import { HttpStatus } from '../interfaces/http-status';
+import type { UploadedFile } from '../interfaces/uploaded-file';
 import { Auth } from '../core/auth';
 import type { EventBus, EventToken } from '../modules/events';
 import type { Container, Contract } from '../modules/container';
@@ -27,12 +28,12 @@ export abstract class Endpoint<
   public body: B;
   public params: P;
   public query: Q;
-  public file: Express.Multer.File;
+  public file: UploadedFile;
   public files:
     | {
-        [fieldname: string]: Express.Multer.File[];
+        [fieldname: string]: UploadedFile[];
       }
-    | Express.Multer.File[];
+    | UploadedFile[];
   public request: Request<P, any, B, Q>;
   public response: Response;
   public db: DataSource;

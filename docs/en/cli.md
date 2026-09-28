@@ -181,8 +181,18 @@ with the formatter, and it goes last in the array because that is how it works.
 `npm run format` is what formats.
 
 `eslint.config.mjs` is flat config, because `.eslintrc` was removed in ESLint 10
-— which is also why `package.json` declares `node >=20.19`, the floor ESLint 10
-requires.
+— and `package.json` declares `node >=22.13`. That floor is not ESLint's: Node
+20 went end-of-life in April 2026, and 22 is the oldest line still getting
+security fixes. Run 24, which is the active LTS.
+
+TypeScript is pinned to `^6`, not `^7`. TypeScript 7 exists, but
+`typescript-eslint` — the only way to get type-aware rules — peer-requires
+`typescript <6.1.0`, so 7 would mean giving up `no-floating-promises`. The
+scaffolded `tsconfig.json` is written for the move all the same: no `baseUrl`
+(deprecated in 6, gone in 7), `paths` relative to the file, and `rootDir`
+explicit. `moduleResolution` is still `node10` behind an `ignoreDeprecations`,
+because changing the resolver changes how every package resolves and that is its
+own piece of work.
 
 Three rules are set rather than left to the preset, and each is a decision:
 

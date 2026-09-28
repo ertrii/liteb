@@ -102,6 +102,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **TypeScript 6, and Node 22 as the floor.** `peerDependencies` accepts
+  `typescript ^5.1.6 || ^6.0.0`, and `liteb init` scaffolds `^6`.
+
+  Not `^7`, which exists: `typescript-eslint` peer-requires `typescript <6.1.0`,
+  so TypeScript 7 would mean giving up type-aware linting and
+  `no-floating-promises` with it. The tsconfig both liteb and the scaffold use is
+  written for the move anyway — no `baseUrl`, `paths` relative to the file,
+  `rootDir` explicit — with `moduleResolution: node10` behind an
+  `ignoreDeprecations` until the resolver migration gets its own pass.
+
+  Node 20 went end-of-life in April 2026, so `engines.node` is `>=22.13`; 24 is
+  the active LTS and the one to run.
+
+  Three things TypeScript 6 broke, all now fixed:
+
+  - **`this.file` and `this.files` are typed `UploadedFile`**, liteb's own
+    interface, instead of `Express.Multer.File`. TypeScript 6 stopped pulling a
+    module-shaped `@types` package in just because it is installed, and the
+    public API depended on `@types/multer`'s global augmentation being loaded in
+    the APPLICATION's compiler — so `this.file` became unresolvable in projects
+    that had changed nothing. The new type is structurally identical, so either
+    annotation keeps compiling. A framework's public surface should not need a
+    third-party global to be in scope.
+  - **`rootDir` must be explicit.** TypeScript 6 no longer infers it from the
+    file set.
+  - **`ts-jest` had to move to `^29.4.14`**, the first version whose peer range
+    admits TypeScript 6.
+
 - **`liteb init` decides the shape of a file.** Four config files, and the
   scripts to use them:
 

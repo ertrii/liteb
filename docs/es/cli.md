@@ -182,8 +182,18 @@ el formateador, y va última en el arreglo porque así es como funciona. El que
 formatea es `npm run format`.
 
 `eslint.config.mjs` es flat config, porque `.eslintrc` se eliminó en ESLint 10 —
-que es también por qué el `package.json` declara `node >=20.19`, el piso que
-ESLint 10 exige.
+y el `package.json` declara `node >=22.13`. Ese piso no es de ESLint: Node 20
+llegó a fin de vida en abril de 2026, y 22 es la línea más vieja que todavía
+recibe parches de seguridad. Corré 24, que es el LTS activo.
+
+TypeScript queda en `^6`, no en `^7`. TypeScript 7 existe, pero
+`typescript-eslint` — la única forma de tener reglas con tipos — pide como peer
+`typescript <6.1.0`, así que ir a 7 significaría resignar
+`no-floating-promises`. El `tsconfig.json` generado igual queda escrito pensando
+en la mudanza: sin `baseUrl` (deprecado en 6, eliminado en 7), `paths` relativo
+al propio archivo, y `rootDir` explícito. `moduleResolution` sigue en `node10`
+detrás de un `ignoreDeprecations`, porque cambiar el resolver cambia cómo se
+resuelve cada paquete y eso es una tarea aparte.
 
 Tres reglas quedan puestas a mano en vez de dejarlas al preset, y cada una es una
 decisión:

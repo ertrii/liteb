@@ -66,7 +66,11 @@ export function readAliases(
 
     // Where that folder ended up: `tsc` strips the rootDir level, so
     // `src/modules` is emitted as `modules` unless the output kept `src`.
-    const withoutStar = target.slice(0, -2);
+    //
+    // The leading `./` comes off first: without `baseUrl` — deprecated in TS 6
+    // and gone in TS 7 — a `paths` target has to be relative, so it is written
+    // `./src/modules/*` and the comparison below would miss it.
+    const withoutStar = target.slice(0, -2).replace(/^\.\//, '');
     const emitted =
       keptSourceLevel || !withoutStar.startsWith(`${sourceDir}/`)
         ? withoutStar

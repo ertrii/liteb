@@ -1,3 +1,10 @@
+/// <reference types="multer" />
+//
+// `req.file` / `req.files` below come from multer's augmentation of Express's
+// `Request`. TypeScript 6 no longer pulls a module-shaped @types package in
+// just because it is installed. It is named HERE, in an internal file, and not
+// in the public templates: what an application reads is `UploadedFile`, which
+// is liteb's own type and needs nobody's global namespace.
 import { Request, Response } from 'express';
 import EndpointReader from './endpoint-reader';
 import schemaValidator from '../services/schema-validator';

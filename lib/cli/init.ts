@@ -51,18 +51,18 @@ export function createProject(options: InitOptions): Plan {
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/express": "^4.17.21",
-    "@types/node": "^20.14.0",
+    "@types/node": "^24.0.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "nodemon": "^3.1.0",
     "prettier": "^3.9.9",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.9.0",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.13"
   }
 }
 `;
@@ -71,7 +71,10 @@ export function createProject(options: InitOptions): Plan {
   "compilerOptions": {
     "target": "ES2021",
     "module": "commonjs",
-    "moduleResolution": "Node",
+    "moduleResolution": "node10",
+    // TS 6 marca \`node10\` como deprecado y TS 7 lo quita. Migrar el resolver
+    // cambia cómo se resuelve cada paquete, así que es su propia tarea.
+    "ignoreDeprecations": "6.0",
     "rootDir": "src",
     "outDir": "build",
     // \`@/billing/contracts/x.contract\` instead of
@@ -82,8 +85,7 @@ export function createProject(options: InitOptions): Plan {
     // verbatim, which Node does not understand. \`liteb build\` rewrites them
     // to relative paths, and \`npm run dev\` resolves them with
     // tsconfig-paths. Change this and change the dev script with it.
-    "baseUrl": ".",
-    "paths": { "@/*": ["${modulesDir}/*"] },
+    "paths": { "@/*": ["./${modulesDir}/*"] },
     "strict": true,
     // TypeORM entities and validated DTOs declare fields the constructor never
     // assigns: the ORM fills them. With this on, every one of them is an error.

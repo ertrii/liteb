@@ -73,7 +73,10 @@ export class FileOutput extends Output {
       response.send(
         typeof this.content === 'string'
           ? this.content
-          : Buffer.from(this.content),
+          : // Already narrowed to bytes by `isStream` and the `typeof` above.
+            // `Buffer.from` overloads a Buffer as string-coercible, and TS 6
+            // resolves that one first without the hint.
+            Buffer.from(this.content as Uint8Array),
       );
       return;
     }

@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "moduleResolution": "Node",
+    "moduleResolution": "node10",
+    // TS 6 marca `node10` como deprecado y TS 7 lo quita. Migrar a `node16`
+    // rompe hoy los tipos de multer (`Express.Multer`), así que es su propia
+    // tarea y no un efecto secundario de subir de versión.
+    "ignoreDeprecations": "6.0",
     "declaration": true,
     "declarationDir": "./types",
     "removeComments": false,
@@ -11,15 +15,17 @@
     "target": "es2017",
     "sourceMap": false,
     "outDir": "./dist",
-    "baseUrl": ".",
+    // TS 6 lo exige explícito en vez de inferirlo del conjunto de archivos: el
+    // programa incluye `lib`, `src` y `test`, así que la raíz común es el repo.
+    "rootDir": ".",
     // Dentro de este repo, `liteb` ES `lib/`: así el código que genera el CLI
     // (que importa 'liteb', como un consumidor) se TYPECHEQUEA en las pruebas.
     // `liteb` ES `lib/`, y `@/` son los módulos de la demo — el mismo alias que
     // escribe `liteb init`, para que el ejemplo use lo que documentamos.
     "paths": {
-      "liteb": ["lib"],
-      "liteb/*": ["lib/*"],
-      "@/*": ["src/modules/*"]
+      "liteb": ["./lib"],
+      "liteb/*": ["./lib/*"],
+      "@/*": ["./src/modules/*"]
     },
     "incremental": true,
     "skipLibCheck": true,

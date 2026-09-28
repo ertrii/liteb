@@ -267,8 +267,9 @@ describe('liteb init', () => {
       format: 'prettier --write .',
       'format:check': 'prettier --check .',
     });
-    // ESLint 10 pide Node >= 20.19.
-    expect(pkg.engines.node).toBe('>=20.19');
+    // Node 20 llegó a fin de vida en abril de 2026; 22 es la línea más vieja que
+    // todavía recibe seguridad.
+    expect(pkg.engines.node).toBe('>=22.13');
     [
       'eslint',
       '@eslint/js',
@@ -362,7 +363,12 @@ describe('liteb init', () => {
 
     // Y el alias: sin el require de ts-node, `npm run dev` muere en el primer
     // import que lo use.
-    expect(tsconfig.content).toContain('"paths": { "@/*": ["src/modules/*"] }');
+    // Relativo y sin `baseUrl`: TS 6 lo marca deprecado y TS 7 lo quita, así
+    // que un `paths` va relativo al propio tsconfig.
+    expect(tsconfig.content).toContain(
+      '"paths": { "@/*": ["./src/modules/*"] }',
+    );
+    expect(tsconfig.content).not.toContain('"baseUrl"');
     expect(tsconfig.content).toContain(
       '"ts-node": { "require": ["tsconfig-paths/register"] }',
     );

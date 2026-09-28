@@ -104,11 +104,11 @@ describe('liteb build (de punta a punta)', () => {
   "compilerOptions": {
     "target": "ES2021",
     "module": "commonjs",
-    "moduleResolution": "Node",
+    "moduleResolution": "node10",
+    "ignoreDeprecations": "6.0",
     "rootDir": "src",
     "outDir": "build",
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/modules/*"] },
+    "paths": { "@/*": ["./src/modules/*"] },
     "esModuleInterop": true,
     "skipLibCheck": true
   },

@@ -129,6 +129,7 @@ export type { LogFiles, LoggerOptions } from './services/log4js';
 export * from './utilities/errors';
 export * from './utilities/config-service';
 export { HttpStatus } from './interfaces/http-status';
+export type { UploadedFile } from './interfaces/uploaded-file';
 export * from './interfaces/type-error';
 export type { LitebOptions, DocsConfig } from './core/liteb';
 export { Liteb };
