@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0-alpha.3] - 2026-09-18
+## [2.0.0-alpha.4] - 2026-09-28
 
 ### Changed
 
@@ -59,46 +59,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   manifest as strings, and point the blocks in `src/config/permissions.ts` at
   `typeof import('…/module').default`. A non-array `permissions` is refused at
   import time with a message that says so.
-
-- **`create` is gone from the command line.** `liteb module billing`,
-  `liteb endpoint billing/issue-charge`, `liteb entity billing/invoice`. The
-  word carried no information: there is no `edit` and no `update` for it to
-  distinguish from, and a CLI that writes files is a CLI whose verbs are the
-  things it writes.
-
-  If something that edits rather than writes ever shows up, it is a flag on the
-  same command and not a second noun to type first.
-
-- **The error body follows RFC 9457 (`application/problem+json`).** One shape
-  for every failure, and a media type that tells a client a response is a
-  failure rather than a payload that happens to have a `status` field.
-
-  ```json
-  {
-    "type": "/problems/validation",
-    "title": "Validation failed",
-    "status": 422,
-    "detail": "email must be an email",
-    "code": "schema",
-    "errors": { "email": "must be an email" },
-    "requestId": "9f2c1a7b4e30"
-  }
-  ```
-
-  | Was | Is | Why |
-  | --- | --- | --- |
-  | `message` | `detail` | the RFC's split: `title` is stable and names the KIND of problem, `detail` is about this occurrence |
-  | `identifier` | `code` | unchanged values; branch on this, not on `title` or `type` |
-  | `errorFields` | `errors` | **same purpose**: which FIELD is at fault, so a form puts the message under the right input instead of in a banner |
-  | — | `status`, `title`, `type`, `requestId` | new |
-
-  `errors` is an extension member, which the RFC allows precisely for this. It
-  is the reason the shape exists at all, and nothing about it changed but the
-  name.
-
-  A thrown plain object used to be answered **verbatim**, so one endpoint could
-  reply in a shape no client had a parser for. It now keeps its status and its
-  payload (under `response`) in the same shape as everything else.
 
 ### Added
 
@@ -252,6 +212,120 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   treated as immutable; and the cache lives in one process, so with more than
   one replica `invalidate` does not reach the others and the guarantee drops
   back to the TTL.
+
+### Fixed
+
+- **`liteb module` no longer appends a second copy of a block that is already
+  there.** The idempotency check compared the whole appended block verbatim, so
+  prettier in the consumer's project — which rewraps the line and may use
+  different quotes — was enough to defeat it, and re-running the generator left
+  `src/config/permissions.ts` with two blocks for one module. It compiles either
+  way, because TypeScript merges identical declarations, but a file that
+  accumulates duplicates is a file people stop trusting. The check is now the
+  module's import path, which survives reformatting and reindenting.
+
+  `FileEdit.append` takes an optional `appendUnless` for this: the marker that
+  means "already appended", instead of the text itself.
+
+- **A generator no longer breaks an array that prettier had wrapped.** Adding to
+  `modules: []`, `entities: []` or `permissions: []` appended after the trailing
+  comma prettier leaves on a multi-line array, producing `'a',, 'b'` — the CLI
+  corrupting a file the CLI itself had written. It affected every array edit, so
+  it was there before permissions moved into the manifest.
+
+- **liteb's error classes are `Error`s now.** `AuthError`, `ForbiddenError`,
+  `NotFoundError`, `SchemaError`, `CustomerError` and `CustomError` were plain
+  classes, so they carried no `stack`, `error instanceof Error` was false for
+  them in application code and in third-party middleware, and tooling that
+  assumes `Error` did not see them at all — `rejects.toThrow(AuthError)` reports
+  "did not throw" even when the code threw correctly.
+
+  The cause was not an omission. `ErrorControl` tested `instanceof Error`
+  **first**, so anything that was an Error became a 500; the specific classes had
+  to stay outside the hierarchy to reach their own branch. The order was
+  load-bearing, which is why "just add `extends Error`" would have turned every
+  401, 403, 404, 406 and 422 into a silent 500.
+
+  The generic branch is now last, where a fallback belongs, and it stays ahead of
+  the thrown-plain-object branch because an Error is an object too. Statuses,
+  codes and bodies are unchanged; there are tests on each mapping so the order
+  cannot drift back.
+
+### Documentation
+
+- **The documentation is split by language.** `docs/en/` is the source and
+  `docs/es/` the translation, with `docs/README.md` as the index. Code,
+  identifiers and the framework's own JSDoc stay English on both sides.
+
+- **`docs/*/api.md` — every name an application writes**, with its type and what
+  it is, in eight sections. It lists 97 of the 138 exports on purpose: the
+  module registry, the migrator, the loaders and the decorators' metadata are
+  public because the CLI is a separate process, not because an application
+  needs them.
+
+- **`docs/es/wiring.md` — contracts, slots and events in depth.** What each one
+  guarantees, when a provider is built, the direction a slot's dependency runs
+  in, what an event does not promise, the framework's error strings word for
+  word, and the antipatterns. Spanish only for now.
+
+- **`docs/es/openapi.md` — the generated spec in depth.** How each URL is
+  composed, the two `components.schemas` traps (every imported DTO lands in the
+  document, and two DTOs with the same class name are merged into one schema),
+  what the spec cannot know about your application, and how to gate `/docs` —
+  including `/docs.json`, which is a sibling route and not a child. Spanish only
+  for now.
+
+### Fixed
+
+- **The API glossary documented `container.get(slot)`**, which does not
+  compile: `get()` takes a `Contract`, and an extension point is read with
+  `container.all(slot)`.
+
+## [2.0.0-alpha.3] - 2026-09-18
+
+### Changed
+
+- **`create` is gone from the command line.** `liteb module billing`,
+  `liteb endpoint billing/issue-charge`, `liteb entity billing/invoice`. The
+  word carried no information: there is no `edit` and no `update` for it to
+  distinguish from, and a CLI that writes files is a CLI whose verbs are the
+  things it writes.
+
+  If something that edits rather than writes ever shows up, it is a flag on the
+  same command and not a second noun to type first.
+
+- **The error body follows RFC 9457 (`application/problem+json`).** One shape
+  for every failure, and a media type that tells a client a response is a
+  failure rather than a payload that happens to have a `status` field.
+
+  ```json
+  {
+    "type": "/problems/validation",
+    "title": "Validation failed",
+    "status": 422,
+    "detail": "email must be an email",
+    "code": "schema",
+    "errors": { "email": "must be an email" },
+    "requestId": "9f2c1a7b4e30"
+  }
+  ```
+
+  | Was | Is | Why |
+  | --- | --- | --- |
+  | `message` | `detail` | the RFC's split: `title` is stable and names the KIND of problem, `detail` is about this occurrence |
+  | `identifier` | `code` | unchanged values; branch on this, not on `title` or `type` |
+  | `errorFields` | `errors` | **same purpose**: which FIELD is at fault, so a form puts the message under the right input instead of in a banner |
+  | — | `status`, `title`, `type`, `requestId` | new |
+
+  `errors` is an extension member, which the RFC allows precisely for this. It
+  is the reason the shape exists at all, and nothing about it changed but the
+  name.
+
+  A thrown plain object used to be answered **verbatim**, so one endpoint could
+  reply in a shape no client had a parser for. It now keeps its status and its
+  payload (under `response`) in the same shape as everything else.
+
+### Added
 
 - **`liteb migration:generate <module>/<name>`** — TypeORM's generator, filed by
   module.
@@ -427,43 +501,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first module, and `liteb module` appends one block per module.
 
 ### Fixed
-
-- **`liteb module` no longer appends a second copy of a block that is already
-  there.** The idempotency check compared the whole appended block verbatim, so
-  prettier in the consumer's project — which rewraps the line and may use
-  different quotes — was enough to defeat it, and re-running the generator left
-  `src/config/permissions.ts` with two blocks for one module. It compiles either
-  way, because TypeScript merges identical declarations, but a file that
-  accumulates duplicates is a file people stop trusting. The check is now the
-  module's import path, which survives reformatting and reindenting.
-
-  `FileEdit.append` takes an optional `appendUnless` for this: the marker that
-  means "already appended", instead of the text itself.
-
-- **A generator no longer breaks an array that prettier had wrapped.** Adding to
-  `modules: []`, `entities: []` or `permissions: []` appended after the trailing
-  comma prettier leaves on a multi-line array, producing `'a',, 'b'` — the CLI
-  corrupting a file the CLI itself had written. It affected every array edit, so
-  it was there before permissions moved into the manifest.
-
-- **liteb's error classes are `Error`s now.** `AuthError`, `ForbiddenError`,
-  `NotFoundError`, `SchemaError`, `CustomerError` and `CustomError` were plain
-  classes, so they carried no `stack`, `error instanceof Error` was false for
-  them in application code and in third-party middleware, and tooling that
-  assumes `Error` did not see them at all — `rejects.toThrow(AuthError)` reports
-  "did not throw" even when the code threw correctly.
-
-  The cause was not an omission. `ErrorControl` tested `instanceof Error`
-  **first**, so anything that was an Error became a 500; the specific classes had
-  to stay outside the hierarchy to reach their own branch. The order was
-  load-bearing, which is why "just add `extends Error`" would have turned every
-  401, 403, 404, 406 and 422 into a silent 500.
-
-  The generic branch is now last, where a fallback belongs, and it stays ahead of
-  the thrown-plain-object branch because an Error is an object too. Statuses,
-  codes and bodies are unchanged; there are tests on each mapping so the order
-  cannot drift back.
-
 
 - **A migration you had not written yet was recorded as applied**, and that is
   the worst shape a bug can take: it took the one command whose whole job is to
