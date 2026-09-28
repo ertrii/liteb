@@ -49,10 +49,16 @@ is **not** an application. Dual layout:
   the guide, not in the README.
 
 - **`docs/` is split by language**: `docs/en/` is the source, `docs/es/` is the
-  translation, same three filenames on both sides, and `docs/README.md` is the
+  translation, same four filenames on both sides, and `docs/README.md` is the
   index. **English is what matches the code** — change it first, then bring the
   Spanish page across in the same commit. Code, identifiers and the framework's
   own JSDoc stay English on both sides; only the prose is translated.
+
+- **`docs/*/api.md` lists every export**, and it is the one doc that can go
+  stale silently: adding a name to `lib/index.ts` does not fail anything. The
+  list came from the emitted `.d.ts` via the TypeScript API, so regenerate it
+  the same way rather than by reading the diff — the check is that every name
+  `checker.getExportsOfModule` returns appears in both pages.
 
 Comments and JSDoc are in **English**: they ship inside the `.d.ts`.
 

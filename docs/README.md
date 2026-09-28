@@ -13,6 +13,7 @@ la que coincide con el código.
 | Everything the framework does, and why | [The guide](./en/guide.md) | [La guía](./es/guide.md) |
 | Permissions and the caller, step by step | [Authorization](./en/authorization.md) | [Autorización](./es/authorization.md) |
 | Every command and every flag | [The CLI](./en/cli.md) | [El CLI](./es/cli.md) |
+| Every name the package exports | [The API](./en/api.md) | [La API](./es/api.md) |
 
 Code, identifiers and the framework's own JSDoc are English everywhere,
 including in the Spanish pages: they are what you type, and translating them
