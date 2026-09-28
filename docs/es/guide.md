@@ -109,8 +109,8 @@ Dos cosas que **no** hace, a propósito:
 - No conoce tu aplicación: ni base de datos, ni archivo de configuración, ni
   registro de lo que existe. Lee argumentos y escribe archivos.
 - Edita archivos que no escribió **sólo** donde la forma es segura — agregar el
-  módulo a `modules: []` en el punto de entrada, agregar una clave al literal
-  `declarePermissions({ ... })`. Cualquier cosa menos segura se imprime como
+  módulo a `modules: []` en el punto de entrada, agregar una clave al
+  `permissions: []` del manifiesto. Cualquier cosa menos segura se imprime como
   instrucción. Un andamiaje que destroza en silencio un archivo que escribiste es
   peor que uno que te dice qué agregar.
 
@@ -298,7 +298,7 @@ export default defineModule({
   requires: ['identity'], // se comprueba al arrancar
   dir: __dirname, // la carpeta desde la que se encuentra todo
 
-  permissions: [{ key: 'billing.view', label: 'View billing' }],
+  permissions: ['billing.view', 'billing.void'],
 });
 ```
 
@@ -713,14 +713,26 @@ Un módulo declara el vocabulario de lo que se puede gatear adentro:
 
 ```typescript
 permissions: [
-  { key: 'billing.view', label: 'View billing' },
-  { key: 'billing.void', label: 'Void a charge' },
+  'billing.view',
+  'billing.void',
+  // Texto sólo donde la clave no lo puede cargar sola — sobre todo para un
+  // módulo instalado de otro lado, cuyo namespace el operador no escribió.
+  { key: 'billing.impersonate', label: 'Actuar como otro operador' },
 ],
 ```
+
+Éste es el ÚNICO lugar donde una clave se escribe.
+`PermissionsOf<typeof billing>` lee las grafías de acá, así que un typo en un
+endpoint no compila y no hay una segunda lista que mantener sincronizada — mirá
+[Autorización](./authorization.md#2-declarar-las-claves-que-el-módulo-puede-gatear).
 
 Las claves **tienen** que llevar el id del módulo por prefijo. Todos los módulos,
 incluido uno que escribió otra persona, comparten un único espacio de permisos, y
 el prefijo es lo que impide que dos reclamen la misma clave.
+
+El `label` es opcional porque una clave como `billing.invoices.void` ya lo dice, y
+un label que la repite es una cadena más que mantener verdadera. Lo lee una sola
+cosa: la pantalla donde se arma un rol.
 
 Después los endpoints las exigen (ver [Autenticación](#autenticación)), y la
 aplicación arma su pantalla de "quién puede qué" desde el catálogo en vez de un
@@ -728,7 +740,7 @@ archivo central que alguien tiene que acordarse de editar:
 
 ```typescript
 app.permissions();
-// [{ key: 'billing.view', label: 'View billing', moduleId: 'billing' }, ...]
+// [{ key: 'billing.view', moduleId: 'billing' }, ...]
 ```
 
 **Una clave que ningún módulo instalado declara se rechaza**, con un `Error`

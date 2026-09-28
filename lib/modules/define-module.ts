@@ -9,10 +9,11 @@ import {
   ModuleMigrations,
   ModulePattern,
   ModulePermission,
+  PermissionDeclaration,
+  PermissionKeysOf,
   ResolvedModule,
 } from './module-manifest';
 import { readExportsSync } from './module-files';
-import { isPermissionSet, PERMISSION_SET } from './declare-permissions';
 import { Logger } from '../utilities/logger';
 
 /** Lowercase, starting with a letter: `billing`, `customer-portal`. */
@@ -174,9 +175,14 @@ const validatePermissions = (
         id,
       );
     }
-    if (!permission.label || typeof permission.label !== 'string') {
+    // The label is optional, but an empty or non-string one is a mistake, not a
+    // choice: whoever wrote it meant to say something.
+    if (
+      permission.label !== undefined &&
+      (typeof permission.label !== 'string' || permission.label.trim() === '')
+    ) {
       fail(
-        `Module "${id}": permission "${permission.key}" needs a non-empty "label".`,
+        `Module "${id}": permission "${permission.key}" has an empty "label". Give it text, or drop the field and let the key speak.`,
         id,
       );
     }
@@ -225,7 +231,10 @@ const validatePermissions = (
  *   routes: './presentation/controllers/*.controller.ts',
  * });
  */
-export function defineModule(manifest: ModuleManifest): ResolvedModule {
+export function defineModule<
+  const P extends
+    readonly PermissionDeclaration[] = readonly PermissionDeclaration[],
+>(manifest: ModuleManifest<P>): ResolvedModule<PermissionKeysOf<P>> {
   if (!manifest || typeof manifest !== 'object') {
     fail('defineModule() expects a manifest object.');
   }
@@ -280,24 +289,19 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
   }
 
   const declared = manifest.permissions ?? [];
-  // A set carries the id it was declared for, so a permissions file copied from
-  // another module is caught here instead of namespacing keys under the wrong
-  // owner.
-  if (isPermissionSet(declared) && declared[PERMISSION_SET].moduleId !== id) {
+  if (!Array.isArray(declared)) {
     fail(
-      `Module "${id}": these permissions were declared for "${declared[PERMISSION_SET].moduleId}". Pass "${id}" to declarePermissions().`,
+      `Module "${id}": "permissions" must be an array of keys, e.g. ["${id}.view"]. (declarePermissions() was removed: pass the keys here instead.)`,
       id,
     );
   }
-  const permissions = isPermissionSet(declared)
-    ? declared[PERMISSION_SET].entries
-    : declared;
-  if (!Array.isArray(permissions)) {
-    fail(
-      `Module "${id}": "permissions" must be an array, or a set from declarePermissions().`,
-      id,
-    );
-  }
+  // A bare key and a key with text end up the same shape, so nothing
+  // downstream has to know which form the author chose.
+  // The cast carries what the runtime cannot prove: normalizing erases which
+  // literals were declared, and the type parameter is the only record of them.
+  const permissions = (declared as readonly PermissionDeclaration[]).map(
+    (entry) => (typeof entry === 'string' ? { key: entry } : entry),
+  ) as ModulePermission<PermissionKeysOf<P>>[];
   validatePermissions(permissions, id);
 
   const consumes = manifest.consumes ?? [];
@@ -388,6 +392,7 @@ export function defineModule(manifest: ModuleManifest): ResolvedModule {
     providers: providers.patterns,
     implicit,
     permissions,
+    permissionKeys: permissions.map((permission) => permission.key),
     consumes,
     onInstall: manifest.onInstall ?? null,
     onEnable: manifest.onEnable ?? null,

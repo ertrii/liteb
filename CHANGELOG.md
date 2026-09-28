@@ -8,6 +8,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **A module declares its permissions as keys, and the label is optional.**
+  `declarePermissions()` is removed.
+
+  ```typescript
+  // src/modules/billing/module.ts — the ONLY place a key is spelled
+  export default defineModule({
+    id: 'billing',
+    permissions: [
+      'billing.invoices.view',
+      'billing.invoices.void',
+      // Text only where the key cannot carry it on its own.
+      { key: 'billing.impersonate', label: 'Act as another operator' },
+    ],
+  });
+  ```
+
+  ```typescript
+  // src/config/permissions.ts — READS the keys, does not restate them
+  declare global {
+    namespace LitebAuth {
+      interface Permissions
+        extends PermissionsOf<typeof import('../modules/billing/module').default> {}
+    }
+  }
+  ```
+
+  `PermissionsOf` now takes a module instead of a permission set, so the key is
+  written once, in the manifest, and the type system reads it back off there. A
+  typo in an endpoint still fails to compile, and TypeScript suggests the right
+  spelling. The `const` type parameter is what preserves the literals, so no
+  `as const` is needed.
+
+  The label is optional because a key like `billing.invoices.void` already says
+  it, and one that restates the key in a sentence is a string somebody has to
+  keep true for no gain. Write one where the key cannot carry the meaning alone
+  — most often for a module installed from elsewhere, whose namespace the
+  operator did not write. It is read by exactly one thing, the screen where a
+  role is built; a 403 carries the KEY, never the label.
+
+  `ResolvedModule` gains `permissionKeys`, so a role can grant everything one
+  module has with `[...billing.permissionKeys]` instead of a list that goes
+  stale.
+
+  **Migrating:** delete each module's `permissions.ts`, move the keys into its
+  manifest as strings, and point the blocks in `src/config/permissions.ts` at
+  `typeof import('…/module').default`. A non-array `permissions` is refused at
+  import time with a message that says so.
+
 - **`create` is gone from the command line.** `liteb module billing`,
   `liteb endpoint billing/issue-charge`, `liteb entity billing/invoice`. The
   word carried no information: there is no `edit` and no `update` for it to
@@ -308,6 +356,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first module, and `liteb module` appends one block per module.
 
 ### Fixed
+
+- **A generator no longer breaks an array that prettier had wrapped.** Adding to
+  `modules: []`, `entities: []` or `permissions: []` appended after the trailing
+  comma prettier leaves on a multi-line array, producing `'a',, 'b'` — the CLI
+  corrupting a file the CLI itself had written. It affected every array edit, so
+  it was there before permissions moved into the manifest.
 
 - **liteb's error classes are `Error`s now.** `AuthError`, `ForbiddenError`,
   `NotFoundError`, `SchemaError`, `CustomerError` and `CustomError` were plain

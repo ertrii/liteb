@@ -1,6 +1,5 @@
 import type { DataSource, EntitySchema } from 'typeorm';
 import type { Contract } from './container';
-import type { AnyPermissionSet } from './declare-permissions';
 
 /**
  * A database entity contributed by a module: a decorated class or a TypeORM
@@ -63,10 +62,54 @@ export const MODULE_LAYOUT: Readonly<Record<ModuleGlobField, string>> = {
  * Third-party modules share one permission space, and the namespace is what
  * keeps two of them from claiming the same key.
  */
-export interface ModulePermission {
-  key: string;
-  label: string;
+export interface ModulePermission<K extends string = string> {
+  /** The key itself, namespaced under the module id: `billing.invoices.void`. */
+  key: K;
+
+  /**
+   * What this lets somebody do, for the screen where a role is built.
+   *
+   * OPTIONAL on purpose. A key like `billing.invoices.void` already says it,
+   * and a label that restates it in a sentence is one more string to keep
+   * true. Write one where the key cannot carry the meaning by itself — which
+   * is most likely for a module installed from somewhere else, where the
+   * operator is reading a namespace they did not write and the key is all they
+   * have.
+   */
+  label?: string;
 }
+
+/**
+ * How a module declares one permission: the key alone, or the key with text.
+ *
+ * @example
+ * permissions: [
+ *   'billing.invoices.view',
+ *   'billing.invoices.void',
+ *   { key: 'billing.impersonate', label: 'Act as another operator' },
+ * ]
+ */
+export type PermissionDeclaration<K extends string = string> =
+  | K
+  | ModulePermission<K>;
+
+/** The key a single declaration carries, whichever form it took. */
+type KeyOfDeclaration<E> = E extends string
+  ? E
+  : E extends { key: infer K extends string }
+  ? K
+  : never;
+
+/**
+ * Every key a declaration list carries, as a union.
+ *
+ * This is what lets {@link PermissionsOf} read the spellings straight off a
+ * module, so a key is written once — in the manifest — instead of once there
+ * and again in the file that teaches them to the compiler.
+ */
+export type PermissionKeysOf<P> = P extends readonly (infer E)[]
+  ? KeyOfDeclaration<E>
+  : never;
 
 /** What a lifecycle hook receives. */
 export interface ModuleContext {
@@ -84,7 +127,9 @@ export type ModuleHook = (ctx: ModuleContext) => void | Promise<void>;
  * Every field here is honored by a subsystem that exists: the manifest never
  * describes something the framework cannot do.
  */
-export interface ModuleManifest {
+export interface ModuleManifest<
+  P extends readonly PermissionDeclaration[] = readonly PermissionDeclaration[],
+> {
   /** Unique id: lowercase, digits and dashes (`billing`, `customer-portal`). */
   id: string;
 
@@ -164,11 +209,16 @@ export interface ModuleManifest {
   providers?: ModulePattern;
 
   /**
-   * What this module can gate. Either the entries, or a set built with
-   * `declarePermissions()` — which keeps the keys in one place and hands out
-   * typed ones to the endpoints and the resolver.
+   * What this module can gate: the keys, as they will be asserted.
+   *
+   * This is the ONLY place a key is spelled. `PermissionsOf<typeof thisModule>`
+   * carries the spellings into the type system, so a typo in an endpoint does
+   * not compile and nothing has to be kept in sync by hand.
+   *
+   * @example
+   * permissions: ['billing.invoices.view', 'billing.invoices.void']
    */
-  permissions?: ModulePermission[] | AnyPermissionSet;
+  permissions?: P;
 
   /**
    * Contracts this module calls.
@@ -191,7 +241,7 @@ export interface ModuleManifest {
  * consumes. Optional collections become empty ones, so nothing downstream has
  * to guard against `undefined`.
  */
-export interface ResolvedModule {
+export interface ResolvedModule<K extends string = string> {
   id: string;
   version: string;
   label: string;
@@ -205,7 +255,14 @@ export interface ResolvedModule {
   routines: string[];
   listeners: string[];
   providers: string[];
-  permissions: ModulePermission[];
+  permissions: ModulePermission<K>[];
+  /**
+   * Just the keys, for granting everything one module has.
+   *
+   * @example
+   * auditor: [...identity.permissionKeys],
+   */
+  permissionKeys: K[];
   consumes: Contract<any>[];
   onInstall: ModuleHook | null;
   onEnable: ModuleHook | null;

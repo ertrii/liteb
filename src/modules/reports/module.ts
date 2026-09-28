@@ -1,7 +1,6 @@
 import { defineModule } from '../../../lib';
 import { UserDirectory } from '@/identity/contracts/user-directory.contract';
 import { ProductCatalog } from '@/catalog/contracts/product-catalog.contract';
-import { permissions } from './permissions';
 
 /**
  * The optional one. Not `core`, so it INSTALLS DISABLED: an update must not
@@ -23,5 +22,5 @@ export default defineModule({
   // extension point is a class in ./providers.
   consumes: [UserDirectory, ProductCatalog],
 
-  permissions,
+  permissions: ['reports.view'],
 });

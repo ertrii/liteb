@@ -1,39 +1,51 @@
 import type { PermissionsOf } from '../../lib';
-import type { permissions as catalog } from '../modules/catalog/permissions';
-import type { permissions as identity } from '../modules/identity/permissions';
-import type { permissions as reports } from '../modules/reports/permissions';
 
 /**
  * Every key the installed modules declare, taught to the compiler ONCE.
  *
- * With this file, `this.auth.assert('catalog.products.view')` is a plain
- * string that TypeScript checks: misspell it and the build fails, instead of
- * the framework answering 500 on the first request that reaches the line.
+ * With this file, `this.auth.assert('catalog.products.view')` is a plain string
+ * that TypeScript checks: misspell it and the build fails, instead of the
+ * framework answering 500 on the first request that reaches the line.
  *
- * Each module still declares its own keys in its own `permissions.ts` — this
- * only carries those spellings into the type system.
+ * Each module spells its own keys in its own manifest — this only reads the
+ * spellings back off it, so there is no second list to keep in sync.
  *
- * One block per module, and interface merging joins them. That is why
- * `liteb module` can add a module by APPENDING here instead of editing
- * a list: nothing in this file has to be reopened.
+ * The module is reached with an inline `import(...)`, which is what makes
+ * adding one a pure APPEND: a new block needs no new import line, and nothing
+ * already here is reopened. It is also type-only, so naming a module cannot
+ * introduce an import cycle. `PermissionsOf` is the exception and comes from
+ * the import above, because an interface may only extend an identifier.
+ *
+ * One block per module, and interface merging joins them. That is also why this
+ * is an interface and not a union: a union cannot be merged, so every new
+ * module would have to reopen one declaration.
  */
 declare global {
   namespace LitebAuth {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
-    interface Permissions extends PermissionsOf<typeof catalog> {}
+    interface Permissions
+      extends PermissionsOf<
+        typeof import('../modules/catalog/module').default
+      > {}
   }
 }
 
 declare global {
   namespace LitebAuth {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
-    interface Permissions extends PermissionsOf<typeof identity> {}
+    interface Permissions
+      extends PermissionsOf<
+        typeof import('../modules/identity/module').default
+      > {}
   }
 }
 
 declare global {
   namespace LitebAuth {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
-    interface Permissions extends PermissionsOf<typeof reports> {}
+    interface Permissions
+      extends PermissionsOf<
+        typeof import('../modules/reports/module').default
+      > {}
   }
 }

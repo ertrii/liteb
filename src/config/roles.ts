@@ -7,7 +7,10 @@ import { UserRole } from '../modules/identity/entities/user.entity';
  * It lives HERE, with the application's own configuration, and not inside a
  * module, because it is the application's policy: which keys somebody holds is
  * a decision about this business, while a module only declares which keys
- * EXIST (its `permissions.ts`).
+ * EXIST (its manifest).
+ *
+ * To grant everything one module has, spread its keys instead of listing them:
+ * `[...catalog.permissionKeys]`. That stays right when the module gains a key.
  *
  * `PermissionKey` is why these are plain strings and still safe: it resolves to
  * the union of everything the installed modules declare (see

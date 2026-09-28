@@ -67,8 +67,7 @@ in sync, because **the folder is what registers the file**:
 
 ```
 billing/
-├── module.ts                   ← only the wiring
-├── permissions.ts
+├── module.ts                   ← the wiring, and the permission keys
 ├── entities/*.entity.ts        migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
 ├── providers/*.provider.ts
@@ -84,8 +83,8 @@ certain enough to do without parsing TypeScript:
 
 - `liteb module` adds the module to `modules: [ ]` in `src/index.ts`, and
   appends a block to `src/config/permissions.ts`.
-- `liteb endpoint --permission` adds the key to the module's
-  `declarePermissions({ ... })`.
+- `liteb endpoint --permission` adds the key to the module manifest's
+  `permissions: []`.
 
 Anything less certain is printed as an instruction instead. A scaffolder that
 silently mangles a file you wrote is worse than one that tells you what to add.
@@ -143,9 +142,10 @@ migration of every endpoint you wrote in the meantime. It says so in the log,
 once, the first time it lets a request through.
 
 `src/config/permissions.ts` starts with its `declare global` block already
-open. It is empty until the first module; `liteb module` appends one
-block per module and interface merging joins them, so no line in that file is
-ever reopened.
+open. It is empty until the first module; `liteb module` appends one block per
+module and interface merging joins them, so no line in that file is ever
+reopened. Each block **reads** the keys off that module's manifest rather than
+restating them, so a key is spelled once.
 
 It also wires three things every backend ends up needing, so they are not a
 task for later:
@@ -264,9 +264,14 @@ npx liteb module reports --optional --label "Reports"
 | `--optional` | installs **disabled**, and is turned on on purpose |
 | `--entry <file>` | the file holding `Liteb.create({ modules: [...] })` (default `src/index.ts`) |
 
-Writes `module.ts`, `permissions.ts` and a first endpoint that answers at
-`/api/<name>`, then registers the module in the entry point and declares its
-permission keys in `src/config/permissions.ts`.
+Writes `module.ts` and a first endpoint that answers at `/api/<name>`, then
+registers the module in the entry point and appends a block to
+`src/config/permissions.ts` that carries its keys into the type system.
+
+The keys live in the manifest, as strings: `permissions: ['billing.view']`. A
+key can carry text for a roles screen when it cannot say it alone —
+`{ key: 'billing.void', label: 'Void a charge already collected' }` — and the
+`label` is optional precisely because most keys can.
 
 **`--optional` is the difference between a feature and an update that turns
 itself on.** A module without `core: true` installs disabled: it is in the
@@ -304,8 +309,8 @@ URL should not carry the module's name — a module serving two resources, or
 two modules contributing to one prefix.
 
 The assertion is written **live** either way. Without `--permission` it asserts
-`<module>.view`, the key a module starts with; with one, it asserts that key
-and **declares it** in the module's `permissions.ts` in the same pass — a key
+`<module>.view`, the key a module starts with; with one, it asserts that key and
+**adds it** to the module manifest's `permissions` array in the same pass — a key
 no module declares is a 500 and not a 403, on purpose, because it is a typo and
 not a missing grant.
 

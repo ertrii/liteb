@@ -12,7 +12,7 @@ Están separadas a propósito, y nada funciona hasta que las tres existen.
 
 | Responsabilidad | Dónde vive | Quién decide |
 | --- | --- | --- |
-| Qué claves **existen** | el `permissions.ts` del módulo | el módulo |
+| Qué claves **existen** | el manifiesto del módulo | el módulo |
 | Qué claves **tiene** alguien | tu resolutor `auth` | tu aplicación |
 | Qué claves **exige** un endpoint | `this.auth.assert(...)` | el endpoint |
 
@@ -52,37 +52,27 @@ deja de ser lo que querés.
 
 ## 2. Declarar las claves que el módulo puede gatear
 
-Un archivo, y es el único lugar donde una clave se escribe:
-
-```typescript
-// src/modules/tasks/permissions.ts
-import { declarePermissions } from 'liteb';
-
-export const permissions = declarePermissions('tasks', {
-  view: 'Ver tareas',
-  manage: 'Crear y editar tareas',
-  assign: 'Asignar una tarea a otra persona',
-});
-```
-
-El manifiesto las lista por referencia, así que no hay una segunda lista que
-mantener sincronizada:
+En el manifiesto, y en ningún otro lado. Es el único lugar donde una clave se
+escribe:
 
 ```typescript
 // src/modules/tasks/module.ts
-import { permissions } from './permissions';
-
 export default defineModule({
   id: 'tasks',
   version: '1.0.0',
   core: true,
   dir: __dirname,
 
-  permissions,
+  permissions: [
+    'tasks.view',
+    'tasks.manage',
+    // Texto sólo donde la clave no lo puede cargar sola.
+    { key: 'tasks.assign', label: 'Pasarle una tarea a otra persona' },
+  ],
 });
 ```
 
-Después se lista el módulo una vez, en el `src/config/permissions.ts` de la
+Después se nombra el módulo una vez, en el `src/config/permissions.ts` de la
 aplicación:
 
 ```typescript
@@ -91,25 +81,28 @@ import type { PermissionsOf } from 'liteb';
 declare global {
   namespace LitebAuth {
     interface Permissions
-      extends PermissionsOf<typeof import('../modules/tasks/permissions').permissions> {}
+      extends PermissionsOf<typeof import('../modules/tasks/module').default> {}
   }
 }
 ```
 
 Eso es lo que hace que las claves estén CHEQUEADAS sin dejar de ser cadenas
 comunes: `this.auth.assert('tasks.manage')` se lee igual que siempre, y
-`'tasks.mange'` no compila. Un bloque `declare global` por módulo, que
-TypeScript fusiona, así que agregar un módulo es añadir al final y acá nunca se
-vuelve a abrir nada. Dejá el archivo vacío y se vuelve a aceptar cualquier
-cadena — la comprobación en tiempo de ejecución queda como única red.
+`'tasks.mange'` no compila — TypeScript hasta sugiere la grafía correcta. Las
+**lee** del manifiesto en vez de repetirlas, así que no hay una segunda lista que
+mantener sincronizada.
 
-`liteb init` escribe `config/permissions.ts`, `liteb module` escribe el
-`permissions.ts` del módulo y le agrega su bloque, y
-`liteb endpoint tasks/assign --permission tasks.assign` agrega una línea al
-archivo del módulo. No hay nada que cablear a mano.
+Un bloque `declare global` por módulo, que TypeScript fusiona, así que agregar un
+módulo es añadir al final y acá nunca se vuelve a abrir nada. Eso es también por
+qué esto es una interface y no una union: una union no se puede fusionar, así que
+cada módulo nuevo tendría que reabrir una sola declaración. Y el módulo se
+alcanza con un `import(...)` en línea y sólo de tipos, así que nombrarlo no
+cuesta una línea de import y no puede crear un ciclo.
 
-> El arreglo plano — `permissions: [{ key, label }]` — sigue funcionando, y es lo
-> que querés cuando las claves vienen de otro lado. Perdés las claves tipadas.
+`liteb init` escribe `config/permissions.ts` con un bloque inicial vacío, y
+`liteb module` agrega el de verdad. `liteb endpoint tasks/assign --permission
+tasks.assign` agrega la clave al arreglo del módulo en la misma pasada. No hay
+nada que cablear a mano.
 
 Dos reglas que el manifiesto aplica al importarse, antes de que arranque nada:
 
@@ -118,18 +111,47 @@ Dos reglas que el manifiesto aplica al importarse, antes de que arranque nada:
   incluidos los de terceros, comparten un único espacio de claves, así que el id
   es lo que impide que dos módulos entiendan cosas distintas por la misma
   palabra.
-- **La etiqueta es obligatoria.** Es lo que lee una persona en la pantalla donde
-  alguien arma un rol — no una descripción del código. Escribila como
-  explicarías el permiso en voz alta.
+- **Un `label`, si lo escribís, no puede estar vacío.** Quien lo escribió quiso
+  decir algo; omitir el campo es la forma de no decir nada.
+
+### Cuándo escribir un label
+
+El label es **opcional**, y la razón es que una clave como
+`billing.invoices.void` ya lo dice. Un label que repite la clave en una oración
+es una cadena más que alguien tiene que mantener verdadera, y no compra nada.
+
+Escribí uno cuando la clave no puede cargar el significado sola. Dos casos donde
+normalmente no puede:
+
+- La clave esconde parte de lo que concede. `tasks.manage` no dice que
+  reasignar está incluido.
+- El módulo vino **de otro lado**. Ahí el operador está leyendo un namespace que
+  no escribió, y la clave es todo lo que tiene.
+
+Lo que un label **no** hace: nunca llega a un cliente. Un 403 lleva la **clave**,
+en el `detail` y en `missing` — mirá [403](#403--hay-sesión-pero-no-alcanza). El
+label es para la pantalla donde se arma un rol, que es lo único que lee
+`app.permissions()`. Si tus roles están fijos en código, nada lo lee y las claves
+peladas son la opción honesta.
+
+Tampoco es documentación para quien programa: TypeScript no muestra ninguna
+documentación de un literal de texto, así que ni un label ni un comentario JSDoc
+aparecen cuando escribís `assert('tasks.…')`. Lo que explica una clave a quien
+escribe código va en el README del módulo o al lado de la clave en el manifiesto.
 
 El catálogo de todas las claves declaradas es `app.permissions()`:
 
 ```typescript
 [
-  { key: 'tasks.view', label: 'Ver tareas', moduleId: 'tasks' },
-  { key: 'tasks.manage', label: 'Crear y editar tareas', moduleId: 'tasks' },
+  { key: 'tasks.view', moduleId: 'tasks' },
+  { key: 'tasks.manage', moduleId: 'tasks' },
+  { key: 'tasks.assign', label: 'Pasarle una tarea a otra persona', moduleId: 'tasks' },
 ]
 ```
+
+Para conceder todo lo que tiene un módulo, esparcí sus claves en vez de
+listarlas — `[...tasks.permissionKeys]` — así un rol sigue siendo correcto cuando
+el módulo gana una clave.
 
 Se arma con todos los módulos **presentes, encendidos o no**. Apagar un módulo
 decide qué corre, nunca qué significa una clave — si no, los roles ya asignados
@@ -604,9 +626,9 @@ Sólo un `Endpoint` lo tiene, porque sólo una petición tiene un actor detrás.
 # Reglas para las claves
 
 - Tienen que empezar con el id del módulo y seguir con al menos un segmento más
-  separado por punto: `tasks.view`, `tasks.board.export`. `declarePermissions`
-  agrega el prefijo, así que los nombres que escribís son `view` y
-  `board.export`.
+  separado por punto: `tasks.view`, `tasks.board.export`. El manifiesto rechaza
+  una clave que no lo haga, así que el prefijo no es una convención que se pueda
+  olvidar.
 - Minúsculas, dígitos y guiones: `customer-portal.view` está bien, `Tasks.View`
   no.
 - Sin duplicados dentro de un mismo módulo.

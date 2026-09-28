@@ -66,8 +66,7 @@ mantener sincronizada, porque **la carpeta es lo que registra el archivo**:
 
 ```
 billing/
-├── module.ts                   ← sólo el cableado
-├── permissions.ts
+├── module.ts                   ← el cableado, y las claves de permiso
 ├── entities/*.entity.ts        migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
 ├── providers/*.provider.ts
@@ -83,8 +82,8 @@ tienen una forma lo bastante segura como para hacerlas sin parsear TypeScript:
 
 - `liteb module` agrega el módulo a `modules: [ ]` en `src/index.ts`, y le añade
   un bloque a `src/config/permissions.ts`.
-- `liteb endpoint --permission` agrega la clave al `declarePermissions({ ... })`
-  del módulo.
+- `liteb endpoint --permission` agrega la clave al `permissions: []` del
+  manifiesto del módulo.
 
 Cualquier cosa menos segura se imprime como instrucción. Un andamiaje que
 destroza en silencio un archivo que escribiste es peor que uno que te dice qué
@@ -145,7 +144,8 @@ log, una vez, la primera vez que deja pasar una petición.
 `src/config/permissions.ts` arranca con su bloque `declare global` ya abierto.
 Está vacío hasta el primer módulo; `liteb module` le añade un bloque por módulo y
 la fusión de interfaces los junta, así que ninguna línea de ese archivo se vuelve
-a abrir.
+a abrir. Cada bloque **lee** las claves del manifiesto de ese módulo en vez de
+repetirlas, así que una clave se escribe una sola vez.
 
 También deja cableadas tres cosas que todo backend termina necesitando, para que
 no sean tarea para después:
@@ -268,9 +268,15 @@ npx liteb module reports --optional --label "Reports"
 | `--optional` | se instala **apagado**, y se enciende a propósito |
 | `--entry <file>` | el archivo con `Liteb.create({ modules: [...] })` (por defecto `src/index.ts`) |
 
-Escribe `module.ts`, `permissions.ts` y un primer endpoint que contesta en
-`/api/<name>`, después registra el módulo en el punto de entrada y declara sus
-claves de permiso en `src/config/permissions.ts`.
+Escribe `module.ts` y un primer endpoint que contesta en `/api/<name>`, después
+registra el módulo en el punto de entrada y le añade a
+`src/config/permissions.ts` un bloque que lleva sus claves al sistema de tipos.
+
+Las claves viven en el manifiesto, como cadenas:
+`permissions: ['billing.view']`. Una clave puede llevar texto para una pantalla
+de roles cuando no lo puede decir sola —
+`{ key: 'billing.void', label: 'Anular un cargo ya cobrado' }` — y el `label` es
+opcional justamente porque la mayoría sí puede.
 
 **`--optional` es la diferencia entre una función y una actualización que se
 enciende sola.** Un módulo sin `core: true` se instala apagado: está en el
@@ -308,8 +314,8 @@ cuando la URL no tiene que llevar el nombre del módulo — un módulo que sirve
 recursos, o dos módulos que aportan a un mismo prefijo.
 
 La aserción se escribe **viva** de las dos formas. Sin `--permission` aserta
-`<module>.view`, la clave con la que arranca un módulo; con ella, aserta esa
-clave y **la declara** en el `permissions.ts` del módulo en la misma pasada — una
+`<module>.view`, la clave con la que arranca un módulo; con ella, aserta esa clave
+y **la agrega** al arreglo `permissions` del manifiesto en la misma pasada — una
 clave que ningún módulo declara es un 500 y no un 403, a propósito, porque es un
 typo y no una concesión faltante.
 

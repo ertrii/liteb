@@ -115,6 +115,48 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
     );
   });
 
+  it('no rompe un arreglo que prettier ya partió en varias líneas', () => {
+    // Prettier agrega una coma final al envolver un arreglo, y agregar detrás
+    // de ella producía `'a',, 'b'`: el generador rompiendo un archivo que él
+    // mismo había escrito.
+    const source = `export default defineModule({
+  permissions: [
+    'inventory.view',
+    'inventory.count',
+  ],
+});
+`;
+
+    const after = applyEdit(source, {
+      path: 'x',
+      arrayEntry: {
+        field: 'permissions',
+        value: "'inventory.export'",
+        unless: "'inventory.export'",
+      },
+    })!;
+
+    expect(after).not.toContain(',,');
+    expect(after).toContain("'inventory.count', 'inventory.export'");
+  });
+
+  it('no duplica una entrada que ya está', () => {
+    const source = `export default defineModule({
+  permissions: ['a.view'],
+});
+`;
+    const after = applyEdit(source, {
+      path: 'x',
+      arrayEntry: {
+        field: 'permissions',
+        value: "'a.view'",
+        unless: "'a.view'",
+      },
+    });
+
+    expect(after).toBe(source);
+  });
+
   it('el índice de migraciones deja de ser un módulo vacío al llegar la primera', () => {
     const after = applyEdit('export {};\n', {
       path: 'x',
@@ -154,7 +196,7 @@ describe('liteb init', () => {
     const permisos = busca('src/config/permissions.ts');
     expect(permisos).toContain('declare global {');
     expect(permisos).toContain(
-      'interface Permissions extends PermissionsOf<{}> {}',
+      'interface Permissions extends PermissionsOf<unknown> {}',
     );
 
     const auth = busca('src/config/auth.ts');
@@ -374,14 +416,12 @@ describe('un módulo generado y puesto a andar', () => {
   it('el manifiesto quedó válido: el módulo está encendido', () => {
     // defineModule valida al importarse, así que llegar hasta acá ya significa
     // que id, versión, engine y claves de permiso pasaron.
+    // Sin `label`: el andamiaje no inventa una etiqueta que repita la clave.
+    // Escribirla es opcional y queda para donde la clave no alcanza.
     expect(app.permissions()).toEqual([
-      { key: 'inventory.view', label: 'View inventory', moduleId: 'inventory' },
-      // La segunda la declaró `create endpoint --permission`.
-      {
-        key: 'inventory.count',
-        label: 'Count inventory',
-        moduleId: 'inventory',
-      },
+      { key: 'inventory.view', moduleId: 'inventory' },
+      // La segunda la declaró `endpoint --permission`.
+      { key: 'inventory.count', moduleId: 'inventory' },
     ]);
   });
 
@@ -420,7 +460,7 @@ describe('un módulo generado y puesto a andar', () => {
     expect((await request(server()).get('/api/inventory')).status).toBe(401);
   });
 
-  it('trae la aserción VIVA, con la clave que declara permissions.ts', () => {
+  it('trae la aserción VIVA, con la clave que declara el manifiesto', () => {
     // Las dos mitades del andamiaje coinciden: `init` escribe un resolutor que
     // deja pasar a todos, así que la aserción puede nacer encendida. Al revés
     // —comentada— enseña que un endpoint es abierto por defecto, y el día que
@@ -434,16 +474,21 @@ describe('un módulo generado y puesto a andar', () => {
     expect(endpoint).not.toContain('// this.auth.assert(');
   });
 
-  it('las claves se declaran en UN lugar, y el manifiesto lo referencia', () => {
-    // El punto de partida: una sola línea por clave, y el resto la importa.
-    expect(read(`${modulesDir}/inventory/permissions.ts`)).toContain(
-      "declarePermissions('inventory', {",
-    );
+  it('las claves se declaran en UN lugar: el manifiesto', () => {
+    // El punto de partida: la clave escrita una vez, donde el módulo se
+    // declara. No hay un permissions.ts por módulo que mantener al lado.
+    expect(
+      fs.existsSync(
+        path.join(workspace, `${modulesDir}/inventory/permissions.ts`),
+      ),
+    ).toBe(false);
+
     const manifest = read(`${modulesDir}/inventory/module.ts`);
-    expect(manifest).toContain("import { permissions } from './permissions';");
-    expect(manifest).toContain('permissions,');
-    // Sin segunda lista que mantener sincronizada.
-    expect(manifest).not.toContain("key: 'inventory.view'");
+    expect(manifest).toContain("permissions: ['inventory.view'");
+    // Y `config/permissions.ts` las LEE del manifiesto, no las repite.
+    expect(read('src/config/permissions.ts')).toContain(
+      "typeof import('../modules/inventory/module').default",
+    );
   });
 
   it('el endpoint agregado después se monta con su método y su ruta', async () => {
@@ -470,10 +515,9 @@ describe('un módulo generado y puesto a andar', () => {
 
   it('--permission declara la clave donde viven, no sólo la assertea', () => {
     // Sin esto sería un 500 "Unknown permission" en vez de un 403: el
-    // generador habría escrito código que no puede correr. La etiqueta es un
-    // punto de partida legible, para la pantalla de roles.
-    expect(read(`${modulesDir}/inventory/permissions.ts`)).toContain(
-      "count: 'Count inventory',",
+    // generador habría escrito código que no puede correr.
+    expect(read(`${modulesDir}/inventory/module.ts`)).toContain(
+      "'inventory.count'",
     );
     // El endpoint la exige como cadena, que es como se lee mejor. Lo que la
     // hace segura es el bloque que `create module` agregó acá:
@@ -481,7 +525,7 @@ describe('un módulo generado y puesto a andar', () => {
       read(`${modulesDir}/inventory/endpoints/count-items.endpoint.ts`),
     ).toContain("this.auth.assert('inventory.count');");
     expect(read('src/config/permissions.ts')).toContain(
-      "typeof import('../modules/inventory/permissions').permissions",
+      "typeof import('../modules/inventory/module').default",
     );
     expect(app.permissions().map((permission) => permission.key)).toEqual([
       'inventory.view',

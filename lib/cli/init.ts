@@ -226,18 +226,27 @@ logs
  * string that TypeScript CHECKS: misspell it and the build fails, instead of
  * the framework answering 500 on the first request that reaches the line.
  *
- * Each module still declares its own keys, with their labels, in its own
- * \`permissions.ts\`. This file only carries those spellings into the type
- * system, and \`liteb module\` appends a block per module — interface
- * merging joins them, so nothing below ever has to be reopened.
+ * Each module spells its own keys ONCE, in its manifest. This file only reads
+ * those spellings back off it, so there is no second list to keep in sync.
+ * \`liteb module\` appends one block per module and interface merging joins
+ * them, so nothing below ever has to be reopened — which is also why this is an
+ * interface and not a union: a union cannot be merged.
  *
- * Empty, as it starts, every string is accepted and the run-time check is the
- * only net. It stops being empty with the first module.
+ * \`unknown\` is "no modules yet": every string is accepted and the run-time
+ * check is the only net. The blocks that get appended look like this, and this
+ * first one can go once there is a real one:
+ *
+ * declare global {
+ *   namespace LitebAuth {
+ *     interface Permissions
+ *       extends PermissionsOf<typeof import('../modules/tasks/module').default> {}
+ *   }
+ * }
  */
 declare global {
   namespace LitebAuth {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
-    interface Permissions extends PermissionsOf<{}> {}
+    interface Permissions extends PermissionsOf<unknown> {}
   }
 }
 `;

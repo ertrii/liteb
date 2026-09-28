@@ -12,7 +12,7 @@ They are separate on purpose, and nothing works until all three are present.
 
 | Responsibility | Where it lives | Who decides |
 | --- | --- | --- |
-| Which keys **exist** | the module's `permissions.ts` | the module |
+| Which keys **exist** | the module's manifest | the module |
 | Which keys somebody **holds** | your `auth` resolver | your application |
 | Which keys an endpoint **demands** | `this.auth.assert(...)` | the endpoint |
 
@@ -52,37 +52,26 @@ stops being what you want.
 
 ## 2. Declare the keys the module can gate
 
-One file, and it is the only place a key is ever spelled out:
-
-```typescript
-// src/modules/tasks/permissions.ts
-import { declarePermissions } from 'liteb';
-
-export const permissions = declarePermissions('tasks', {
-  view: 'View tasks',
-  manage: 'Create and edit tasks',
-  assign: 'Assign a task to somebody else',
-});
-```
-
-The manifest lists them by reference, so there is no second list to keep in
-sync:
+In the manifest, and nowhere else. This is the only place a key is spelled:
 
 ```typescript
 // src/modules/tasks/module.ts
-import { permissions } from './permissions';
-
 export default defineModule({
   id: 'tasks',
   version: '1.0.0',
   core: true,
   dir: __dirname,
 
-  permissions,
+  permissions: [
+    'tasks.view',
+    'tasks.manage',
+    // Text only where the key cannot carry it on its own.
+    { key: 'tasks.assign', label: 'Hand a task to somebody else' },
+  ],
 });
 ```
 
-Then list the module once, in the application's `src/config/permissions.ts`:
+Then name the module once, in the application's `src/config/permissions.ts`:
 
 ```typescript
 import type { PermissionsOf } from 'liteb';
@@ -90,25 +79,28 @@ import type { PermissionsOf } from 'liteb';
 declare global {
   namespace LitebAuth {
     interface Permissions
-      extends PermissionsOf<typeof import('../modules/tasks/permissions').permissions> {}
+      extends PermissionsOf<typeof import('../modules/tasks/module').default> {}
   }
 }
 ```
 
 That is what makes the keys CHECKED while they stay plain strings:
 `this.auth.assert('tasks.manage')` reads the way it always did, and
-`'tasks.mange'` does not compile. One `declare global` block per module,
-merged by TypeScript, so adding a module is an append and nothing here is ever
-reopened. Leave the file empty and any string is accepted again — the run-time
-check is then the only net.
+`'tasks.mange'` does not compile — TypeScript even suggests the right spelling.
+It **reads** the keys off the manifest rather than restating them, so there is
+no second list to keep in sync.
 
-`liteb init` writes `config/permissions.ts`, `liteb module` writes the
-module's `permissions.ts` and appends its block there, and
-`liteb endpoint tasks/assign --permission tasks.assign` adds a line to
-the module's file. Nothing has to be wired by hand.
+One `declare global` block per module, merged by TypeScript, so adding a module
+is an append and nothing here is ever reopened. That is also why this is an
+interface and not a union: a union cannot be merged, so every new module would
+have to reopen one declaration. And the module is reached with a type-only
+inline `import(...)`, so naming it costs no import line and cannot create a
+cycle.
 
-> The plain array — `permissions: [{ key, label }]` — still works, and is what
-> you want when the keys come from somewhere else. You lose the typed keys.
+`liteb init` writes `config/permissions.ts` with an empty starter block, and
+`liteb module` appends the real one. `liteb endpoint tasks/assign --permission
+tasks.assign` adds the key to the module's array in the same pass. Nothing has
+to be wired by hand.
 
 Two rules the manifest enforces at import time, before anything boots:
 
@@ -116,18 +108,46 @@ Two rules the manifest enforces at import time, before anything boots:
   `tasks` module; `billing.view` is not. Every installed module, including
   third-party ones, shares a single key space, so the id is what keeps two
   modules from meaning different things by the same word.
-- **The label is required.** It is what a person reads on the screen where
-  somebody builds a role — not a description of the code. Write it the way you
-  would explain the permission out loud.
+- **A `label`, if you write one, cannot be empty.** Whoever wrote it meant to
+  say something; omitting the field is how you say nothing.
+
+### When to write a label
+
+The label is **optional**, and the reason is that a key like
+`billing.invoices.void` already says it. A label that restates the key in a
+sentence is one more string somebody has to keep true, and it buys nothing.
+
+Write one when the key cannot carry the meaning by itself. Two cases where it
+usually cannot:
+
+- The key hides part of what it grants. `tasks.manage` does not say that
+  reassigning is included.
+- The module came from **somewhere else**. The operator is then reading a
+  namespace they did not write, and the key is all they have.
+
+What a label does NOT do: it never reaches a client. A 403 carries the **key**,
+in `detail` and in `missing` — see [403](#403--signed-in-not-allowed). The
+label is for the screen where a role is built, which is the only thing that
+reads `app.permissions()`. If your roles are fixed in code, nothing reads it and
+bare keys are the honest choice.
+
+It is also not developer documentation: TypeScript shows no docs for a string
+literal, so neither a label nor a JSDoc comment appears when you type
+`assert('tasks.…')`. Whatever explains a key to whoever writes code belongs in
+the module's own README or beside the key in the manifest.
 
 The catalog of every declared key is `app.permissions()`:
 
 ```typescript
 [
-  { key: 'tasks.view', label: 'View tasks', moduleId: 'tasks' },
-  { key: 'tasks.manage', label: 'Create and edit tasks', moduleId: 'tasks' },
+  { key: 'tasks.view', moduleId: 'tasks' },
+  { key: 'tasks.manage', moduleId: 'tasks' },
+  { key: 'tasks.assign', label: 'Hand a task to somebody else', moduleId: 'tasks' },
 ]
 ```
+
+To grant everything one module has, spread its keys instead of listing them —
+`[...tasks.permissionKeys]` — so a role stays right when the module gains a key.
 
 It is built from every module **present, enabled or not**. Turning a module off
 decides what runs, never what a key means — otherwise roles already assigned
@@ -598,8 +618,8 @@ Only an `Endpoint` has it, because only a request has an actor behind it.
 # Rules for keys
 
 - Must start with the module id, then at least one more dotted segment:
-  `tasks.view`, `tasks.board.export`. `declarePermissions` adds the prefix, so
-  the names you write are `view` and `board.export`.
+  `tasks.view`, `tasks.board.export`. The manifest refuses a key that does not,
+  so the prefix is not a convention you can forget.
 - Lowercase, digits and dashes: `customer-portal.view` is fine, `Tasks.View` is
   not.
 - No duplicates inside one module.

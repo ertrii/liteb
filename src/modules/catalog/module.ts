@@ -1,5 +1,4 @@
 import { defineModule } from '../../../lib';
-import { permissions } from './permissions';
 
 /**
  * Catalog: products and their stock.
@@ -19,6 +18,13 @@ export default defineModule({
   // Declared, and checked at boot: catalog refuses to start without identity.
   requires: ['identity'],
 
-  // Declared in ./permissions.ts, so the keys have one home.
-  permissions,
+  // Everything this module can gate, spelled ONCE — here. The endpoints
+  // assert these strings and `config/permissions.ts` carries them into the
+  // type system, so a typo anywhere else does not compile.
+  permissions: [
+    'catalog.products.view',
+    // Text only where the key cannot carry it: "manage" does not say that
+    // restocking is part of it. The other modules pass bare keys.
+    { key: 'catalog.products.manage', label: 'Create and restock products' },
+  ],
 });

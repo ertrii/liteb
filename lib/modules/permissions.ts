@@ -73,3 +73,45 @@ export class PermissionRegistry {
       .sort();
   }
 }
+
+/**
+ * Teaches the compiler the keys a module declares.
+ *
+ * A key is spelled ONCE, in that module's manifest; this reads the spellings
+ * back off it. Declare it per module in one file and `assert` / `can` stop
+ * taking any string:
+ *
+ * ```typescript
+ * // src/config/permissions.ts
+ * import type identity from '../modules/identity/module';
+ * import type billing from '../modules/billing/module';
+ *
+ * declare global {
+ *   namespace LitebAuth {
+ *     interface Permissions extends PermissionsOf<typeof identity> {}
+ *   }
+ * }
+ *
+ * declare global {
+ *   namespace LitebAuth {
+ *     interface Permissions extends PermissionsOf<typeof billing> {}
+ *   }
+ * }
+ * ```
+ *
+ * One block per module, and interface merging joins them. That is why
+ * `liteb module` can add a module by APPENDING here instead of editing a
+ * list, and why this is an interface and not a union: a union cannot be
+ * merged, so every new module would have to reopen one declaration.
+ *
+ * `import type` is deliberate — nothing is imported at run time, so this file
+ * cannot introduce a cycle with the modules it names.
+ */
+export type PermissionsOf<M> = M extends {
+  permissions: readonly (infer E)[];
+}
+  ? { [K in KeyOf<E>]: true }
+  : Record<never, never>;
+
+/** The key carried by one entry of a resolved module's permission list. */
+type KeyOf<E> = E extends { key: infer K extends string } ? K : never;

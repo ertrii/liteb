@@ -1,5 +1,4 @@
 import { defineModule } from '../../../lib';
-import { permissions } from './permissions';
 
 /**
  * Identity: who the people are.
@@ -19,6 +18,8 @@ export default defineModule({
   // here; without it there is nothing to resolve against.
   dir: __dirname,
 
-  // The vocabulary this module can gate, declared in ./permissions.ts.
-  permissions,
+  // The vocabulary this module can gate. No labels: the keys say it, and a
+  // label that restates a key is one more string to keep true. `catalog` shows
+  // the case where one is worth writing.
+  permissions: ['identity.users.view', 'identity.users.manage'],
 });

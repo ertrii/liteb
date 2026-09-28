@@ -126,8 +126,13 @@ export function applyEdit(source: string, edit: FileEdit): string | null {
       : new RegExp(`\\b${value}\\b`).test(current);
     if (already) return source;
 
+    // The trailing comma matters: prettier adds one when it wraps an array over
+    // several lines, and appending after it produced `'a',, 'b'` — a file the
+    // generator itself had written, broken by the next generator that touched
+    // it.
+    const body = match[2].replace(/\s*$/, '').replace(/,$/, '');
     const filled = current
-      ? `${match[1]}${match[2].replace(/\s*$/, '')}, ${value}${match[3]}`
+      ? `${match[1]}${body}, ${value}${match[3]}`
       : `${match[1]}${value}${match[3]}`;
     const withEntry = source.replace(pattern, filled);
 

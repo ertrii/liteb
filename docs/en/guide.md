@@ -94,9 +94,8 @@ Two things it does **not** do, on purpose:
 - It does not know your application: no database, no config file, no registry of
   what exists. It reads arguments and writes files.
 - It edits files it did not write **only** where the shape is certain — adding
-  the module to `modules: []` in the entry point, adding a key to the
-  `declarePermissions({ ... })` literal. Anything less certain prints as an
-  instruction instead. A scaffolder that silently mangles a file you wrote is
+  the module to `modules: []` in the entry point, adding a key to the manifest's
+  `permissions: []`. Anything less certain prints as an instruction instead. A scaffolder that silently mangles a file you wrote is
   worse than one that tells you what to add.
 
 Note how few of those there are. Most generators write a file and edit nothing
@@ -262,7 +261,7 @@ export default defineModule({
   requires: ['identity'],     // checked at startup
   dir: __dirname,             // the folder everything is found from
 
-  permissions: [{ key: 'billing.view', label: 'View billing' }],
+  permissions: ['billing.view', 'billing.void'],
 });
 ```
 
@@ -667,14 +666,26 @@ A module declares the vocabulary of what can be gated inside it:
 
 ```typescript
 permissions: [
-  { key: 'billing.view', label: 'View billing' },
-  { key: 'billing.void', label: 'Void a charge' },
+  'billing.view',
+  'billing.void',
+  // Text only where the key cannot carry it on its own — most often for a
+  // module installed from elsewhere, whose namespace the operator did not write.
+  { key: 'billing.impersonate', label: 'Act as another operator' },
 ],
 ```
+
+This is the ONLY place a key is spelled.
+`PermissionsOf<typeof billing>` reads the spellings off it, so a typo in an
+endpoint does not compile and there is no second list to keep in sync — see
+[Authorization](./authorization.md#2-declare-the-keys-the-module-can-gate).
 
 Keys **must** be namespaced with the module id. Every module, including one
 someone else wrote, shares a single permission space, and the namespace is what
 keeps two of them from claiming the same key.
+
+The `label` is optional because a key like `billing.invoices.void` already says
+it, and a label that restates it is one more string to keep true. It is read by
+one thing only: the screen where a role is built.
 
 Endpoints then demand them (see [Authentication](#authentication)), and the
 application builds its "who may do what" screen from the catalog instead of a
@@ -682,7 +693,7 @@ central file somebody has to remember to edit:
 
 ```typescript
 app.permissions();
-// [{ key: 'billing.view', label: 'View billing', moduleId: 'billing' }, ...]
+// [{ key: 'billing.view', moduleId: 'billing' }, ...]
 ```
 
 **A key no installed module declares is refused**, with a plain `Error` (500)

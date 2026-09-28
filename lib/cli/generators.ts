@@ -78,26 +78,7 @@ export function createModule(options: ModuleOptions): Plan {
     options.label ?? toPascal(id).replace(/([a-z])([A-Z])/g, '$1 $2');
   const from = relativeFrom(options.from, 2);
 
-  const permissionsFile = `import { declarePermissions } from '${from}';
-
-/**
- * Everything this module can gate, declared ONCE — this is where to start.
- *
- * The manifest lists these, the endpoints demand them and the application
- * grants them, all by importing from here. The key is written in one place,
- * so a typo anywhere else does not compile instead of surfacing as a 500.
- *
- * \`liteb endpoint ${id}/<name> --permission ${id}.<key>\` adds a line
- * here. The label is what a person reads on a roles screen: write it the way
- * you would say it out loud.
- */
-export const permissions = declarePermissions('${id}', {
-  view: 'View ${label.toLowerCase()}',
-});
-`;
-
   const manifest = `import { defineModule } from '${from}';
-import { permissions } from './permissions';
 
 /**
  * ${label}.
@@ -133,8 +114,13 @@ export default defineModule({
   // Other modules this one refuses to start without.
   requires: [],
 
-  // Declared in ./permissions.ts, so the keys have one home.
-  permissions,
+  // Everything this module can gate, spelled ONCE — here. The endpoints assert
+  // these strings and src/config/permissions.ts carries them into the type
+  // system, so a typo anywhere else does not compile.
+  //
+  // A key can carry text for a roles screen when it cannot say it alone:
+  // { key: '${id}.export', label: 'Download the full list' }.
+  permissions: ['${id}.view'],
 });
 `;
 
@@ -144,8 +130,8 @@ export default defineModule({
     group: null,
     decorator: 'HttpGet',
     routePath: '',
-    // Declared in ./permissions.ts, and asserted from the start: `init` writes
-    // a resolver that grants everything, so the gate exists and is open.
+    // Declared in the manifest, and asserted from the start: `init` writes a
+    // resolver that grants everything, so the gate exists and is open.
     permission: { key: `${id}.view` },
     from: relativeFrom(options.from, 3),
   });
@@ -159,7 +145,6 @@ export default defineModule({
 
   return plan(
     [
-      { path: `${dir}/permissions.ts`, content: permissionsFile },
       { path: `${dir}/module.ts`, content: manifest },
       { path: `${dir}/endpoints/${id}.endpoint.ts`, content: endpoint },
     ],
@@ -217,7 +202,7 @@ function permissionBlock(permission: { key: string } | null): string {
 function permissionsDeclaration(id: string, modulesDir: string): string {
   const from = path.posix.relative(
     'src/config',
-    `${modulesDir.replace(/\\/g, '/')}/${id}/permissions`,
+    `${modulesDir.replace(/\\/g, '/')}/${id}/module`,
   );
   // The module is reached with an inline `import(...)`, so a new block needs no
   // new import line. `PermissionsOf` cannot be: an interface may only extend an
@@ -229,9 +214,7 @@ declare global {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Permissions
       extends PermissionsOf<
-        typeof import('${
-          from.startsWith('.') ? from : `./${from}`
-        }').permissions
+        typeof import('${from.startsWith('.') ? from : `./${from}`}').default
       > {}
   }
 }
@@ -308,18 +291,15 @@ export function createEndpoint(options: EndpointOptions): Plan {
   // is a typo and not a missing grant. So asking for one here has to DECLARE
   // it too, or the generator would write code that cannot run.
   const own = permission?.key.startsWith(`${target.module}.`) ?? false;
-  const raw = own ? permission!.key.slice(target.module.length + 1) : '';
-  // Quoted only when it has to be: a deeper namespace carries a dot.
-  const name = /^[a-z][a-zA-Z0-9]*$/.test(raw) ? raw : `'${raw}'`;
   const edits =
     permission && own
       ? [
           {
-            path: `${dir}/permissions.ts`,
-            objectEntry: {
-              after: `declarePermissions('${target.module}', {`,
-              value: `  ${name}: '${permissionLabel(permission.key)}',`,
-              unless: `${name}:`,
+            path: `${dir}/module.ts`,
+            arrayEntry: {
+              field: 'permissions',
+              value: `'${permission.key}'`,
+              unless: `'${permission.key}'`,
             },
           },
         ]
@@ -335,7 +315,7 @@ export function createEndpoint(options: EndpointOptions): Plan {
     );
   } else if (permission && asked) {
     hints.push(
-      `The label of "${permission.key}" in permissions.ts is a guess: it is what a roles screen shows, so make it read the way you would explain it.`,
+      `"${permission.key}" was added to ${target.module}'s manifest. Give it a { key, label } there if the key does not say it on its own — the label is what a roles screen shows.`,
     );
   } else if (permission) {
     hints.push(
@@ -360,22 +340,6 @@ export function createEndpoint(options: EndpointOptions): Plan {
     edits,
     hints,
   );
-}
-
-/**
- * A first label for a permission key: last segment is the action, the rest is
- * what it acts on. `catalog.products.manage` -> "Manage catalog products".
- *
- * It is a placeholder that reads like a sentence, not a guess at intent — the
- * label is what a roles screen shows a human, so it is meant to be edited.
- */
-function permissionLabel(key: string): string {
-  const parts = key.split('.');
-  if (parts.length < 2)
-    return toPascal(key).replace(/([a-z])([A-Z])/g, '$1 $2');
-  const action = parts[parts.length - 1];
-  const subject = parts.slice(0, -1).join(' ').replace(/-/g, ' ');
-  return `${action.charAt(0).toUpperCase()}${action.slice(1)} ${subject}`;
 }
 
 export interface RoutineOptions extends CommonOptions {

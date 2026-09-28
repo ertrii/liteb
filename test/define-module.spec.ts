@@ -130,13 +130,64 @@ describe('defineModule — permisos', () => {
     ).toThrow(/not a dotted lowercase key/);
   });
 
-  it('exige una etiqueta', () => {
+  it('la clave sola alcanza: la etiqueta es opcional', () => {
+    // La clave ya dice mucho, y una etiqueta que la repite en una oración es
+    // una cadena más que alguien tiene que mantener verdadera.
+    const mod = defineModule({
+      ...base,
+      permissions: ['billing.view', 'billing.charge.cancel'],
+    });
+
+    expect(mod.permissions).toEqual([
+      { key: 'billing.view' },
+      { key: 'billing.charge.cancel' },
+    ]);
+  });
+
+  it('se pueden mezclar claves sueltas con claves que llevan texto', () => {
+    const mod = defineModule({
+      ...base,
+      permissions: [
+        'billing.view',
+        { key: 'billing.charge.cancel', label: 'Anular cargos ya cobrados' },
+      ],
+    });
+
+    expect(mod.permissions).toEqual([
+      { key: 'billing.view' },
+      { key: 'billing.charge.cancel', label: 'Anular cargos ya cobrados' },
+    ]);
+  });
+
+  it('expone sólo las claves, para conceder todo lo de un módulo', () => {
+    const mod = defineModule({
+      ...base,
+      permissions: ['billing.view', { key: 'billing.void', label: 'Anular' }],
+    });
+
+    // `auditor: [...billing.permissionKeys]` en un rol, sin listarlas a mano.
+    expect(mod.permissionKeys).toEqual(['billing.view', 'billing.void']);
+  });
+
+  it('una etiqueta vacía es un error, no una decisión', () => {
+    // Quien la escribió quiso decir algo. Omitir el campo es la forma de no
+    // decir nada.
     expect(() =>
       defineModule({
         ...base,
-        permissions: [{ key: 'billing.view', label: '' }],
+        permissions: [{ key: 'billing.view', label: '   ' }],
       }),
-    ).toThrow(/needs a non-empty "label"/);
+    ).toThrow(/has an empty "label"/);
+  });
+
+  it('un objeto en vez de un arreglo se rechaza nombrando el cambio', () => {
+    expect(() =>
+      defineModule({
+        ...base,
+        // Lo que devolvía declarePermissions, que ya no existe.
+        permissions: { view: 'billing.view' } as never,
+      }),
+    ).toThrow(/must be an array of keys/);
   });
 
   it('rechaza claves duplicadas', () => {
