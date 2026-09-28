@@ -150,13 +150,13 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | --- | --- | --- |
 | `contract` | `<T>(id: string) => Contract<T>` | Un token para una capacidad que un módulo necesita y otro responde. |
 | `Contract<T>` | interface | Ese token. Lleva `T` sólo a nivel de tipos. |
-| `Container` | clase | Los resuelve: `.get(token)`, `.has()`, `.providerOf()`, `.ids()`. Se alcanza como `this.container`. |
+| `Container` | clase | Los resuelve: `.get(contract)`, `.all(slot)`, `.has()`, `.providerOf()`, `.ids()`. Se alcanza como `this.container`. |
 | `ContractError` | clase | Nadie provee ese contrato, o lo proveen dos módulos. |
 | `event` | `<T>(id: string) => EventToken<T>` | Un token para algo que pasó. |
 | `EventToken<T>` | interface | Ese token, tipado por su payload. |
 | `EventBus` | clase | `.emit(token, payload)`, más `.ids()` y `.countFor()` para saber qué está escuchando. |
 | `slot` | `<T>(id: string) => Slot<T>` | Un token al que pueden aportar muchos módulos, donde un contrato acepta exactamente uno. |
-| `Slot<T>` | interface | Ese token. `container.get(slot)` contesta un arreglo; vacío es una respuesta normal. |
+| `Slot<T>` | interface | Ese token. `container.all(slot)` contesta un arreglo; vacío es una respuesta normal. |
 
 ---
 

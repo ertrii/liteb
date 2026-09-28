@@ -152,13 +152,13 @@ way.
 | --- | --- | --- |
 | `contract` | `<T>(id: string) => Contract<T>` | A token for a capability one module needs and another answers. |
 | `Contract<T>` | interface | That token. Carries `T` at the type level only. |
-| `Container` | class | Resolves them: `.get(token)`, `.has()`, `.providerOf()`, `.ids()`. Reachable as `this.container`. |
+| `Container` | class | Resolves them: `.get(contract)`, `.all(slot)`, `.has()`, `.providerOf()`, `.ids()`. Reachable as `this.container`. |
 | `ContractError` | class | Nobody provides that contract, or two modules do. |
 | `event` | `<T>(id: string) => EventToken<T>` | A token for something that happened. |
 | `EventToken<T>` | interface | That token, typed by its payload. |
 | `EventBus` | class | `.emit(token, payload)`, plus `.ids()` and `.countFor()` for what is listening. |
 | `slot` | `<T>(id: string) => Slot<T>` | A token many modules may contribute to, where a contract takes exactly one. |
-| `Slot<T>` | interface | That token. `container.get(slot)` answers an array; empty is a normal answer. |
+| `Slot<T>` | interface | That token. `container.all(slot)` answers an array; empty is a normal answer. |
 
 ---
 

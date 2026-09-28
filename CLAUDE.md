@@ -49,8 +49,9 @@ is **not** an application. Dual layout:
   the guide, not in the README.
 
 - **`docs/` is split by language**: `docs/en/` is the source, `docs/es/` is the
-  translation, same four filenames on both sides, and `docs/README.md` is the
-  index. **English is what matches the code** — change it first, then bring the
+  translation, and `docs/README.md` is the index. `docs/es/wiring.md` — the deep
+  dive on contracts, slots and events — is **Spanish only for now**, on the
+  author's call; its English page is owed. **English is what matches the code** — change it first, then bring the
   Spanish page across in the same commit. Code, identifiers and the framework's
   own JSDoc stay English on both sides; only the prose is translated.
 

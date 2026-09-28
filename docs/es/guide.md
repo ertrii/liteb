@@ -589,6 +589,9 @@ antes de planificar alrededor:
 
 ### Llamar a otro módulo
 
+> Las tres formas en detalle — qué garantiza cada una, qué se rompe al arrancar
+> y los antipatrones — están en [Cableado entre módulos](./wiring.md).
+
 Un módulo alcanza a otro por su contrato, nunca importándolo — que es lo que
 permite que el proveedor cambie o se reemplace sin tocar a quienes lo llaman.
 
