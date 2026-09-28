@@ -147,6 +147,10 @@ export class BillingServiceProvider
 Nada lista esta clase. La carpeta la encuentra, `@Provides` dice qué contrato
 responde, y el nombre del archivo no importa mientras termine en `.provider.ts`.
 
+Lo mismo vale para un aporte a un slot: misma clase base, misma carpeta, y
+`@Contributes` en lugar de `@Provides` — ver
+[El contribuyente es un `Provider`](#el-contribuyente-es-un-provider).
+
 Un `Provider` sin `@Provides` ni `@Contributes` se saltea con un aviso en vez de
 detener el arranque, igual que un endpoint sin verbo: un archivo a medio escribir
 no es una instalación rota.
@@ -347,14 +351,108 @@ típico:
 | `ProductBadge` | la forma de **un** aporte | lo `implements` un contribuyente |
 | `ProductBadges` | el token de la **colección** | va en `@Contributes` y en `this.all()` |
 
-Pasar un contrato donde va un slot falla en el decorador, con la diferencia
-explicada en el mensaje:
+El plural en el token de la colección es una convención, no una regla: lo que
+liteb chequea es `kind`, no el nombre.
+
+### El contribuyente es un `Provider`
+
+Un aporte no es una clase nueva que haya que aprender: es un
+[`Provider`](#4-contratos) como el que responde un contrato, y todo lo de la
+sección anterior vale igual.
+
+| | Responder un contrato | Llenar un slot |
+| --- | --- | --- |
+| Clase base | `extends Provider` | `extends Provider` |
+| Carpeta | `providers/*.provider.ts` | `providers/*.provider.ts` |
+| Decorador | `@Provides(Contrato)` | `@Contributes(Slot)` |
+| Qué `implements` | la interfaz del contrato | la interfaz de **un** aporte |
+| Cuántos por token | exactamente uno | los que haya |
+| Se construye | en el primer `this.get()` | en el primer `this.all()` |
+| Inyecciones | `db`, `get()`, `all()`, `emit()` | las mismas |
+| Comando | `liteb provider <mod>/<name>` | el mismo con `--slot <name>` |
+
+No hay una carpeta `contributions/` ni una clase `Contribution`. Los dos
+decoradores guardan lo mismo debajo, porque es una sola pregunta — **de qué
+token es la implementación esta clase** — y el token es el que dice si tiene un
+proveedor o muchos. Por eso pasar uno donde va el otro falla en el decorador,
+con la diferencia explicada en el mensaje:
 
 ```
 @Provides() takes a contract, and got a slot. Contracts have one provider and
 are declared with contract(); extension points take many and are declared with
 slot().
 ```
+
+Y por eso el aviso del arranque nombra los dos: cubre los dos casos.
+
+```
+[WARN] Provider LowStockBadge in module "reports" has no @Provides(contract)
+or @Contributes(slot) and was skipped.
+```
+
+**Lo único que importás es el archivo del slot**, del módulo que lo abrió. Ese
+import te da las dos mitades a la vez — la interfaz que vas a `implements` y el
+token que va en el decorador:
+
+```typescript
+// reports/providers/low-stock-badge.provider.ts
+import { Contributes, Provider } from 'liteb';
+import { ProductBadge, ProductBadges } from '@/catalog/slots/product-badges.slot';
+
+@Contributes(ProductBadges)
+export class LowStockBadge extends Provider implements ProductBadge {
+  readonly id = 'low-stock';
+
+  for(product: { id: number; stock: number }) {
+    return product.stock < 10 ? 'Low stock' : null;
+  }
+}
+```
+
+El comando lo escribe con ese import como marcador, para que reemplaces
+`<module>` por el módulo que abrió el slot:
+
+```bash
+npx liteb provider reports/low-stock --slot product-badges
+```
+
+- **`--slot` es el nombre del slot, no el del aporte.** De ahí salen el archivo
+  (`slots/product-badges.slot`), el token (`ProductBadges`) y la interfaz
+  (`ProductBadge`); el `<module>/<name>` de adelante sigue siendo tu módulo y tu
+  clase.
+- **La forma la define el slot, no liteb.** El `id` de los ejemplos está porque
+  `ProductBadge` lo pide; el framework no le exige ningún campo a un aporte.
+- **Un token por clase.** El decorador guarda uno solo, así que apilar dos no
+  suma: para llenar dos slots, dos clases.
+- **Un mismo módulo puede aportar varias veces al mismo slot** — dos clases, dos
+  entradas en el arreglo. Es lo normal en un módulo que agrega, por ejemplo, dos
+  métodos de pago.
+
+### Nada que declarar, y qué declarar igual
+
+En el manifiesto **no existe un `contributes`**, y tampoco un `consumes` para
+slots. Es a propósito: un aporte que falta es un arreglo más corto, no un fallo,
+así que no hay nada que comprobar al arrancar.
+
+Lo que sí conviene declarar es la dependencia entre los módulos, cuando el tuyo
+existe sólo para llenar ese punto:
+
+```typescript
+// reports/module.ts
+requires: ['catalog'],
+```
+
+Es lo más cercano a un `consumes` que hay para un slot. Con eso, `catalog`
+apagado o desinstalado se reporta al arrancar y con la causa distinguida, antes
+de que falle el import del token:
+
+```
+ModuleResolutionError: Module "reports" requires "catalog", which is disabled.
+ModuleResolutionError: Module "reports" requires "catalog", which is not installed.
+```
+
+Sin `requires`, apagar `catalog` deja a `reports` registrando un aporte que
+nadie lee — inofensivo, pero silencioso.
 
 ### Vacío es una respuesta
 
