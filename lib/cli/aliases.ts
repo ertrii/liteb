@@ -43,7 +43,6 @@ export function readAliases(
 ): Alias[] {
   let ts: typeof import('typescript');
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     ts = require(require.resolve('typescript', { paths: [root] }));
   } catch {
     return [];

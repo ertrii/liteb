@@ -142,7 +142,7 @@ export class Logger {
     try {
       fs.writeFileSync(file, '');
       return true;
-    } catch (err) {
+    } catch {
       return false;
     }
   }

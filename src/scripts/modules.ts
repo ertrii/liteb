@@ -56,4 +56,10 @@ async function main() {
   }
 }
 
-main();
+// The rejection handler is the point: `main()` handles its own expected
+// failures, but `db.destroy()` in the `finally` can still throw, and an
+// unhandled rejection exits with a stack and no exit code anybody set.
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

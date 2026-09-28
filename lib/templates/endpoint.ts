@@ -9,10 +9,7 @@ import type { Slot } from '../modules/slots';
 import type { Output } from '../outputs/output';
 
 export type DataJson =
-  | Record<string, any>
-  | Response<any, Record<string, any>>
-  | Output
-  | null;
+  Record<string, any> | Response<any, Record<string, any>> | Output | null;
 
 /**
  * Endpoint parents

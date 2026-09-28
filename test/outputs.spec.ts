@@ -73,7 +73,8 @@ const send = async (output: Output, res = new FakeResponse()) => {
 };
 
 /** El texto del CSV sin la marca de orden de bytes. */
-const sinBom = (res: FakeResponse) => String(res.sent).replace(/^﻿/, '');
+// \uFEFF y no el carácter suelto: un BOM escrito literal es invisible.
+const sinBom = (res: FakeResponse) => String(res.sent).replace(/^\uFEFF/, '');
 
 describe('view()', () => {
   it('renderiza la plantilla con sus datos y manda el html', async () => {

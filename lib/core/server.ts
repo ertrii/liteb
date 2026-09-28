@@ -46,12 +46,12 @@ morgan.format('liteb', (tokens, request, response) => {
     status === undefined
       ? 0
       : status >= 500
-      ? 31
-      : status >= 400
-      ? 33
-      : status >= 300
-      ? 36
-      : 32;
+        ? 31
+        : status >= 400
+          ? 33
+          : status >= 300
+            ? 36
+            : 32;
   const id = (request as { requestId?: string }).requestId;
 
   return [

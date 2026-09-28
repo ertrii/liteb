@@ -95,13 +95,26 @@ Single file: `npx jest test/<file>.spec.ts`. Single test: `npx jest -t "name"`.
 
 **One config, four files, no overlap.** `.editorconfig` is the shape of a file
 for any editor; `.prettierrc` repeats the same values for the formatter;
-`.eslintrc.js` extends `plugin:prettier/recommended`, which turns off every
-stylistic ESLint rule and reports what Prettier would change — so `npm run lint`
-covers formatting too, and `lint:fix` does both in one pass. The
-`prettier/prettier` rule takes **no options**: settings live in `.prettierrc`
-and nowhere else. `.gitattributes` pins the working tree to LF, which is what
-keeps a Windows checkout from making the formatter want to rewrite every line
-of half the repo.
+`eslint.config.mjs` says what the code MEANS and leaves formatting alone;
+`.gitattributes` pins the working tree to LF, which keeps a Windows checkout
+from making the formatter want to rewrite every line of half the repo.
+
+**Prettier does not run as an ESLint rule**, which is Prettier's own
+recommendation: as a rule it is slower, fills the editor with squiggles over
+things that fix themselves on save, and adds a layer that can break. So
+`npm run lint` does NOT cover formatting — `npm run format:check` does, and both
+run in CI. `eslint-config-prettier` goes last in the config, because it works by
+turning the conflicting rules off.
+
+This file and the `eslint.config.mjs` that `liteb init` writes are deliberately
+the same shape. A framework whose own tooling disagrees with what it generates
+teaches the wrong thing twice.
+
+Type-aware rules are on (`projectService: true`), which is what pays for
+`no-floating-promises` — a promise nobody awaited is work that silently did not
+happen, in somebody else's request. `require()` is allowed only in the files
+that load the application's own files by path at run time, which is the one
+thing an `import` cannot do.
 
 `tsconfig.json` includes `./test`, so the specs are typechecked by
 `npx tsc --noEmit` and ESLint can read types in them.

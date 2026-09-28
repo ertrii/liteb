@@ -232,8 +232,8 @@ const validatePermissions = (
  * });
  */
 export function defineModule<
-  const P extends
-    readonly PermissionDeclaration[] = readonly PermissionDeclaration[],
+  const P extends readonly PermissionDeclaration[] =
+    readonly PermissionDeclaration[],
 >(manifest: ModuleManifest<P>): ResolvedModule<PermissionKeysOf<P>> {
   if (!manifest || typeof manifest !== 'object') {
     fail('defineModule() expects a manifest object.');

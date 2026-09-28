@@ -172,7 +172,6 @@ export function readExportsSync(
       // Synchronous, and that is the point: this runs at the same moment a
       // top-of-file `import` would have, so the DataSource is built knowing
       // every module's entities.
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       result.exported.push(...Object.values(require(file)));
     }
   }

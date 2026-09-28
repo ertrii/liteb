@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- this walks OpenAPI
-   schemas, which are arbitrary JSON by definition. */
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import path from 'path';
 import slash from 'slash';

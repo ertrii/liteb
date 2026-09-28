@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires -- it loads the
-   application's entry file at run time, which is what a require is for. */
 import fs from 'fs';
 import path from 'path';
 import type Liteb from '../core/liteb';

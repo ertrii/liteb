@@ -57,10 +57,9 @@ async function main() {
   require('reflect-metadata');
   const { DataSource } = require('typeorm');
   const { PGliteDriver } = require('typeorm-pglite');
-  const { Liteb, Logger, collectModuleEntities } = require(path.join(
-    out,
-    'lib',
-  ));
+  const { Liteb, Logger, collectModuleEntities } = require(
+    path.join(out, 'lib'),
+  );
 
   require(path.join(out, 'src/config/session-auth')); // amplía LitebAuth.Actor
   const modules = ['identity', 'catalog', 'reports'].map(

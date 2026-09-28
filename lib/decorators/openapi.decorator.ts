@@ -21,7 +21,6 @@ export interface ApiDescriptionMetadata {
 export interface ApiResponseEntry {
   status: number;
   description?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Schema?: new () => Record<string, any>;
 }
 
@@ -82,8 +81,7 @@ export function ApiResponse(
 ) {
   return function (target: new () => Endpoint<any, any, any>) {
     const existing = (Reflect.getMetadata(API_RESPONSES, target) as
-      | ApiResponsesMetadata
-      | undefined) ?? { responses: [] };
+      ApiResponsesMetadata | undefined) ?? { responses: [] };
     existing.responses.push({ status, ...options });
     Reflect.defineMetadata(API_RESPONSES, existing, target);
   };

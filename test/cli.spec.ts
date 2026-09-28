@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires -- estas pruebas
-   importan archivos que el generador acaba de escribir, así que la ruta
-   sólo existe en tiempo de ejecución. */
 import 'reflect-metadata';
 import fs from 'fs';
 import path from 'path';

@@ -70,8 +70,8 @@ export function buildCors(config: CorsConfig): RequestHandler {
     typeof config.origin === 'string' && config.origin !== '*'
       ? [config.origin]
       : Array.isArray(config.origin)
-      ? config.origin
-      : null;
+        ? config.origin
+        : null;
 
   if (list && list.length === 0) {
     // Almost always an env var that arrived empty, and the symptom is every

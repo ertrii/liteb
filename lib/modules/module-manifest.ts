@@ -24,12 +24,7 @@ export type ModulePattern = string | string[];
 
 /** The fields a module describes with globs. */
 export type ModuleGlobField =
-  | 'entities'
-  | 'migrations'
-  | 'routes'
-  | 'routines'
-  | 'listeners'
-  | 'providers';
+  'entities' | 'migrations' | 'routes' | 'routines' | 'listeners' | 'providers';
 
 /**
  * Where liteb looks when the manifest says nothing.
@@ -90,15 +85,14 @@ export interface ModulePermission<K extends string = string> {
  * ]
  */
 export type PermissionDeclaration<K extends string = string> =
-  | K
-  | ModulePermission<K>;
+  K | ModulePermission<K>;
 
 /** The key a single declaration carries, whichever form it took. */
 type KeyOfDeclaration<E> = E extends string
   ? E
   : E extends { key: infer K extends string }
-  ? K
-  : never;
+    ? K
+    : never;
 
 /**
  * Every key a declaration list carries, as a union.

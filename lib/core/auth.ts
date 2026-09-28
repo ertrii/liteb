@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-empty-interface -- the point of
+/* eslint-disable @typescript-eslint/no-empty-object-type -- the point of
    this file: the application fills these by declaration merging, and liteb
    declares them empty so it is not the one choosing their shape. */
 import { Request } from 'express';

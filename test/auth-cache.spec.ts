@@ -191,8 +191,14 @@ describe('cacheAuth', () => {
     });
     const auth = cacheAuth(resolver, { key: porUsuario, ttl: 30_000 });
 
+    // `Promise.resolve` porque un AuthResolver puede contestar sin await: el
+    // tipo es `AuthResult | Promise<AuthResult>`, y `Promise.all` sobre
+    // un iterable que quizá no tenga promesas es justo lo que
+    // `await-thenable` marca.
     const resultados = await Promise.all(
-      Array.from({ length: 8 }, () => auth(pedidoDe(7), contexto)),
+      Array.from({ length: 8 }, () =>
+        Promise.resolve(auth(pedidoDe(7), contexto)),
+      ),
     );
 
     expect(espia.llamadas).toBe(1);

@@ -256,7 +256,9 @@ describe('la app de ejemplo (src/)', () => {
     expect(res.headers['content-disposition']).toBe(
       'attachment; filename="Cat_logo de productos.csv"; filename*=UTF-8\'\'Cat%C3%A1logo%20de%20productos.csv',
     );
-    const texto = res.text.replace(/^﻿/, '');
+    // \uFEFF y no el carácter suelto: un BOM escrito literal es invisible en
+    // el editor, y cualquiera lo borra sin darse cuenta de qué era.
+    const texto = res.text.replace(/^\uFEFF/, '');
     expect(texto.split('\r\n')[0]).toBe('Producto,Precio,Stock');
     // Las columnas se declararon: el id interno NO se exporta.
     expect(texto).not.toContain('id');

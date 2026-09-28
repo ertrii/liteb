@@ -130,7 +130,6 @@ describe('liteb build (de punta a punta)', () => {
     expect(emitido).not.toContain('@/identity');
 
     // La prueba de verdad: requerirlo.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { dice } = require(path.join(result.out, 'index.js'));
     expect(dice()).toBe('identity');
   });
