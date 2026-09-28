@@ -15,6 +15,7 @@ la que coincide con el código.
 | Every command and every flag | [The CLI](./en/cli.md) | [El CLI](./es/cli.md) |
 | Every name the package exports | [The API](./en/api.md) | [La API](./es/api.md) |
 | How two modules reach each other | _pendiente_ | [Cableado entre módulos](./es/wiring.md) |
+| The generated OpenAPI spec, in detail | _pendiente_ | [Swagger y OpenAPI](./es/openapi.md) |
 
 Code, identifiers and the framework's own JSDoc are English everywhere,
 including in the Spanish pages: they are what you type, and translating them

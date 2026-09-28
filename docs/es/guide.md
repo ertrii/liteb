@@ -1033,6 +1033,10 @@ puede encender o apagar por su cuenta.
 
 ## Swagger / OpenAPI
 
+> El detalle completo — cómo se arma cada URL, las dos trampas de
+> `components.schemas`, lo que la especificación no sabe de tu aplicación y cómo
+> tapar `/docs` — está en [Swagger y OpenAPI](./openapi.md).
+
 Liteb genera una especificación OpenAPI 3.0.3 directamente de los decoradores que
 ya usás para rutear — sin anotaciones aparte, sin un paso de compilación extra.
 Se activa con una sola opción:
