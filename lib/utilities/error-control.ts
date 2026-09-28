@@ -23,12 +23,19 @@ export default class ErrorControl {
   private message = 'Internal server error.';
   private errorFields: Record<string, any> = {};
   private identifier = ErrorIdentifier.INTERNAL;
+  private missing: string[] = [];
 
+  /**
+   * Picks the status and the shape from what was thrown.
+   *
+   * ORDER MATTERS, and it is the specific kinds first with `Error` as the
+   * fallback. It used to be the other way around, which is why none of liteb's
+   * error classes could extend `Error`: the generic branch would have swallowed
+   * every one of them and answered 500. `Error` also has to stay AHEAD of the
+   * plain-object branch below, because an Error is an object too.
+   */
   private identify = () => {
-    if (this.error instanceof Error) {
-      Logger.error(this.error);
-      this.message = this.error.message;
-    } else if (
+    if (
       this.error instanceof SchemaError ||
       this.error instanceof CustomerError
     ) {
@@ -50,11 +57,17 @@ export default class ErrorControl {
       this.status = this.error.status;
       this.message = this.error.message;
       this.identifier = this.error.identifier;
+      this.missing = this.error.missing;
     } else if (this.error instanceof CustomError) {
       this.status = this.error.status;
       this.message = this.error.message;
       this.identifier = this.error.identifier;
       this.response = this.error.response;
+    } else if (this.error instanceof Error) {
+      // Unexpected: whatever it is, it is a bug, so it keeps the 500 default
+      // and goes to the error log with its stack.
+      Logger.error(this.error);
+      this.message = this.error.message;
     } else if (typeof this.error === 'object' && this.error !== null) {
       // A thrown plain object. It used to be answered verbatim, which meant
       // one endpoint could reply in a shape no client had a parser for. It
@@ -108,6 +121,7 @@ export default class ErrorControl {
 
     const requestId = currentRequestId();
     if (requestId) body.requestId = requestId;
+    if (this.missing.length > 0) body.missing = this.missing;
     if (this.response) body.response = this.response;
 
     return body;

@@ -44,6 +44,15 @@ export interface ProblemBody {
   errors: Record<string, string>;
   /** The id of the request, the same one in the `x-request-id` header. */
   requestId?: string;
+  /**
+   * Permission keys the caller was missing. Present only on a 403 raised by
+   * `this.auth.assert(...)`.
+   *
+   * The same keys are inside `detail` as prose; this is them structured, so a
+   * screen can offer "request access to X" without parsing a sentence. It
+   * exposes nothing new: `detail` already said which key was missing.
+   */
+  missing?: string[];
   /** Anything the thrower attached with `CustomError`. */
   response?: Record<string, any> | null;
 }

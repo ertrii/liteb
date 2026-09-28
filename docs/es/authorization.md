@@ -326,6 +326,7 @@ Son distintos a propósito. Leer el estado te dice dónde mirar.
   "status": 401,
   "detail": "Unauthorized.",
   "code": "unauthorized",
+  "errors": {},
   "requestId": "6eac410efc74"
 }
 ```
@@ -342,10 +343,17 @@ autenticate y volvé a intentar.
   "status": 403,
   "detail": "Missing permission: tasks.assign.",
   "code": "forbidden",
-  "errors": { "permissions": "tasks.assign" },
+  "errors": {},
+  "missing": ["tasks.assign"],
   "requestId": "6eac410efc74"
 }
 ```
+
+`missing` son las claves que `assert()` encontró ausentes, estructuradas. Están
+también dentro del `detail` como texto, pero una pantalla que quiera ofrecer
+"pedir acceso a esto" no debería tener que parsear una oración para sacarlas. No
+expone nada nuevo, y no aparece en un 401 — ahí no hay sesión, así que no es una
+clave lo que falta.
 
 Le dice al cliente: no te molestes en reintentar. Mirá el rol, la concesión o la
 política de tu resolutor.

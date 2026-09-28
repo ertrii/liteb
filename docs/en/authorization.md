@@ -324,6 +324,7 @@ They are different on purpose. Reading the status tells you where to look.
   "status": 401,
   "detail": "Unauthorized.",
   "code": "unauthorized",
+  "errors": {},
   "requestId": "6eac410efc74"
 }
 ```
@@ -340,10 +341,16 @@ client: authenticate and try again.
   "status": 403,
   "detail": "Missing permission: tasks.assign.",
   "code": "forbidden",
-  "errors": { "permissions": "tasks.assign" },
+  "errors": {},
+  "missing": ["tasks.assign"],
   "requestId": "6eac410efc74"
 }
 ```
+
+`missing` is the keys `assert()` found absent, structured. They are inside
+`detail` as prose too, but a screen that wants to offer "request access to this"
+should not have to parse a sentence for them. It exposes nothing new, and it is
+absent on a 401 — nobody is signed in, so no key is what is missing.
 
 Tells the client: do not bother retrying. Look at the role, the grant, or the
 policy in your resolver.

@@ -181,7 +181,13 @@ describe('Auth (extremo a extremo)', () => {
     const res = await request(app()).get('/api/yo/secreto').set('x-user', '42');
 
     expect(res.status).toBe(403);
-    expect(res.body).toMatchObject({ code: ErrorIdentifier.FORBIDDEN });
+    // `missing` viaja estructurado, además de estar dentro del `detail`: una
+    // pantalla puede ofrecer "pedir acceso a esto" sin parsear la oración.
+    expect(res.body).toMatchObject({
+      code: ErrorIdentifier.FORBIDDEN,
+      missing: ['secretos.ver'],
+    });
+    expect(res.body.detail).toContain('secretos.ver');
   });
 
   it('con el permiso, pasa', async () => {

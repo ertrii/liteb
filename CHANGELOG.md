@@ -83,6 +83,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The `AuthResolver` type is still exported and `auth:` still accepts any plain
   function of that shape. Nothing that already worked stops working.
 
+- **A 403 says WHICH permission was missing**, as a `missing` member of the
+  problem body.
+
+  ```json
+  {
+    "type": "/problems/forbidden",
+    "status": 403,
+    "detail": "Missing permission: tasks.assign.",
+    "code": "forbidden",
+    "missing": ["tasks.assign"]
+  }
+  ```
+
+  `ForbiddenError` already carried the keys and `toJson()` dropped them, so the
+  only way for a client to know which key was absent was to parse the sentence in
+  `detail`. It exposes nothing new for that reason, and it is absent on a 401,
+  where no key is what is missing.
+
 - **`cacheAuth(resolver, { key, ttl })`** — remembers what the resolver
   answered, per caller.
 
@@ -290,6 +308,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first module, and `liteb module` appends one block per module.
 
 ### Fixed
+
+- **liteb's error classes are `Error`s now.** `AuthError`, `ForbiddenError`,
+  `NotFoundError`, `SchemaError`, `CustomerError` and `CustomError` were plain
+  classes, so they carried no `stack`, `error instanceof Error` was false for
+  them in application code and in third-party middleware, and tooling that
+  assumes `Error` did not see them at all — `rejects.toThrow(AuthError)` reports
+  "did not throw" even when the code threw correctly.
+
+  The cause was not an omission. `ErrorControl` tested `instanceof Error`
+  **first**, so anything that was an Error became a 500; the specific classes had
+  to stay outside the hierarchy to reach their own branch. The order was
+  load-bearing, which is why "just add `extends Error`" would have turned every
+  401, 403, 404, 406 and 422 into a silent 500.
+
+  The generic branch is now last, where a fallback belongs, and it stays ahead of
+  the thrown-plain-object branch because an Error is an object too. Statuses,
+  codes and bodies are unchanged; there are tests on each mapping so the order
+  cannot drift back.
+
 
 - **A migration you had not written yet was recorded as applied**, and that is
   the worst shape a bug can take: it took the one command whose whole job is to

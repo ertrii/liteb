@@ -4,6 +4,7 @@ import {
   AuthError,
   CustomError,
   CustomerError,
+  ForbiddenError,
   NotFoundError,
   SchemaError,
 } from '../lib/utilities/errors';
@@ -106,5 +107,81 @@ describe('ErrorControl', () => {
     expect(control.toJson()).toMatchObject({
       detail: 'Internal server error.',
     });
+  });
+});
+
+/**
+ * El orden de las ramas de `identify()` es lo único que sostiene esto: la rama
+ * genérica de `Error` estaba PRIMERA, y por eso ninguna clase de error de liteb
+ * podía extender `Error`. Ahora las extienden todas, así que si alguien vuelve
+ * a poner esa rama arriba, cada 401, 403, 404, 406 y 422 se convierte en un 500
+ * en silencio. Estas pruebas son el candado.
+ */
+describe('las clases de error son Errors de verdad', () => {
+  const casos = [
+    ['SchemaError', new SchemaError('x'), HttpStatus.UNPROCESSABLE_ENTITY],
+    ['CustomerError', new CustomerError('x'), HttpStatus.NOT_ACCEPTABLE],
+    ['NotFoundError', new NotFoundError('x'), HttpStatus.NOT_FOUND],
+    ['AuthError', new AuthError('x'), HttpStatus.UNAUTHORIZED],
+    ['ForbiddenError', new ForbiddenError('x'), HttpStatus.FORBIDDEN],
+    [
+      'CustomError',
+      new CustomError(HttpStatus.CONFLICT, 'x'),
+      HttpStatus.CONFLICT,
+    ],
+  ] as const;
+
+  casos.forEach(([nombre, error, status]) => {
+    it(`${nombre} es un Error, con nombre, mensaje y stack`, () => {
+      expect(error).toBeInstanceOf(Error);
+      expect(error.name).toBe(nombre);
+      expect(error.message).toBe('x');
+      // Lo que se perdía antes: sin stack, un error que se escapa a un lugar
+      // inesperado no deja con qué depurar.
+      expect(typeof error.stack).toBe('string');
+      expect(error.stack).toContain(nombre);
+    });
+
+    it(`${nombre} sigue mapeando a ${status} y no a 500`, () => {
+      expect(new ErrorControl(error).getStatus()).toBe(status);
+    });
+  });
+
+  it('un Error inesperado sigue siendo 500, no la rama de objeto suelto', () => {
+    // `Error` tiene que quedar DELANTE de la rama de objeto suelto, porque un
+    // Error también es un objeto.
+    const control = new ErrorControl(new Error('se rompió algo'));
+
+    expect(control.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+    expect(control.toJson().code).toBe(ErrorIdentifier.INTERNAL);
+    expect(control.toJson().detail).toBe('se rompió algo');
+  });
+
+  it('un objeto suelto lanzado sigue cayendo en su propia rama', () => {
+    const control = new ErrorControl({ message: 'a mano' });
+
+    expect(control.getStatus()).toBe(HttpStatus.FORBIDDEN);
+    expect(control.toJson().code).toBe(ErrorIdentifier.CUSTOM);
+  });
+});
+
+describe('el 403 dice QUÉ permiso faltaba', () => {
+  it('lleva las claves estructuradas, no sólo dentro del texto', () => {
+    // Sin esto, una pantalla que quiera ofrecer "pedir acceso a X" tiene que
+    // parsear una oración del `detail`.
+    const control = new ErrorControl(
+      new ForbiddenError('Missing permission: billing.void.', ['billing.void']),
+    );
+
+    expect(control.toJson().missing).toEqual(['billing.void']);
+  });
+
+  it('el campo no aparece cuando no hay claves que nombrar', () => {
+    expect(
+      new ErrorControl(new ForbiddenError('no')).toJson().missing,
+    ).toBeUndefined();
+    expect(
+      new ErrorControl(new AuthError('no')).toJson().missing,
+    ).toBeUndefined();
   });
 });
