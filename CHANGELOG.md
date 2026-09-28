@@ -51,6 +51,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   module has with `[...billing.permissionKeys]` instead of a list that goes
   stale.
 
+  `src/config/permissions.ts` now carries ONE file-level
+  `eslint-disable @typescript-eslint/no-empty-interface` instead of a comment per
+  block, since `liteb module` appends blocks and each one repeated the line.
+
   **Migrating:** delete each module's `permissions.ts`, move the keys into its
   manifest as strings, and point the blocks in `src/config/permissions.ts` at
   `typeof import('…/module').default`. A non-array `permissions` is refused at
@@ -356,6 +360,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first module, and `liteb module` appends one block per module.
 
 ### Fixed
+
+- **`liteb module` no longer appends a second copy of a block that is already
+  there.** The idempotency check compared the whole appended block verbatim, so
+  prettier in the consumer's project — which rewraps the line and may use
+  different quotes — was enough to defeat it, and re-running the generator left
+  `src/config/permissions.ts` with two blocks for one module. It compiles either
+  way, because TypeScript merges identical declarations, but a file that
+  accumulates duplicates is a file people stop trusting. The check is now the
+  module's import path, which survives reformatting and reindenting.
+
+  `FileEdit.append` takes an optional `appendUnless` for this: the marker that
+  means "already appended", instead of the text itself.
 
 - **A generator no longer breaks an array that prettier had wrapped.** Adding to
   `modules: []`, `entities: []` or `permissions: []` appended after the trailing

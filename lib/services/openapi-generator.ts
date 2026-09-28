@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- this walks OpenAPI
+   schemas, which are arbitrary JSON by definition. */
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import path from 'path';
 import slash from 'slash';
@@ -13,7 +15,6 @@ interface OpenAPIParameter {
   name: string;
   in: 'path' | 'query';
   required: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any;
   description?: string;
 }
@@ -22,7 +23,6 @@ interface OpenAPIRequestBody {
   required: boolean;
   content: {
     'application/json': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       schema: any;
     };
   };
@@ -32,7 +32,6 @@ interface OpenAPIResponse {
   description: string;
   content?: {
     'application/json': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       schema: any;
     };
   };
@@ -52,7 +51,6 @@ export interface OpenAPIDocument {
   info: { title: string; version: string; description?: string };
   paths: Record<string, Record<string, OpenAPIOperation>>;
   components: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     schemas: Record<string, any>;
   };
   tags?: { name: string }[];
@@ -81,7 +79,6 @@ function fullPath(basePath: string, group: string, pathname: string): string {
  * For path params, force required=true (OpenAPI requires it).
  */
 function paramsFromSchema(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any,
   location: 'path' | 'query',
 ): OpenAPIParameter[] {
@@ -115,7 +112,6 @@ export class OpenAPIGenerator {
     basePath: string;
     info?: OpenAPIInfo;
   }): OpenAPIDocument;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   generate(args: any): OpenAPIDocument {
     const groups: OpenAPIGroup[] =
       'groups' in args
@@ -127,7 +123,6 @@ export class OpenAPIGenerator {
     // imported by the time this runs is included automatically.
     const schemas = validationMetadatasToSchemas({
       refPointerPrefix: REF_PREFIX,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as Record<string, any>;
 
     const paths: OpenAPIDocument['paths'] = {};

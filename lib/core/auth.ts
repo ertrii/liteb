@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-empty-interface -- the point of
+   this file: the application fills these by declaration merging, and liteb
+   declares them empty so it is not the one choosing their shape. */
 import { Request } from 'express';
 import type { DataSource } from 'typeorm';
 import { AuthError, ForbiddenError } from '../utilities/errors';
@@ -32,7 +35,6 @@ declare global {
      *   }
      * }
      */
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Actor {}
 
     /**
@@ -58,7 +60,6 @@ declare global {
      * the default — any string is accepted, so this is opt-in and adding it
      * later breaks nothing that was already right.
      */
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Permissions {}
   }
 }

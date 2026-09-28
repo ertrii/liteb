@@ -217,7 +217,9 @@ logs
 *.log
 `;
 
-  const permissionTypes = `import type { PermissionsOf } from 'liteb';
+  const permissionTypes = `/* eslint-disable @typescript-eslint/no-empty-interface -- every block here
+   is an empty interface on purpose: the keys come from the \`extends\`. */
+import type { PermissionsOf } from 'liteb';
 
 /**
  * Every permission key the installed modules declare, taught to the compiler.
@@ -239,13 +241,12 @@ logs
  * declare global {
  *   namespace LitebAuth {
  *     interface Permissions
- *       extends PermissionsOf<typeof import('../modules/tasks/module').default> {}
+ *       extends PermissionsOf<typeof import('../modules/<name>/module').default> {}
  *   }
  * }
  */
 declare global {
   namespace LitebAuth {
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Permissions extends PermissionsOf<unknown> {}
   }
 }

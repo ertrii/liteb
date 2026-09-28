@@ -81,7 +81,7 @@ export function apply(target: Plan, options: WriteOptions): WriteResult {
  */
 export function applyEdit(source: string, edit: FileEdit): string | null {
   if (edit.append !== undefined) {
-    if (source.includes(edit.append)) return source;
+    if (source.includes(edit.appendUnless ?? edit.append)) return source;
     // The empty migrations index carries `export {}` so it is a module at all;
     // the first real export replaces it. Only an export replaces it, though:
     // `config/permissions.ts` carries the same line for the same reason, and

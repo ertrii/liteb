@@ -22,8 +22,19 @@ export interface GeneratedFile {
  */
 export interface FileEdit {
   path: string;
-  /** Adds the line at the end, unless it is already there. */
+  /** Adds the text at the end, unless {@link appendUnless} says it is there. */
   append?: string;
+  /**
+   * Plain substring that means "already appended". Without it the check is the
+   * whole of `append`, verbatim.
+   *
+   * Verbatim is not enough for anything a formatter will touch: prettier in the
+   * consumer's project rewraps lines and may use different quotes, and then the
+   * same generator run twice appends a second copy of a block that is already
+   * there. A marker that survives reformatting — a path, an identifier — is
+   * what makes the edit idempotent in a real project.
+   */
+  appendUnless?: string;
   /**
    * Adds a line to an object literal, right after the line that opens it.
    *

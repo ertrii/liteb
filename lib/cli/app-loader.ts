@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires -- it loads the
+   application's entry file at run time, which is what a require is for. */
 import fs from 'fs';
 import path from 'path';
 import type Liteb from '../core/liteb';
@@ -74,7 +76,6 @@ function registerTypeScript(root: string): void {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { register } = require(tsNode);
   register({ transpileOnly: true, cwd: root });
 }
@@ -83,7 +84,6 @@ export async function loadApp(options: LoadOptions): Promise<Liteb> {
   const entry = resolveEntry(options);
   if (entry.endsWith('.ts')) registerTypeScript(options.root);
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const exported = require(entry);
   const createApp = exported?.createApp ?? exported?.default?.createApp;
 

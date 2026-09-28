@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-var-requires -- estas pruebas
+   importan archivos que el generador acaba de escribir, así que la ruta
+   sólo existe en tiempo de ejecución. */
 import 'reflect-metadata';
 import fs from 'fs';
 import path from 'path';
@@ -157,6 +160,42 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
     expect(after).toBe(source);
   });
 
+  it('no vuelve a agregar un bloque que ya está, aunque lo hayan reformateado', () => {
+    // El caso real: prettier del proyecto del consumidor reenvuelve la línea y
+    // puede cambiar las comillas. Comparar el bloque entero, verbatim, hacía que
+    // la segunda corrida apendara una copia de lo que ya estaba.
+    const bloque = createModule({
+      name: 'tasks',
+      modulesDir: 'src/modules',
+      from: 'liteb',
+    }).edits.find((edit) => edit.path === 'src/config/permissions.ts')!;
+
+    const base = `import type { PermissionsOf } from 'liteb';
+`;
+    const unaVez = applyEdit(base, bloque)!;
+
+    // Tal cual: lo reconoce.
+    expect(applyEdit(unaVez, bloque)).toBe(unaVez);
+
+    // Reformateado — comillas dobles y otro corte de línea — también.
+    const reformateado = unaVez
+      .replace("'../modules/tasks/module'", '"../modules/tasks/module"')
+      .replace(
+        `interface Permissions
+      extends`,
+        'interface Permissions extends',
+      );
+    expect(reformateado).not.toBe(unaVez);
+    expect(applyEdit(reformateado, bloque)).toBe(reformateado);
+
+    // Reindentado a mano, igual.
+    const aMano = unaVez.replace(
+      '  namespace LitebAuth {',
+      '    namespace LitebAuth {',
+    );
+    expect(applyEdit(aMano, bloque)).toBe(aMano);
+  });
+
   it('el índice de migraciones deja de ser un módulo vacío al llegar la primera', () => {
     const after = applyEdit('export {};\n', {
       path: 'x',
@@ -195,6 +234,12 @@ describe('liteb init', () => {
 
     const permisos = busca('src/config/permissions.ts');
     expect(permisos).toContain('declare global {');
+    // Un solo disable arriba, no uno por bloque: `liteb module` agrega bloques
+    // y cada uno repetiría la línea.
+    expect(permisos).toContain(
+      '/* eslint-disable @typescript-eslint/no-empty-interface',
+    );
+    expect(permisos).not.toContain('eslint-disable-next-line');
     expect(permisos).toContain(
       'interface Permissions extends PermissionsOf<unknown> {}',
     );
@@ -390,7 +435,6 @@ describe('un módulo generado y puesto a andar', () => {
     // copia NUEVA de liteb, y su `Endpoint` ya no sería el mismo que el del
     // cargador — `instanceof` falla y no se monta ninguna ruta.
     const manifest = path.join(workspace, modulesDir, 'inventory/module.ts');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     inventory = require(manifest).default as ResolvedModule;
 
     db = await createTestDb(collectModuleEntities([inventory]));
@@ -543,7 +587,6 @@ describe('un módulo generado y puesto a andar', () => {
     const sinAuth = await Liteb.create({
       db,
       modules: [
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         require(path.join(workspace, modulesDir, 'inventory/module.ts'))
           .default,
       ],
@@ -594,7 +637,6 @@ describe('un módulo generado y puesto a andar', () => {
   it('el punto de entrada compila y expone createApp() sin arrancar nada', () => {
     // Requerirlo lo TYPECHEQUEA (ts-jest) y, como `require.main` no es él, no
     // levanta ningún servidor: por eso la plantilla separa createApp() de main().
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const entry = require(path.join(workspace, 'src/index.ts'));
 
     expect(typeof entry.createApp).toBe('function');

@@ -164,6 +164,10 @@ export default defineModule({
         // accepting any string, and a typo goes back to being a 500.
         path: 'src/config/permissions.ts',
         append: permissionsDeclaration(id, options.modulesDir),
+        // The import path, not the whole block: prettier in the consumer's
+        // project rewraps it and may change the quotes, and a verbatim check
+        // would then append a second copy of what is already there.
+        appendUnless: modulePathMarker(id, options.modulesDir),
       },
     ],
     [
@@ -199,23 +203,32 @@ function permissionBlock(permission: { key: string } | null): string {
  * is inline — so adding a module is a pure APPEND and no existing line in that
  * file ever has to be reopened.
  */
-function permissionsDeclaration(id: string, modulesDir: string): string {
+/**
+ * The bit of the appended block that survives a formatter.
+ *
+ * Quotes are left out on purpose: prettier picks its own, and this has to match
+ * either way.
+ */
+function modulePathMarker(id: string, modulesDir: string): string {
   const from = path.posix.relative(
     'src/config',
     `${modulesDir.replace(/\\/g, '/')}/${id}/module`,
   );
+  return from.startsWith('.') ? from : `./${from}`;
+}
+
+function permissionsDeclaration(id: string, modulesDir: string): string {
+  const from = modulePathMarker(id, modulesDir);
   // The module is reached with an inline `import(...)`, so a new block needs no
   // new import line. `PermissionsOf` cannot be: an interface may only extend an
   // identifier, so that one comes from the file's own import, which `init`
-  // writes.
+  // writes. The empty-interface rule is disabled at the top of that file, so
+  // the block carries no comment of its own.
   return `
 declare global {
   namespace LitebAuth {
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Permissions
-      extends PermissionsOf<
-        typeof import('${from.startsWith('.') ? from : `./${from}`}').default
-      > {}
+      extends PermissionsOf<typeof import('${from}').default> {}
   }
 }
 `;

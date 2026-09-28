@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-empty-interface -- every block here
+   is an empty interface on purpose: the keys come from the `extends`. */
 import type { PermissionsOf } from '../../lib';
 
 /**
@@ -22,7 +24,6 @@ import type { PermissionsOf } from '../../lib';
  */
 declare global {
   namespace LitebAuth {
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Permissions
       extends PermissionsOf<
         typeof import('../modules/catalog/module').default
@@ -32,7 +33,6 @@ declare global {
 
 declare global {
   namespace LitebAuth {
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Permissions
       extends PermissionsOf<
         typeof import('../modules/identity/module').default
@@ -42,7 +42,6 @@ declare global {
 
 declare global {
   namespace LitebAuth {
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface Permissions
       extends PermissionsOf<
         typeof import('../modules/reports/module').default
