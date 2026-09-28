@@ -102,6 +102,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`liteb init` decides the shape of a file.** Four config files, and the
+  scripts to use them:
+
+  ```
+  .editorconfig       every editor, including ones that run no tooling
+  .prettierrc         Prettier, which overrides .editorconfig where they overlap
+  eslint.config.mjs   what the code MEANS, formatting left to Prettier
+  .gitattributes      the working tree is LF, on every machine
+  ```
+
+  Plus `.prettierignore`, `.vscode/settings.json` (format on save),
+  `.vscode/extensions.json`, and `lint` / `lint:fix` / `format` / `format:check`.
+
+  The values agree across all four, and they match what the generators emit — so
+  the first `npm run format` never rewrites a file `liteb module` just wrote.
+  That was verified the hard way: the appended permissions block had to be
+  changed twice before `prettier --check` was clean on a freshly scaffolded
+  project.
+
+  Three decisions worth stating, because a scaffold that just drops config files
+  teaches nothing:
+
+  - **Prettier does not run as an ESLint rule.** That is
+    [Prettier's own recommendation](https://prettier.io/docs/integrating-with-linters):
+    as a rule it is slower, fills the editor with squiggles over things that fix
+    themselves on save, and adds a layer that can break.
+    `eslint-config-prettier/flat` only turns the conflicting rules OFF.
+  - **Flat config**, because `.eslintrc` was removed in ESLint 10 — which is also
+    why `package.json` now declares `node >=20.19`.
+  - **`no-floating-promises` is an error.** The one type-aware rule worth what
+    type information costs: a repository call nobody awaited is data that
+    silently did not get written. `recommendedTypeChecked` is commented in the
+    file for when a codebase is ready for the rest.
+
+  `no-namespace` allows ambient declarations and `no-empty-object-type` allows a
+  single `extends`, because the scaffold's own `declare global` blocks need both.
+  Configuring those beats disabling them, and it is why
+  `src/config/permissions.ts` carries no `eslint-disable` at all any more.
+
 - **`defineAuth(...)`** — the way to write the `auth` resolver.
 
   ```typescript

@@ -34,7 +34,11 @@ export function createProject(options: InitOptions): Plan {
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "build": "liteb build",
-    "start": "node build/index.js"
+    "start": "node build/index.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "class-validator": "^0.14.0",
@@ -45,12 +49,20 @@ export function createProject(options: InitOptions): Plan {
     "typeorm": "^0.3.17"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.0",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
     "nodemon": "^3.1.0",
+    "prettier": "^3.9.9",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.70.1"
+  },
+  "engines": {
+    "node": ">=20.19"
   }
 }
 `;
@@ -212,14 +224,193 @@ DB_NAME=${name.replace(/-/g, '_')}
 
   const ignore = `node_modules
 build
+coverage
 .env
 logs
 *.log
+.eslintcache
 `;
 
-  const permissionTypes = `/* eslint-disable @typescript-eslint/no-empty-interface -- every block here
-   is an empty interface on purpose: the keys come from the \`extends\`. */
-import type { PermissionsOf } from 'liteb';
+  // --- How a file is shaped, decided once -----------------------------------
+  //
+  // Four files, and each one exists because a different reader needs it:
+  //
+  //   .editorconfig   every editor, including the ones that run no tooling
+  //   .prettierrc     Prettier itself, which overrides .editorconfig
+  //   eslint.config   what the code MEANS, with formatting left to Prettier
+  //   .gitattributes  what git writes to disk, on every machine
+  //
+  // The values agree across all four on purpose. They also match what the
+  // generators emit, so `npm run format` never rewrites a file `liteb module`
+  // just wrote.
+
+  const editorconfig = `# The shape of a file, for editors that run no tooling at all. Every editor
+# worth using reads this, and Prettier reads it too — though .prettierrc wins
+# where the two overlap, which is why both carry the same values.
+#
+# https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 80
+
+# Two trailing spaces are a line break in Markdown. Trimming them edits the
+# text.
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+[*.{json,yml,yaml}]
+max_line_length = off
+
+# Tabs are part of the format.
+[Makefile]
+indent_style = tab
+`;
+
+  const gitattributes = `# The working tree is LF, on every machine.
+#
+# Without this, git on Windows checks files out as CRLF while .editorconfig and
+# .prettierrc both say LF — so the formatter wants to rewrite every line of
+# half the repo, and every diff is noise. \`eol=lf\` wins over whatever
+# \`core.autocrlf\` happens to be set to locally, so a Windows and a Linux
+# machine agree without anybody configuring git.
+* text=auto eol=lf
+
+# Never touched: a byte is a byte.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.tgz binary
+*.pem binary
+`;
+
+  // Kept to what the generators emit. Change a value here and the first
+  // \`npm run format\` rewrites every file the CLI wrote.
+  const prettierrc = `{
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 80,
+  "endOfLine": "lf"
+}
+`;
+
+  const prettierignore = `build
+coverage
+logs
+node_modules
+package-lock.json
+`;
+
+  const eslintConfig = `// @ts-check
+import js from '@eslint/js';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import tseslint from 'typescript-eslint';
+import prettier from 'eslint-config-prettier/flat';
+
+/**
+ * ESLint decides what the code MEANS. Prettier decides what it LOOKS LIKE.
+ *
+ * They are kept apart on purpose, which is what Prettier itself recommends:
+ * running the formatter as an ESLint rule is slower, fills the editor with red
+ * squiggles over things that fix themselves on save, and adds a layer that can
+ * break. So \`eslint-config-prettier\` only turns OFF the stylistic rules that
+ * would argue with the formatter, and \`npm run format\` is what formats.
+ * It goes last in the array, because it works by overriding what came before.
+ *
+ * Flat config, because \`.eslintrc\` was removed in ESLint 10.
+ */
+export default defineConfig([
+  globalIgnores(['build', 'coverage', 'logs']),
+  {
+    files: ['**/*.ts'],
+    extends: [js.configs.recommended, tseslint.configs.recommended],
+
+    languageOptions: {
+      parserOptions: {
+        // Type information, which the two rules at the bottom need. It costs
+        // some speed; it is the only way a linter can see a missing \`await\`.
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+
+    rules: {
+      // \`declare global { namespace LitebAuth { ... } }\` is how an application
+      // tells liteb what an actor is and which permission keys exist. Ambient
+      // declarations stay allowed; a namespace used as a value does not.
+      '@typescript-eslint/no-namespace': ['error', { allowDeclarations: true }],
+
+      // \`interface Permissions extends PermissionsOf<typeof mod> {}\` is empty
+      // BECAUSE the keys come from the \`extends\`. Declaration merging needs one
+      // such block per module, and there is nothing to put inside them.
+      '@typescript-eslint/no-empty-object-type': [
+        'error',
+        { allowInterfaces: 'with-single-extends' },
+      ],
+
+      // A warning and not an error: an entity, a query result or a third-party
+      // callback will hand you \`any\`, and a build that fails on it teaches
+      // people to write \`as unknown as T\` instead.
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_' },
+      ],
+
+      // The two type-aware rules worth their cost in a backend. A repository
+      // call whose promise nobody awaited is data that silently did not get
+      // written — no other rule can see it.
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+    },
+  },
+
+  // Everything else type-aware lives in \`tseslint.configs.recommendedTypeChecked\`.
+  // It catches more and reports a lot against the \`any\`s that come out of an
+  // ORM, so turn it on when the codebase is ready to answer for them.
+
+  prettier,
+]);
+`;
+
+  const vscodeSettings = `{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "files.eol": "\\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  },
+  "typescript.tsdk": "node_modules/typescript/lib"
+}
+`;
+
+  const vscodeExtensions = `{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "EditorConfig.EditorConfig"
+  ]
+}
+`;
+
+  const permissionTypes = `import type { PermissionsOf } from 'liteb';
 
 /**
  * Every permission key the installed modules declare, taught to the compiler.
@@ -326,6 +517,13 @@ export default auth;
       { path: 'package.json', content: pkg },
       { path: 'tsconfig.json', content: tsconfig },
       { path: '.gitignore', content: ignore },
+      { path: '.gitattributes', content: gitattributes },
+      { path: '.editorconfig', content: editorconfig },
+      { path: '.prettierrc', content: prettierrc },
+      { path: '.prettierignore', content: prettierignore },
+      { path: 'eslint.config.mjs', content: eslintConfig },
+      { path: '.vscode/settings.json', content: vscodeSettings },
+      { path: '.vscode/extensions.json', content: vscodeExtensions },
       { path: '.env', content: env },
       { path: '.env.template', content: env.replace(/=.+$/gm, '=') },
       { path: 'src/index.ts', content: index },
@@ -343,6 +541,7 @@ export default auth;
       `Create your first module: npx liteb module <name>${
         modulesDir === 'src/modules' ? '' : ` --dir ${modulesDir}`
       }`,
+      `Formatting is decided: .editorconfig for every editor, .prettierrc for Prettier, eslint.config.mjs for what the code means, .gitattributes so the tree is LF everywhere. npm run lint / npm run format.`,
       `Then: npm run dev`,
     ],
   );

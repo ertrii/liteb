@@ -110,6 +110,11 @@ Escribe:
 ```
 package.json          scripts, y las dependencias que el framework necesita
 tsconfig.json         las dos banderas de decoradores, y el alias @/
+.gitattributes        el árbol de trabajo es LF, en cualquier máquina
+.editorconfig         la forma de un archivo, para editores sin herramientas
+.prettierrc           .prettierignore
+eslint.config.mjs     flat config; el formato queda para Prettier
+.vscode/              formatear al guardar, y las extensiones que lo hacen
 .env  .env.template   NODE_ENV, puertos, orígenes CORS, base de datos
 .gitignore
 src/index.ts          createApp() separado de main()
@@ -146,6 +151,64 @@ Está vacío hasta el primer módulo; `liteb module` le añade un bloque por mó
 la fusión de interfaces los junta, así que ninguna línea de ese archivo se vuelve
 a abrir. Cada bloque **lee** las claves del manifiesto de ese módulo en vez de
 repetirlas, así que una clave se escribe una sola vez.
+
+### La forma de un archivo, decidida una vez
+
+Cuatro archivos, y cada uno existe porque lo lee alguien distinto. Los cuatro
+llevan los mismos valores, y esos valores son los que emiten los generadores —
+así el primer `npm run format` no reescribe un archivo que `liteb module` acaba
+de escribir.
+
+| Archivo | Lo lee |
+| --- | --- |
+| `.editorconfig` | cualquier editor, incluidos los que no corren nada. Prettier también |
+| `.prettierrc` | Prettier, que **gana** sobre `.editorconfig` donde se solapan |
+| `eslint.config.mjs` | ESLint: lo que el código SIGNIFICA |
+| `.gitattributes` | git, cuando escribe los archivos en disco |
+
+**El que todo el mundo se saltea es `.gitattributes`.** `* text=auto eol=lf` hace
+que el árbol de trabajo sea LF en cualquier máquina. Sin eso, git en Windows saca
+los archivos con CRLF mientras `.editorconfig` y `.prettierrc` piden LF: el
+formateador quiere reescribir todas las líneas de la mitad del proyecto, y cada
+diff es ruido. `eol=lf` gana sobre lo que tenga `core.autocrlf` localmente, así
+que dos máquinas coinciden sin que nadie configure git.
+
+**Prettier no corre como regla de ESLint**, que es lo que
+[Prettier mismo recomienda](https://prettier.io/docs/integrating-with-linters):
+correrlo como regla es más lento, llena el editor de subrayados rojos por cosas
+que se arreglan solas al guardar, y agrega una capa que se puede romper.
+`eslint-config-prettier/flat` sólo APAGA las reglas de estilo que discutirían con
+el formateador, y va última en el arreglo porque así es como funciona. El que
+formatea es `npm run format`.
+
+`eslint.config.mjs` es flat config, porque `.eslintrc` se eliminó en ESLint 10 —
+que es también por qué el `package.json` declara `node >=20.19`, el piso que
+ESLint 10 exige.
+
+Tres reglas quedan puestas a mano en vez de dejarlas al preset, y cada una es una
+decisión:
+
+- **`no-namespace` con `allowDeclarations: true`.** `declare global { namespace
+  LitebAuth { ... } }` es como una aplicación dice qué es un actor y qué claves
+  de permiso existen. Las declaraciones ambiente siguen permitidas; un namespace
+  usado como valor, no.
+- **`no-empty-object-type` con `allowInterfaces: 'with-single-extends'`.**
+  `interface Permissions extends PermissionsOf<typeof mod> {}` está vacía
+  *porque* las claves vienen del `extends`, y hay un bloque así por módulo.
+  Configurar la regla es mejor que apagarla: un `{}` de verdad se sigue
+  reportando.
+- **`no-floating-promises` como error.** La única regla que necesita información
+  de tipos y vale lo que cuesta: una llamada al repositorio cuya promesa nadie
+  esperó son datos que en silencio no se escribieron, y no hay otra cosa que lo
+  vea. `await-thenable` viene por lo mismo. Todo el resto de lo que mira tipos
+  está en `tseslint.configs.recommendedTypeChecked`, comentado en el archivo,
+  para cuando el código esté listo para responder por los `any` que devuelve un
+  ORM.
+
+`no-explicit-any` y `no-unused-vars` son **advertencias**. Un build que falla por
+un `any` enseña a escribir `as unknown as T`, que es peor que el `any`.
+
+Cuatro scripts: `lint`, `lint:fix`, `format`, `format:check`.
 
 También deja cableadas tres cosas que todo backend termina necesitando, para que
 no sean tarea para después:

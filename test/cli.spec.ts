@@ -215,12 +215,78 @@ describe('liteb init', () => {
       'package.json',
       'tsconfig.json',
       '.gitignore',
+      '.gitattributes',
+      '.editorconfig',
+      '.prettierrc',
+      '.prettierignore',
+      'eslint.config.mjs',
+      '.vscode/settings.json',
+      '.vscode/extensions.json',
       '.env',
       '.env.template',
       'src/index.ts',
       'src/config/permissions.ts',
       'src/config/auth.ts',
     ]);
+  });
+
+  it('el formato del documento queda decidido, no a criterio de cada editor', () => {
+    const archivos = createProject({ name: 'mi-app', litebVersion }).files;
+    const busca = (ruta: string) =>
+      archivos.find((file) => file.path === ruta)!.content;
+
+    // Los cuatro dicen lo mismo, cada uno a un lector distinto: el editor que
+    // no corre nada, Prettier, el linter y git.
+    expect(busca('.editorconfig')).toContain('end_of_line = lf');
+    expect(busca('.editorconfig')).toContain('max_line_length = 80');
+    expect(busca('.prettierrc')).toContain('"endOfLine": "lf"');
+    expect(busca('.prettierrc')).toContain('"printWidth": 80');
+    // Sin esto, git en Windows saca CRLF mientras los otros dos piden LF, y el
+    // formateador quiere reescribir la mitad del repo.
+    expect(busca('.gitattributes')).toContain('* text=auto eol=lf');
+
+    // Flat config: `.eslintrc` se eliminó en ESLint 10.
+    const eslint = busca('eslint.config.mjs');
+    expect(eslint).toContain("from 'eslint/config'");
+    // Prettier NO corre como regla de ESLint, que es lo que Prettier mismo
+    // recomienda: sólo se apagan las reglas que discutirían con él.
+    expect(eslint).toContain("from 'eslint-config-prettier/flat'");
+    expect(eslint).not.toContain('eslint-plugin-prettier');
+    expect(eslint).not.toContain('prettier/prettier');
+
+    // Las dos reglas que el andamiaje necesita para lintear su propia salida.
+    expect(eslint).toContain('allowDeclarations: true');
+    expect(eslint).toContain("allowInterfaces: 'with-single-extends'");
+    // Y la que justifica pagar información de tipos.
+    expect(eslint).toContain('no-floating-promises');
+
+    const pkg = JSON.parse(busca('package.json'));
+    expect(pkg.scripts).toMatchObject({
+      lint: 'eslint .',
+      'lint:fix': 'eslint . --fix',
+      format: 'prettier --write .',
+      'format:check': 'prettier --check .',
+    });
+    // ESLint 10 pide Node >= 20.19.
+    expect(pkg.engines.node).toBe('>=20.19');
+    [
+      'eslint',
+      '@eslint/js',
+      'typescript-eslint',
+      'eslint-config-prettier',
+      'prettier',
+    ].forEach((dep) => expect(pkg.devDependencies).toHaveProperty(dep));
+  });
+
+  it('el archivo de permisos ya no necesita ningún eslint-disable', () => {
+    // La regla queda CONFIGURADA para el caso (`no-empty-object-type` con
+    // `with-single-extends`), que es mejor que apagarla: un `{}` de verdad
+    // sigue reportándose.
+    const permisos = createProject({ name: 'mi-app', litebVersion }).files.find(
+      (file) => file.path === 'src/config/permissions.ts',
+    )!.content;
+
+    expect(permisos).not.toContain('eslint-disable');
   });
 
   it('permisos y auth quedan ESCRITOS, no comentados', () => {
@@ -234,12 +300,6 @@ describe('liteb init', () => {
 
     const permisos = busca('src/config/permissions.ts');
     expect(permisos).toContain('declare global {');
-    // Un solo disable arriba, no uno por bloque: `liteb module` agrega bloques
-    // y cada uno repetiría la línea.
-    expect(permisos).toContain(
-      '/* eslint-disable @typescript-eslint/no-empty-interface',
-    );
-    expect(permisos).not.toContain('eslint-disable-next-line');
     expect(permisos).toContain(
       'interface Permissions extends PermissionsOf<unknown> {}',
     );

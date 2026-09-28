@@ -227,11 +227,11 @@ function permissionsDeclaration(id: string, modulesDir: string): string {
   return `
 declare global {
   namespace LitebAuth {
-    interface Permissions
-      extends PermissionsOf<typeof import('${from}').default> {}
+    interface Permissions extends PermissionsOf<
+      typeof import('${from}').default
+    > {}
   }
-}
-`;
+}`;
 }
 
 function endpointSource(args: {

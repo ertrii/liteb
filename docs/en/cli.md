@@ -112,6 +112,11 @@ package.json          scripts, and the dependencies the framework needs
 tsconfig.json         the two decorator flags, and the @/ alias
 .env  .env.template   NODE_ENV, ports, CORS origins, database
 .gitignore
+.gitattributes        the working tree is LF, on every machine
+.editorconfig         the shape of a file, for editors that run no tooling
+.prettierrc           .prettierignore
+eslint.config.mjs     flat config; formatting left to Prettier
+.vscode/              format on save, and the extensions that do it
 src/index.ts          createApp() separated from main()
 src/config/permissions.ts
 src/config/auth.ts
@@ -146,6 +151,60 @@ open. It is empty until the first module; `liteb module` appends one block per
 module and interface merging joins them, so no line in that file is ever
 reopened. Each block **reads** the keys off that module's manifest rather than
 restating them, so a key is spelled once.
+
+### The shape of a file, decided once
+
+Four files, and each exists because a different reader needs it. They all carry
+the same values, and those values match what the generators emit — so the first
+`npm run format` never rewrites a file `liteb module` just wrote.
+
+| File | Read by |
+| --- | --- |
+| `.editorconfig` | every editor, including ones that run no tooling. Prettier reads it too |
+| `.prettierrc` | Prettier, which **overrides** `.editorconfig` where they overlap |
+| `eslint.config.mjs` | ESLint: what the code MEANS |
+| `.gitattributes` | git, when it writes files to disk |
+
+**`.gitattributes` is the one people skip.** `* text=auto eol=lf` makes the
+working tree LF on every machine. Without it, git on Windows checks files out as
+CRLF while `.editorconfig` and `.prettierrc` both say LF: the formatter wants to
+rewrite every line of half the project, and every diff is noise. `eol=lf` wins
+over whatever `core.autocrlf` happens to be locally, so two machines agree
+without anybody configuring git.
+
+**Prettier does not run as an ESLint rule**, which is what
+[Prettier itself recommends](https://prettier.io/docs/integrating-with-linters):
+running it as a rule is slower, fills the editor with red squiggles over things
+that fix themselves on save, and adds a layer that can break.
+`eslint-config-prettier/flat` only turns OFF the stylistic rules that would argue
+with the formatter, and it goes last in the array because that is how it works.
+`npm run format` is what formats.
+
+`eslint.config.mjs` is flat config, because `.eslintrc` was removed in ESLint 10
+— which is also why `package.json` declares `node >=20.19`, the floor ESLint 10
+requires.
+
+Three rules are set rather than left to the preset, and each is a decision:
+
+- **`no-namespace` with `allowDeclarations: true`.** `declare global { namespace
+  LitebAuth { ... } }` is how an application says what an actor is and which
+  permission keys exist. Ambient declarations stay allowed; a namespace used as a
+  value does not.
+- **`no-empty-object-type` with `allowInterfaces: 'with-single-extends'`.**
+  `interface Permissions extends PermissionsOf<typeof mod> {}` is empty *because*
+  the keys come from the `extends`, and there is one such block per module.
+  Configuring the rule beats disabling it: a real `{}` is still reported.
+- **`no-floating-promises` as an error.** The one type-aware rule worth what type
+  information costs: a repository call whose promise nobody awaited is data that
+  silently did not get written, and nothing else can see it. `await-thenable`
+  comes along for the same reason. Everything else type-aware is in
+  `tseslint.configs.recommendedTypeChecked`, commented in the file, for when the
+  codebase is ready to answer for the `any`s an ORM hands back.
+
+`no-explicit-any` and `no-unused-vars` are **warnings**. A build that fails on
+`any` teaches people to write `as unknown as T`, which is worse than the `any`.
+
+Four scripts: `lint`, `lint:fix`, `format`, `format:check`.
 
 It also wires three things every backend ends up needing, so they are not a
 task for later:
