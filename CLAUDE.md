@@ -54,11 +54,14 @@ is **not** an application. Dual layout:
   Spanish page across in the same commit. Code, identifiers and the framework's
   own JSDoc stay English on both sides; only the prose is translated.
 
-- **`docs/*/api.md` lists every export**, and it is the one doc that can go
-  stale silently: adding a name to `lib/index.ts` does not fail anything. The
-  list came from the emitted `.d.ts` via the TypeScript API, so regenerate it
-  the same way rather than by reading the diff — the check is that every name
-  `checker.getExportsOfModule` returns appears in both pages.
+- **`docs/*/api.md` lists what an APPLICATION writes** — 97 of the 138 exports.
+  The other 41 are the module registry, the migrator, the loaders and the
+  decorators' metadata: public because the CLI is a separate process, and left
+  out on purpose so the page is a working reference and not a dump. It is also
+  the one doc that can go stale silently, since adding a name to `lib/index.ts`
+  fails nothing. Regenerate the list from the emitted `.d.ts` through the
+  TypeScript API rather than reading the diff, and decide which side of the line
+  a new name falls on.
 
 Comments and JSDoc are in **English**: they ship inside the `.d.ts`.
 

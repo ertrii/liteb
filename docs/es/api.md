@@ -1,16 +1,19 @@
 # La API, nombre por nombre
 
-Todo lo que `liteb` exporta: 138 nombres. Esta página es el índice — qué es cada
-uno y cómo se llama. El por qué está en [la guía](./guide.md), las reglas de
-permisos en [Autorización](./authorization.md), y los comandos en
-[el CLI](./cli.md).
+Lo que escribe una aplicación: los 97 nombres que vas a usar, y cómo se llama
+cada uno. El por qué está en [la guía](./guide.md), las reglas de permisos en
+[Autorización](./authorization.md), y los comandos en [el CLI](./cli.md).
 
-Con las primeras cuatro secciones ya podés escribir una aplicación. El resto es o
-un tipo que vas a ver en una firma, o la maquinaria sobre la que corren `liteb` y
-su CLI, pública porque el CLI es otro proceso y tiene que alcanzarla.
+Con las primeras cuatro secciones ya podés construir algo.
 
-> Generado del `.d.ts` emitido, así que las firmas son las que ve el compilador,
-> acortadas sólo donde un genérico por defecto no aporta nada.
+> Sacado del `.d.ts` emitido con la API de TypeScript, así que las firmas son las
+> que ve el compilador, acortadas sólo donde un genérico por defecto no aporta
+> nada.
+>
+> `liteb` exporta 41 nombres más — el registro de módulos, el migrador, los
+> cargadores, la metadata que guardan los decoradores. Son públicos porque el CLI
+> es otro proceso y tiene que alcanzarlos, no porque una aplicación los necesite.
+> Están en los tipos si alguna vez te hacen falta.
 
 ---
 
@@ -95,7 +98,7 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `Contributes` | `<T>(target: Slot<T>) => ClassDecorator` | El slot al que aporta un proveedor. |
 | `ApiTag` `ApiSummary` `ApiDescription` `ApiResponse` `ApiHidden` | decoradores de clase | Qué dice `/docs` de este endpoint, o que no diga nada. |
 | `MiddlewareFn` | `(req, res, next) => void` | Lo que recibe `@Use`. |
-| `GroupOptions` `GroupMetadata` `CronMetadata` `UseMetadata` `ProvidesMetadata` | interfaces | Lo que guarda cada decorador, para quien lo lea de vuelta. |
+| `GroupOptions` | interface | Lo que recibe `@Group` además del nombre. |
 
 ---
 
@@ -110,12 +113,9 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `ResolvedModule<K>` | interface | El manifiesto con todos los defaults aplicados. Trae además `permissionKeys: K[]`. |
 | `ModulePermission<K>` | interface | `{ key, label? }`. El label es opcional porque una clave normalmente ya lo dice. |
 | `PermissionDeclaration<K>` | `K \| ModulePermission<K>` | Una entrada de `permissions`: una clave, o una clave con texto. |
-| `PermissionKeysOf<P>` | tipo condicional | Las claves que lleva una lista de declaraciones, como union. |
 | `ModuleHook` | `(ctx: ModuleContext) => void \| Promise<void>` | `onInstall`, `onEnable`, `onDisable`, `onUninstall`. |
 | `ModuleContext` | interface | `{ db }` — lo que recibe un gancho. |
 | `ModulePattern` | `string \| string[]` | El valor de un campo de glob. |
-| `ModuleGlobField` | `'entities' \| 'migrations' \| 'routes' \| 'routines' \| 'listeners' \| 'providers'` | Los campos que la disposición resuelve por carpeta. |
-| `MODULE_LAYOUT` | `Readonly<Record<ModuleGlobField, string>>` | El glob por defecto de cada uno, que es la disposición estándar escrita. |
 | `ModuleEntity` | `Function \| EntitySchema` | Una entidad, como las tipa TypeORM. |
 | `ModuleMigrations` | `Function[] \| Record<string, unknown>` | Una lista de clases de migración, o un import de namespace de ellas. |
 | `ModuleDefinitionError` | clase | La lanza `defineModule` cuando el manifiesto está mal. Al importar, antes de que arranque nada. |
@@ -125,7 +125,6 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | Nombre | Tipado | Qué es |
 | --- | --- | --- |
 | `PermissionsOf<M>` | tipo condicional | Lee las claves de un módulo hacia la forma que quiere `LitebAuth.Permissions`. Un bloque `declare global` por módulo. |
-| `PermissionRegistry` | clase | Todas las claves declaradas: `.has()`, `.list()`, `.size()`, `.suggest()`, `PermissionRegistry.from(modules)`. |
 | `RegisteredPermission` | interface | Un `ModulePermission` más el `moduleId` que lo declaró. Lo que devuelve `app.permissions()`. |
 | `PermissionKey` | tipo condicional | Una clave declarada, o cualquier cadena mientras la aplicación no declaró ninguna. Lo que reciben `assert` y `can`. |
 
@@ -158,7 +157,6 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `EventBus` | clase | `.emit(token, payload)`, más `.ids()` y `.countFor()` para saber qué está escuchando. |
 | `slot` | `<T>(id: string) => Slot<T>` | Un token al que pueden aportar muchos módulos, donde un contrato acepta exactamente uno. |
 | `Slot<T>` | interface | Ese token. `container.get(slot)` contesta un arreglo; vacío es una respuesta normal. |
-| `buildContainer` | `(modules, db) => Promise<Container>` | Construye uno a mano, que es lo que hace `Liteb.create` por vos. |
 
 ---
 
@@ -192,8 +190,6 @@ extienden `Error`.
 | `CustomError` | `(status, message, response?)` | El status que le pases, con un payload. |
 | `ProblemBody` | interface | El cuerpo: `type`, `title`, `status`, `detail`, `code`, `errors`, `requestId?`, `missing?`, `response?`. |
 | `ErrorIdentifier` | enum | El `code` legible por máquina. Ramificá sobre esto, no sobre `title`. |
-| `PROBLEM_TITLES` | `Record<ErrorIdentifier, string>` | El título estable de cada clase de problema. |
-| `ErrorType` | union | Todo lo que el manejador de errores sabe mapear. |
 | `HttpStatus` | enum | Los códigos de estado, por nombre. |
 
 ---
@@ -209,44 +205,11 @@ extienden `Error`.
 | `HealthCheck` | `() => boolean \| Promise<boolean>` | Un chequeo que es de la aplicación. Se puede llamar cualquier cosa menos `server` y `database`. |
 | `HealthReport` | interface | Lo que contesta `/health`. |
 | `HealthStatus` | `'pass' \| 'fail'` | Por chequeo, y en total. |
-| `buildHealth` | `(config, sources) => RequestHandler` | El handler, si querés montarlo vos. |
 | `RequestIdConfig` | interface | `{ header?, generate? }` — confiar en un id que llega, o fabricar uno. |
-| `buildRequestId` | `(config?) => RequestHandler` | El middleware que lo pone en la petición. |
 | `currentRequestId` | `() => string` | El id de la petición que se está atendiendo, desde cualquier punto de la pila. |
 | `CorsConfig` | interface | Orígenes, métodos, headers, credenciales. |
 | `CorsConfigError` | clase | Las opciones de CORS se contradicen; se rechaza al arrancar. |
-| `OpenAPIGenerator` | clase | Construye el documento que sirve `/docs`. |
-| `OpenAPIDocument` `OpenAPIInfo` | interfaces | Ese documento, y el bloque de título y versión. |
-
----
-
-## 9. La maquinaria
-
-Pública porque el CLI es otro proceso que tiene que alcanzarla, y porque una
-prueba puede querer manejar un paso sin arrancar todo. Una aplicación
-normalmente no toca nada de esto.
-
-| Nombre | Tipado | Qué es |
-| --- | --- | --- |
-| `resolveModules` | `(modules, options?) => ResolvedModule[]` | Chequea `requires` y `engine`, y ordena por dependencias. Rechaza un ciclo. |
-| `ResolveModulesOptions` | interface | La versión del host contra la que se chequea `engine`, y qué módulos están encendidos. |
-| `ModuleResolutionError` | clase | Una dependencia que falta, un ciclo, o un `engine` que este host no satisface. |
-| `reconcileModules` | `(code, stored) => Reconciliation` | Qué es nuevo, qué cambió de versión, qué está en la base y ya no en el código. |
-| `Reconciliation` `ModuleState` `ModuleInstall` `ModuleUpgrade` `ModuleOrphan` | interfaces / tipos | Esa respuesta, separada por caso. |
-| `ModuleStore` | clase | La tabla `_modules`: `.list()`, `.sync()`, `.enable()`, `.disable()`, `.forget()`, `.ensureTable()`. |
-| `ModuleMigrator` | clase | Corre las migraciones de un módulo y las anota en `_module_migrations`, con clave `module:name`. |
-| `AppliedMigration` | interface | Una fila de eso: qué módulo, qué migración. |
-| `ModuleMigrationError` | clase | Una migración falló, nombrando el módulo y el archivo. |
-| `orderMigrations` | `(migrations, moduleId) => Function[]` | Ordena las migraciones de un módulo por el timestamp del nombre de la clase. |
-| `loadModules` | `(modules) => Promise<LoadedModule[]>` | Lee todos los campos de glob de todos los módulos. |
-| `loadModuleEndpoints` `loadModuleRoutines` `loadModuleListeners` | `(mod) => Promise<…>` | Un campo a la vez. |
-| `LoadedModule` `LoadedListener` | interfaces | Lo que volvió. |
-| `toEndpointReaders` | `(exported, defaultGroup?) => EndpointReader[]` | Convierte clases exportadas en lo que lee el router. |
-| `resolveModulePattern` | `(pattern, dir) => string` | Un glob contra el `dir` de un módulo, que es lo que hace que un módulo funcione desde el código, desde un build o desde `node_modules`. |
-| `collectModuleEntities` | `(modules) => ModuleEntity[]` | Todas las entidades de todos los módulos, para el DataSource. |
-| `schemaDiff` | `(db) => Promise<SchemaDiff>` | El SQL entre las entidades y la base, ida y vuelta. |
-| `SchemaDiff` | interface | Esas dos listas. |
-| `tableOwners` | `(db, modules) => Map<string, string>` | Tabla al módulo que la posee. |
+| `OpenAPIInfo` | interface | El título y la versión que reporta `/docs`, que se pasan como `docs.info`. |
 
 ---
 
