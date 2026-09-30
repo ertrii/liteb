@@ -1,7 +1,7 @@
 import { Endpoint, HttpGet, Group, Query } from '../../../../lib';
 import { ListProductsQuery } from '../dto/list-products.query';
 import { Product } from '../entities/product.entity';
-import { ProductBadges } from '../slots/product-badges.slot';
+import { ProductBadges } from '../tokens/product-badges.token';
 
 @Group('products')
 @HttpGet()

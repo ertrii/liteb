@@ -1,5 +1,5 @@
 import { Provider, Provides } from '../../../../lib';
-import { UserDirectory } from '../contracts/user-directory.contract';
+import { UserDirectory } from '../tokens/user-directory.token';
 import { User } from '../entities/user.entity';
 
 /**

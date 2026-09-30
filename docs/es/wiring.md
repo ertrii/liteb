@@ -78,7 +78,7 @@ pedirle las dos cosas es un contrato escrito al revés.
 ## 3. El token: lo único que cruza el límite
 
 ```typescript
-// billing/contracts/billing-service.contract.ts
+// billing/tokens/billing-service.token.ts
 import { token } from 'liteb';
 
 export interface BillingService {
@@ -126,16 +126,19 @@ Dónde vive cada archivo, y qué comando lo escribe:
 
 | Carpeta | Qué hay | Comando |
 | --- | --- | --- |
-| `contracts/*.contract.ts` | la interfaz y el token | [`liteb contract`](./cli.md#liteb-contract-modulename) |
-| `slots/*.slot.ts` | la forma de un aporte, y el token de la colección | [`liteb slot`](./cli.md#liteb-slot-modulename) |
-| `events/*.event.ts` | la carga y el token | [`liteb event`](./cli.md#liteb-event-modulename) |
+| `tokens/*.token.ts` | los tres: contratos, slots y eventos | [`liteb token`](./cli.md#liteb-token-modulename-kind) |
 | `providers/*.provider.ts` | lo que responde un contrato o llena un slot | [`liteb provider`](./cli.md#liteb-provider-modulename) |
 | `listeners/*.listener.ts` | lo que reacciona a un evento | [`liteb listener`](./cli.md#liteb-listener-modulename) |
 
 `providers/` y `listeners/` son globs: la carpeta es lo que los registra, y el
-decorador dice a qué token responden. `contracts/`, `slots/` y `events/` **no**
-son globs — un token se importa por nombre, así que no hay nada que descubrir.
-Son una convención para las personas, y es donde el CLI los escribe.
+decorador dice a qué token responden. `tokens/` **no** es un glob — un token se
+importa por nombre, así que no hay nada que descubrir. Es una convención para
+las personas, y es donde el CLI los escribe.
+
+**Los tres tipos van juntos ahí.** Tuvieron una carpeta cada uno, y era pedirte
+archivar una decisión que ya está tomada dentro del archivo: el segundo
+argumento de `token()` dice cuántos pueden responder, y eso es lo único en lo
+que se diferencian.
 
 > **La regla, en una línea:** de otro módulo importás su token y nada más. Si te
 > encontrás importando su proveedor, su entidad o su DTO, falta cableado.
@@ -318,7 +321,7 @@ Un slot es un punto de extensión: un lugar que un módulo **abre** y que muchos
 pueden llenar.
 
 ```typescript
-// catalog/slots/product-badges.slot.ts
+// catalog/tokens/product-badges.token.ts
 export interface ProductBadge {
   id: string;
   for(product: { id: number; stock: number }): string | null;
@@ -420,7 +423,7 @@ import { Provider, Provides } from 'liteb';
 import {
   ProductBadge,
   ProductBadges,
-} from '@/catalog/slots/product-badges.slot';
+} from '@/catalog/tokens/product-badges.token';
 
 @Provides(ProductBadges)
 export class LowStockBadge extends Provider implements ProductBadge {
@@ -440,7 +443,7 @@ npx liteb provider reports/low-stock --slot product-badges
 ```
 
 - **`--slot` es el nombre del slot, no el del aporte.** De ahí salen el archivo
-  (`slots/product-badges.slot`), el token (`ProductBadges`) y la interfaz
+  (`tokens/product-badges.token`), el token (`ProductBadges`) y la interfaz
   (`ProductBadge`); el `<module>/<name>` de adelante sigue siendo tu módulo y tu
   clase.
 - **La forma la define el slot, no liteb.** El `id` de los ejemplos está porque
@@ -513,7 +516,7 @@ it is still being filled: a contribution asks for the slot it belongs to.
 ## 6. Eventos
 
 ```typescript
-// catalog/events/product-restocked.event.ts
+// catalog/tokens/product-restocked.token.ts
 export interface ProductRestocked {
   productId: number;
   quantity: number;
@@ -713,11 +716,11 @@ vitrina de métodos de pago con un slot que llena quien quiera.
 ```
 src/modules/
 ├── billing/
-│   ├── contracts/billing-service.contract.ts    BillingService
-│   ├── slots/payment-methods.slot.ts            PaymentMethod · PaymentMethods
+│   ├── tokens/billing-service.token.ts          BillingService
+│   ├── tokens/payment-methods.token.ts          PaymentMethod · PaymentMethods
 │   └── providers/billing-service.provider.ts    @Provides(BillingService)
 ├── sales/
-│   ├── events/sale-closed.event.ts              SaleClosed
+│   ├── tokens/sale-closed.token.ts              SaleClosed
 │   ├── endpoints/create-sale.endpoint.ts        this.get() · this.emit()
 │   └── module.ts                                consumes: [BillingService]
 ├── cash/

@@ -18,11 +18,11 @@ describe('rewriteAliases', () => {
   const aliases = [{ prefix: '@/', target: '/out/modules' }];
 
   it('convierte el alias en una ruta relativa al archivo', () => {
-    const code = `const x = require("@/identity/contracts/user.contract");`;
+    const code = `const x = require("@/identity/tokens/user.token");`;
 
     expect(
       rewriteAliases(code, '/out/modules/reports/endpoints/s.js', aliases),
-    ).toBe(`const x = require("../../identity/contracts/user.contract");`);
+    ).toBe(`const x = require("../../identity/tokens/user.token");`);
   });
 
   it('desde la raíz de la salida queda con ./', () => {

@@ -3,9 +3,9 @@ import { defineModule } from '../../../lib';
 /**
  * Catalog: products and their stock.
  *
- * What it publishes is in `contracts/`, `events/` and `slots/`; how it answers
- * is in `providers/`. None of it is named here, which is what leaves the
- * manifest saying only what is particular to this module.
+ * What it publishes is in `tokens/`; how it answers is in `providers/`. None
+ * of it is named here, which is what leaves the manifest saying only what is
+ * particular to this module.
  */
 export default defineModule({
   id: 'catalog',

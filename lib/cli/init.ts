@@ -80,9 +80,9 @@ export function createProject(options: InitOptions): Plan {
     "ignoreDeprecations": "6.0",
     "rootDir": "src",
     "outDir": "build",
-    // \`@/billing/contracts/x.contract\` instead of
-    // \`../../billing/contracts/x.contract\`. A module only ever imports
-    // another module's TOKENS, and those are the deep paths.
+    // \`@/billing/tokens/x.token\` instead of
+    // \`../../billing/tokens/x.token\`. A module only ever imports another
+    // module's TOKENS, and those are the deep paths.
     //
     // A path alias is compile-time only: \`tsc\` checks it and then emits it
     // verbatim, which Node does not understand. \`liteb build\` rewrites them

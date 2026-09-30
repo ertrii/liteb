@@ -195,10 +195,10 @@ export interface ModuleManifest<
    * and what it contributes to someone else's extension point. Defaults to
    * `./providers/*.provider.ts`.
    *
-   * There is no folder for the CONTRACTS themselves: a token is imported by
-   * name, so there is nothing to discover. `contracts/` is still where they
-   * go, and `liteb contract` writes them there — it is a convention for
-   * people, not a glob.
+   * There is no glob for the TOKENS themselves: one is imported by name, so
+   * there is nothing to discover. `tokens/` is still where all three kinds
+   * go, and `liteb token` writes them there — a convention for people, not
+   * a glob.
    */
   providers?: ModulePattern;
 

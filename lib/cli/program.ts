@@ -10,11 +10,9 @@ import {
   createListener,
   createMigration,
   createModule,
-  createContract,
-  createEvent,
   createProvider,
-  createSlot,
   createRoutine,
+  createToken,
 } from './generators';
 import { generateMigration } from './migration-generator';
 import { CliError } from './names';
@@ -200,13 +198,21 @@ export function buildProgram(): Command {
 
   common(
     program
-      .command('contract <module/name>')
+      .command('token <module/name> <kind>')
       .description(
-        'A capability this module publishes: the token and the shape',
+        'What this module shares: contract (one answers), slot (many do) or event (nobody does)',
       ),
-  ).action((target, flags) => {
+  ).action((target, kind, flags) => {
+    if (kind !== 'contract' && kind !== 'slot' && kind !== 'event') {
+      // The same three the runtime takes, in the same order as token(id, kind),
+      // so the command reads like the call it writes.
+      throw new CliError(
+        `liteb token ${target} <kind>: the kind is 'contract' (exactly one provider), 'slot' (as many as are installed) or 'event' (a notification with no answer), and got "${kind}".`,
+      );
+    }
+
     report(
-      createContract({ target, modulesDir: flags.dir, from: flags.from }),
+      createToken({ target, kind, modulesDir: flags.dir, from: flags.from }),
       flags,
     );
   });
@@ -227,28 +233,6 @@ export function buildProgram(): Command {
         from: flags.from,
         slot: flags.slot,
       }),
-      flags,
-    );
-  });
-
-  common(
-    program
-      .command('event <module/name>')
-      .description('Something this module announces, for whoever is listening'),
-  ).action((target, flags) => {
-    report(
-      createEvent({ target, modulesDir: flags.dir, from: flags.from }),
-      flags,
-    );
-  });
-
-  common(
-    program
-      .command('slot <module/name>')
-      .description('An extension point this module opens for others to fill'),
-  ).action((target, flags) => {
-    report(
-      createSlot({ target, modulesDir: flags.dir, from: flags.from }),
       flags,
     );
   });

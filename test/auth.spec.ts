@@ -15,7 +15,7 @@ import type { Request } from 'express';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { testAuthResolver } from './fixtures/auth/actor';
 import { closeTestDb, createTestDb } from './helpers/test-db';
-import { Grants } from './fixtures/grants/contracts/grants.contract';
+import { Grants } from './fixtures/grants/tokens/grants.token';
 
 /**
  * Estas suites prueban el chequeo EN EJECUCIÓN con su propio vocabulario

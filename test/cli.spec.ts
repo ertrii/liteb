@@ -5,16 +5,14 @@ import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import {
-  createContract,
   createEndpoint,
-  createEvent,
   createEntity,
   createListener,
   createMigration,
   createModule,
   createProvider,
   createRoutine,
-  createSlot,
+  createToken,
 } from '../lib/cli/generators';
 import { applyEdit } from '../lib/cli/writer';
 import { apply } from '../lib/cli/writer';
@@ -210,8 +208,12 @@ describe('el token generado entra en el ancho de prettier', () => {
   // consumidor en su primer commit. El ancho depende del módulo y del nombre,
   // que sólo el generador conoce.
   const contenido = (target: string) =>
-    createSlot({ target, modulesDir: 'src/modules', from: 'liteb' }).files[0]
-      .content;
+    createToken({
+      target,
+      kind: 'slot',
+      modulesDir: 'src/modules',
+      from: 'liteb',
+    }).files[0].content;
 
   it('lo deja en una línea cuando entra', () => {
     const linea = contenido('shop/tags')
@@ -556,20 +558,31 @@ describe('un módulo generado y puesto a andar', () => {
     // correría nunca.
     escribirMigracion();
     scaffold(
-      createContract({ target: 'inventory/stock', modulesDir, from: 'liteb' }),
-    );
-    scaffold(
-      createProvider({ target: 'inventory/stock', modulesDir, from: 'liteb' }),
-    );
-    scaffold(
-      createEvent({
-        target: 'inventory/item-added',
+      createToken({
+        target: 'inventory/stock',
+        kind: 'contract',
         modulesDir,
         from: 'liteb',
       }),
     );
     scaffold(
-      createSlot({ target: 'inventory/labels', modulesDir, from: 'liteb' }),
+      createProvider({ target: 'inventory/stock', modulesDir, from: 'liteb' }),
+    );
+    scaffold(
+      createToken({
+        target: 'inventory/item-added',
+        kind: 'event',
+        modulesDir,
+        from: 'liteb',
+      }),
+    );
+    scaffold(
+      createToken({
+        target: 'inventory/labels',
+        kind: 'slot',
+        modulesDir,
+        from: 'liteb',
+      }),
     );
 
     // Antes que nada: el archivo que le enseña al compilador las claves de
@@ -792,7 +805,7 @@ describe('un módulo generado y puesto a andar', () => {
   });
 
   it('el contrato y su proveedor quedan enchufados, sin manifiesto', async () => {
-    // Dos archivos: el token en contracts/, la clase en providers/. El
+    // Dos archivos: el token en tokens/, la clase en providers/. El
     // manifiesto no nombra ninguno y el contenedor igual lo resuelve.
     const declaredManifest = declared(`${modulesDir}/inventory/module.ts`);
     expect(declaredManifest).not.toContain('provides');
@@ -828,22 +841,27 @@ describe('un módulo generado y puesto a andar', () => {
     );
     // Y el import trae las dos mitades, con el alias.
     expect(archivo.content).toContain(
-      "import { ProductBadge, ProductBadges } from '@/<module>/slots/product-badges.slot';",
+      "import { ProductBadge, ProductBadges } from '@/<module>/tokens/product-badges.token';",
     );
     // El cuerpo es el de una contribución, no el de un contrato.
     expect(archivo.content).toContain("public readonly id = 'low-stock';");
     expect(archivo.content).not.toContain('describe()');
   });
 
-  it('cada token público va a SU carpeta', () => {
-    // contracts/, events/ y slots/ son la cara pública del módulo. liteb no
-    // las globea — un token se importa por nombre — así que la carpeta existe
-    // para ubicarse, y es el CLI quien la sostiene.
+  it('los tres tipos de token caen en la MISMA carpeta', () => {
+    // `tokens/` es la cara pública del módulo. liteb no la globea —un token se
+    // importa por nombre— así que existe para ubicarse, y la sostiene el CLI.
+    // Separarlos en contracts/, slots/ y events/ pedía archivar una decisión
+    // que ya está tomada dentro del archivo, en el segundo argumento.
+    expect(read(`${modulesDir}/inventory/tokens/stock.token.ts`)).toContain(
+      "token<Stock>('inventory.stock', 'contract')",
+    );
+
     expect(
-      read(`${modulesDir}/inventory/events/item-added.event.ts`),
+      read(`${modulesDir}/inventory/tokens/item-added.token.ts`),
     ).toContain("token<ItemAdded>('inventory.item-added', 'event')");
 
-    const ranura = read(`${modulesDir}/inventory/slots/labels.slot.ts`);
+    const ranura = read(`${modulesDir}/inventory/tokens/labels.token.ts`);
     // El token nombra la colección, la interfaz nombra UNA contribución.
     expect(ranura).toContain('export interface Label {');
     expect(ranura).toContain("token<Label>('inventory.labels', 'slot')");

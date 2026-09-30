@@ -1,6 +1,6 @@
 import { defineModule } from '../../../lib';
-import { UserDirectory } from '@/identity/contracts/user-directory.contract';
-import { ProductCatalog } from '@/catalog/contracts/product-catalog.contract';
+import { UserDirectory } from '@/identity/tokens/user-directory.token';
+import { ProductCatalog } from '@/catalog/tokens/product-catalog.token';
 
 /**
  * The optional one. Not `core`, so it INSTALLS DISABLED: an update must not

@@ -1,5 +1,5 @@
 import { Provider, Provides } from '../../../../lib';
-import { Grants } from '../contracts/grants.contract';
+import { Grants } from '../tokens/grants.token';
 
 /** Lee de la base: prueba que `this.db` llega vivo al proveedor. */
 @Provides(Grants)

@@ -294,20 +294,19 @@ Only decorated entities and migration classes are taken. An enum, a DTO or a
 helper exported from the same file is ignored, so a folder can hold what
 belongs with it.
 
-Two more folders are convention without being globs, because there is nothing
-in them to discover — a token is imported by name:
+One more folder is convention without being a glob, because there is nothing
+in it to discover — a token is imported by name:
 
 | Folder | What goes in it |
 | --- | --- |
-| `contracts/*.contract.ts` | the contracts this module publishes |
-| `events/*.event.ts` · `slots/*.slot.ts` | the events it announces, the extension points it opens |
+| `tokens/*.token.ts` | every contract, extension point and event this module shares |
 
-Together they are the module's public face: the only files another module ever
+It is the module's public face: the only files another module ever
 imports — and the reason `liteb init` writes a path alias, because those are
 the deep paths:
 
 ```typescript
-import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+import { UserDirectory } from '@/identity/tokens/user-directory.token';
 //                            ^ src/modules/, however deep you are
 ```
 
@@ -575,7 +574,7 @@ Routines get the same `this.get()`.
 A contract is deliberately split in two, and they live in different folders.
 
 ```typescript
-// billing/contracts/billing-service.contract.ts — the promise
+// billing/tokens/billing-service.token.ts — the promise
 export interface BillingService {
   issueCharge(input: IssueChargeInput): Promise<Charge>;
 }

@@ -1,4 +1,5 @@
 import path from 'path';
+import type { TokenKind } from '../modules/token';
 import { plan, Plan } from './plan';
 import {
   CliError,
@@ -93,7 +94,7 @@ export function createModule(options: ModuleOptions): Plan {
  *
  *     entities/*.entity.ts      migrations/*.ts      endpoints/*.endpoint.ts
  *     routines/*.routine.ts     listeners/*.listener.ts
- *     providers/*.provider.ts   (contracts/ and slots/ hold the tokens)
+ *     providers/*.provider.ts   (tokens/ holds the tokens)
  *
  * Name a field — \`routes: './apis/*.api.ts'\` — only to say something else.
  */
@@ -410,7 +411,7 @@ export function createListener(options: ListenerOptions): Plan {
  * Replace this with the real import — \`@/\` is the alias for your modules
  * folder, so it reads:
  *
- *     import { ${tokenName} } from '@/<module>/events/${target.name}.event';
+ *     import { ${tokenName} } from '@/<module>/tokens/${target.name}.token';
  *
  * It is declared here only so the file compiles on its own.
  */
@@ -466,26 +467,82 @@ function tokenDeclaration(args: {
   return `export const ${constName} = token<${typeName}>(\n  '${id}',\n  '${kind}',\n);`;
 }
 
-export interface ContractOptions extends CommonOptions {
+export interface TokenOptions extends CommonOptions {
   target: string;
+  /** How many may answer, which is the only thing the three differ in. */
+  kind: TokenKind;
 }
 
 /**
- * A contract: the token and the shape, and nothing else.
+ * A token: the one file another module imports.
  *
- * It goes in `contracts/` because it is the module's public face — the one
- * file another module imports. liteb does NOT glob that folder: a token is
- * imported by name, so there is nothing to discover. The folder is for people.
+ * All three go in `tokens/` because they are one thing — a name with a type,
+ * and how many may answer it. Splitting them across `contracts/`, `slots/` and
+ * `events/` asked the author to file a decision they had already made in the
+ * call itself.
+ *
+ * liteb does NOT glob that folder: a token is imported by name, so there is
+ * nothing to discover. The folder is for people.
  */
-export function createContract(options: ContractOptions): Plan {
-  const target = parseTarget(options.target, 'contract');
+export function createToken(options: TokenOptions): Plan {
+  const target = parseTarget(options.target, 'token');
   const dir = moduleDir(options, target.module);
-  const name = toPascal(target.name);
   const from = relativeFrom(options.from, 3);
+  const id = `${target.module}.${target.name}`;
+  const name = toPascal(target.name);
 
-  const content = `import { token } from '${from}';
+  let body: string;
+  let hints: string[];
+
+  if (options.kind === 'slot') {
+    // A slot has TWO names: the token is the collection, the interface is ONE
+    // contribution. A trailing "s" is the usual difference; rename if it
+    // guessed wrong.
+    const item = name.endsWith('s') ? name.slice(0, -1) : `${name}Entry`;
+
+    body = `/**
+ * The shape of ONE contribution.
+ */
+export interface ${item} {
+  id: string;
+}
 
 /**
+ * The point itself: "${target.module}" reads whoever is installed with
+ * \`this.all(${name})\`, and an empty array is a normal answer — a slot nobody
+ * filled is a feature nobody installed.
+ *
+ * Note the direction: the module that OPENS it is the one extensions depend
+ * on. It knows nothing about who fills it, which is what lets it be core while
+ * every contributor stays removable.
+ */
+${tokenDeclaration({ constName: name, typeName: item, id, kind: 'slot' })}`;
+
+    hints = [
+      `Read it: const filled = this.all(${name});`,
+      `Fill it from another module: liteb provider <module>/<name> --slot ${target.name}`,
+    ];
+  } else if (options.kind === 'event') {
+    body = `/**
+ * Announced after it happened. "${target.module}" does not know or care who
+ * reacts — that is the difference with a contract, where it would be asking
+ * someone in particular to do something and waiting for the answer.
+ *
+ * The payload has to carry what a listener needs: listeners read on their own
+ * connection, so they cannot see rows a transaction has not committed yet.
+ */
+export interface ${name} {
+  id: number;
+}
+
+${tokenDeclaration({ constName: name, typeName: name, id, kind: 'event' })}`;
+
+    hints = [
+      `Announce it: await this.emit(${name}, { id }) from an endpoint, a routine or a provider.`,
+      `React to it from any module: liteb listener <module>/<name>, then import this token.`,
+    ];
+  } else {
+    body = `/**
  * What other modules may ask "${target.module}" for — WITHOUT importing
  * anything else from it. They import this file; the implementation stays
  * private, in ./providers.
@@ -499,21 +556,23 @@ export interface ${name} {
   describe(): Promise<string>;
 }
 
-${tokenDeclaration({
-  constName: name,
-  typeName: name,
-  id: `${target.module}.${target.name}`,
-  kind: 'contract',
-})}
+${tokenDeclaration({ constName: name, typeName: name, id, kind: 'contract' })}`;
+
+    hints = [
+      `Answer it: liteb provider ${target.module}/${target.name}`,
+      `A module that CALLS it should list it in \`consumes\`, so a missing provider stops the boot instead of the first request that needs it.`,
+    ];
+  }
+
+  const content = `import { token } from '${from}';
+
+${body}
 `;
 
   return plan(
-    [{ path: `${dir}/contracts/${target.name}.contract.ts`, content }],
+    [{ path: `${dir}/tokens/${target.name}.token.ts`, content }],
     [],
-    [
-      `Answer it: liteb provider ${target.module}/${target.name}`,
-      `A module that CALLS it should list it in \`consumes\`, so a missing provider stops the boot instead of the first request that needs it.`,
-    ],
+    hints,
   );
 }
 
@@ -546,12 +605,12 @@ export function createProvider(options: ProviderOptions): Plan {
     implemented = token.endsWith('s') ? token.slice(0, -1) : `${token}Entry`;
     tokenImport = `// The slot belongs to the module that OPENED it: replace <module> with the one
 // that declared it. \`@/\` is the alias for your modules folder.
-import { ${implemented}, ${token} } from '@/<module>/slots/${slotFile}.slot';`;
+import { ${implemented}, ${token} } from '@/<module>/tokens/${slotFile}.token';`;
     body = `  public readonly id = '${target.name}';`;
   } else {
     token = name;
     implemented = name;
-    tokenImport = `import { ${token} } from '../contracts/${target.name}.contract';`;
+    tokenImport = `import { ${token} } from '../tokens/${target.name}.token';`;
     body = `  public async describe(): Promise<string> {
     return '${target.module}';
   }`;
@@ -584,109 +643,6 @@ ${body}
       fillsSlot
         ? 'Point the import at the module that opened the slot: an extension imports the token, never the other way round.'
         : 'Nothing lists it: the folder is what registers it, and the decorator says which contract it answers.',
-    ],
-  );
-}
-
-export interface EventOptions extends CommonOptions {
-  target: string;
-}
-
-/**
- * An event this module announces.
- *
- * It goes in `events/` next to `contracts/` and `slots/`: the three are the
- * module's public face, the only files another module imports. liteb does not
- * glob them — a token is imported by name, so there is nothing to discover.
- */
-export function createEvent(options: EventOptions): Plan {
-  const target = parseTarget(options.target, 'event');
-  const dir = moduleDir(options, target.module);
-  const name = toPascal(target.name);
-  const from = relativeFrom(options.from, 3);
-
-  const content = `import { token } from '${from}';
-
-/**
- * Announced after it happened. "${target.module}" does not know or care who
- * reacts — that is the difference with a contract, where it would be asking
- * someone in particular to do something and waiting for the answer.
- *
- * The payload has to carry what a listener needs: listeners read on their own
- * connection, so they cannot see rows a transaction has not committed yet.
- */
-export interface ${name} {
-  id: number;
-}
-
-${tokenDeclaration({
-  constName: name,
-  typeName: name,
-  id: `${target.module}.${target.name}`,
-  kind: 'event',
-})}
-`;
-
-  return plan(
-    [{ path: `${dir}/events/${target.name}.event.ts`, content }],
-    [],
-    [
-      `Announce it: await this.emit(${name}, { id }) from an endpoint, a routine or a provider.`,
-      `React to it from any module: liteb listener <module>/<name>, then import this token.`,
-    ],
-  );
-}
-
-export interface SlotOptions extends CommonOptions {
-  target: string;
-}
-
-/**
- * An extension point this module opens for others to fill.
- *
- * Note the direction: the module that OPENS the slot is the one extensions
- * depend on. It knows nothing about who fills it, which is what lets it be
- * core while every contributor stays removable.
- */
-export function createSlot(options: SlotOptions): Plan {
-  const target = parseTarget(options.target, 'slot');
-  const dir = moduleDir(options, target.module);
-  const collection = toPascal(target.name);
-  // The token names the collection, the interface names ONE contribution.
-  // A trailing "s" is the usual difference; rename if it guessed wrong.
-  const item = collection.endsWith('s')
-    ? collection.slice(0, -1)
-    : `${collection}Entry`;
-  const from = relativeFrom(options.from, 3);
-
-  const content = `import { token } from '${from}';
-
-/**
- * The shape of ONE contribution.
- */
-export interface ${item} {
-  id: string;
-}
-
-/**
- * The point itself: "${target.module}" reads whoever is installed with
- * \`this.all(${collection})\`, and an empty array is a normal answer — a slot
- * nobody filled is a feature nobody installed.
- */
-${tokenDeclaration({
-  constName: collection,
-  typeName: item,
-  id: `${target.module}.${target.name}`,
-  kind: 'slot',
-})}
-`;
-
-  return plan(
-    [{ path: `${dir}/slots/${target.name}.slot.ts`, content }],
-    [],
-    [
-      `Read it: const filled = this.all(${collection});`,
-      `Fill it from another module: liteb provider <module>/<name> --slot ${target.name}`,
     ],
   );
 }
@@ -786,10 +742,8 @@ export const GENERATORS = {
   module: createModule,
   endpoint: createEndpoint,
   routine: createRoutine,
-  contract: createContract,
+  token: createToken,
   provider: createProvider,
-  event: createEvent,
-  slot: createSlot,
   listener: createListener,
   entity: createEntity,
   migration: createMigration,

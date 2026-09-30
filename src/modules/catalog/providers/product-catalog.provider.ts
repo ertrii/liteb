@@ -1,5 +1,5 @@
 import { Provider, Provides } from '../../../../lib';
-import { ProductCatalog } from '../contracts/product-catalog.contract';
+import { ProductCatalog } from '../tokens/product-catalog.token';
 import { Product } from '../entities/product.entity';
 
 @Provides(ProductCatalog)

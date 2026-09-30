@@ -65,6 +65,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to `{ token }`. Nothing else moves: the folders, the manifest fields and
   `this.get()` / `this.all()` / `this.emit()` are the same.
 
+- **Every token goes in `tokens/`, and one `liteb token` writes them.**
+  [BREAKING]
+
+  ```bash
+  liteb token identity/directory contract   # exactly one answers it
+  liteb token catalog/product-badges slot   # however many are installed fill it
+  liteb token billing/charge-issued event   # nobody answers it
+  ```
+
+  `liteb contract`, `liteb slot` and `liteb event` are gone, and so are the
+  three folders they wrote into. A module's public face is now
+  `tokens/*.token.ts` — one folder, one suffix, one command whose second
+  argument is the same one `token(id, kind)` takes inside the file.
+
+  Splitting them across `contracts/`, `slots/` and `events/` asked the author to
+  file a decision that the file already states in its second argument, and left
+  three near-identical commands to remember instead of one.
+
+  None of this is globbed, so nothing in the framework changes: a token is
+  imported by name, and the folder is a convention for people.
+
+  **Migrating:** move `contracts/x.contract.ts`, `slots/x.slot.ts` and
+  `events/x.event.ts` into `tokens/x.token.ts` and update the imports — they are
+  the only files another module imports, so the compiler finds every one of
+  them. `liteb provider --slot` and `liteb listener` now write their marker
+  import pointing at `@/<module>/tokens/…`.
+
 - **`auth` is required by `Liteb.create()`.** [BREAKING]
 
   It is the one option with no sensible default: any default the framework

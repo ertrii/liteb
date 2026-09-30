@@ -1,5 +1,5 @@
 import { Provider, Provides } from '../../../../lib';
-import { ThingCount } from '../contracts/thing-count.contract';
+import { ThingCount } from '../tokens/thing-count.token';
 
 /** Lo que el archivo exporta además del proveedor, que es lo normal. */
 export const NOT_A_PROVIDER = 42;

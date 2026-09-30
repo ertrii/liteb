@@ -337,15 +337,14 @@ en ellas — un token se importa por nombre:
 
 | Carpeta | Qué va adentro |
 | --- | --- |
-| `contracts/*.contract.ts` | los contratos que este módulo publica |
-| `events/*.event.ts` · `slots/*.slot.ts` | los eventos que anuncia, los puntos de extensión que abre |
+| `tokens/*.token.ts` | cada contrato, punto de extensión y evento que este módulo comparte |
 
 Juntas son la cara pública del módulo: los únicos archivos que otro módulo
 importa alguna vez — y la razón por la que `liteb init` escribe un alias de
 rutas, porque esas son las rutas profundas:
 
 ```typescript
-import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+import { UserDirectory } from '@/identity/tokens/user-directory.token';
 //                            ^ src/modules/, sin importar qué tan hondo estés
 ```
 
@@ -624,7 +623,7 @@ Las rutinas tienen el mismo `this.get()`.
 Un contrato está partido en dos a propósito, y viven en carpetas distintas.
 
 ```typescript
-// billing/contracts/billing-service.contract.ts — la promesa
+// billing/tokens/billing-service.token.ts — la promesa
 export interface BillingService {
   issueCharge(input: IssueChargeInput): Promise<Charge>;
 }

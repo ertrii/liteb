@@ -36,10 +36,8 @@ sin ella `npx liteb` trae la etiqueta `latest`, que es otro major con otro CLI.
 | [`entity <module>/<name>`](#liteb-entity-modulename) | Una entidad de TypeORM |
 | [`migration <module>/<name>`](#liteb-migration-modulename) | Una migración con sello de tiempo |
 | [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | La misma, escrita por TypeORM desde tus entidades |
-| [`contract <module>/<name>`](#liteb-contract-modulename) | Una capacidad que este módulo publica |
-| [`provider <module>/<name>`](#liteb-provider-modulename) | La clase que la responde |
-| [`event <module>/<name>`](#liteb-event-modulename) | Algo que este módulo anuncia |
-| [`slot <module>/<name>`](#liteb-slot-modulename) | Un punto de extensión que otros pueden llenar |
+| [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | Lo que este módulo comparte: contrato, slot o evento |
+| [`provider <module>/<name>`](#liteb-provider-modulename) | La clase que responde un contrato o llena un slot |
 | [`listener <module>/<name>`](#liteb-listener-modulename) | Una reacción a un evento |
 | [`migrate`](#liteb-migrate) | Corre las migraciones pendientes |
 | [`migrate:status`](#liteb-migratestatus) | Qué declara cada módulo, y qué ya corrió |
@@ -70,12 +68,12 @@ billing/
 ├── entities/*.entity.ts        migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
 ├── providers/*.provider.ts
-└── contracts/*.contract.ts     events/*.event.ts         slots/*.slot.ts
+└── tokens/*.token.ts           (contratos, slots y eventos)
 ```
 
-Las dos primeras filas son globs que liteb lee al arrancar. La última no: un
-token se importa por nombre, así que no hay nada que descubrir — esas carpetas
-existen para que las encuentres, y el CLI es lo que las mantiene consistentes.
+Las primeras filas son globs que liteb lee al arrancar. La última no: un token
+se importa por nombre, así que no hay nada que descubrir — esa carpeta existe
+para que la encuentres, y el CLI es lo que la mantiene consistente.
 
 Sólo dos ediciones tocan un archivo que el generador no escribió, y las dos
 tienen una forma lo bastante segura como para hacerlas sin parsear TypeScript:
@@ -318,7 +316,7 @@ disco no es donde nadie lee logs y los archivos se van con el contenedor.
 Para que el único import que cruza módulos deje de ser una escalera:
 
 ```typescript
-import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+import { UserDirectory } from '@/identity/tokens/user-directory.token';
 //                            ^ src/modules/, sin importar qué tan hondo esté el archivo
 ```
 
@@ -517,20 +515,42 @@ mismo DDL dos veces. Primero `liteb migrate`.
 
 ---
 
-## `liteb contract <module>/<name>`
+## `liteb token <module>/<name> <kind>`
 
 ```bash
-npx liteb contract identity/directory
+npx liteb token identity/directory contract   # lo responde exactamente uno
+npx liteb token catalog/product-badges slot   # lo llenan los que haya
+npx liteb token billing/charge-issued event   # no lo responde nadie
 ```
 
-Lo que otros módulos le pueden pedir a este. Escribe
-`contracts/<name>.contract.ts` con la interfaz y el token compartiendo nombre —
+Lo único que dos módulos comparten. Escribe `tokens/<name>.token.ts`, y el
+segundo argumento es el mismo que lleva `token(id, kind)` adentro del archivo:
+los tres se diferencian en una sola cosa, cuántos pueden responder.
+
+| kind | Quién responde | Cómo se lee |
+| --- | --- | --- |
+| `contract` | exactamente uno | `this.get(Token)`, y espera la respuesta |
+| `slot` | los que estén instalados | `this.all(Token)`; un arreglo vacío es normal |
+| `event` | nadie | no se lee: se anuncia con `this.emit(Token, carga)` |
+
+Con **`contract`**, la interfaz y el token comparten nombre a propósito:
 TypeScript tiene tipos y valores en espacios de nombres separados, así que un
 import te da tanto la forma que el compilador chequea como la identidad que el
-contenedor resuelve.
+contenedor resuelve. El consumidor importa este archivo y nada más de tu módulo.
 
-El consumidor importa este archivo y nada más de tu módulo. Cambiá cómo funciona
-y nada fuera de tu módulo se mueve.
+Con **`slot`** hay **dos** nombres: la interfaz es la forma de UNA contribución
+y el token nombra la colección. Y mirá la dirección — el módulo que abre el slot
+es del que dependen las extensiones: no sabe nada de quién lo llena, que es lo
+que le permite ser core mientras cada contribuyente sigue siendo removible.
+
+Con **`event`**, la carga tiene que llevar lo que un oyente necesita: los oyentes
+leen en su propia conexión, así que no pueden ver filas que una transacción
+todavía no confirmó. No hay respuesta, un oyente que lanza no hace fallar a quien
+emitió, y un evento que nadie escucha es normal.
+
+Los tres caen en la **misma** carpeta a propósito. Separarlos en `contracts/`,
+`slots/` y `events/` pedía archivar una decisión que ya está tomada adentro del
+archivo, en el segundo argumento.
 
 ---
 
@@ -563,46 +583,8 @@ Se construye la primera vez que alguien lo pide, y después se reutiliza — un
 contrato que nadie llama no cuesta nada.
 
 Con `--slot`, el import generado es un marcador que apunta a
-`@/<module>/slots/…`: el slot pertenece al módulo que lo **abrió**, y una
+`@/<module>/tokens/…`: el slot pertenece al módulo que lo **abrió**, y una
 extensión importa ese token, nunca al revés.
-
----
-
-## `liteb event <module>/<name>`
-
-```bash
-npx liteb event billing/charge-issued
-```
-
-Algo que este módulo anuncia, para quien esté escuchando. Escribe
-`events/<name>.event.ts`.
-
-**Un evento no es una llamada.** No hay respuesta, un oyente que lanza no hace
-fallar a quien emitió, y un evento que nadie escucha es normal. Cuando el
-resultado le importa a quien llama, eso es un contrato.
-
-La carga tiene que llevar lo que un oyente necesita: los oyentes leen en su
-propia conexión, así que no pueden ver filas que una transacción todavía no
-confirmó.
-
----
-
-## `liteb slot <module>/<name>`
-
-```bash
-npx liteb slot catalog/product-badges
-```
-
-Un punto de extensión que este módulo abre para que otros lo llenen. Escribe
-`slots/<name>.slot.ts` con dos nombres: la interfaz es la forma de **una**
-contribución, el token nombra la colección.
-
-**Mirá la dirección.** El módulo que abre el slot es del que dependen las
-extensiones: no sabe nada de quién lo llena, que es lo que le permite ser core
-mientras cada contribuyente sigue siendo removible. Al revés, el core dependería
-de sus propias extensiones y ninguna se podría quitar.
-
-Se lee con `this.all(Token)`. Un arreglo vacío es una respuesta normal.
 
 ---
 
@@ -619,7 +601,7 @@ El archivo generado declara un token marcador para que compile solo —
 reemplazalo con el import real del módulo que anuncia el evento:
 
 ```typescript
-import { ChargeIssued } from '@/billing/events/charge-issued.event';
+import { ChargeIssued } from '@/billing/tokens/charge-issued.token';
 ```
 
 Los oyentes corren sólo mientras su módulo está **encendido**, y leen en su

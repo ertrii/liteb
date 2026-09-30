@@ -37,10 +37,8 @@ different CLI.
 | [`entity <module>/<name>`](#liteb-entity-modulename) | A TypeORM entity |
 | [`migration <module>/<name>`](#liteb-migration-modulename) | A timestamped migration |
 | [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | The same, written from your entities by TypeORM |
-| [`contract <module>/<name>`](#liteb-contract-modulename) | A capability this module publishes |
-| [`provider <module>/<name>`](#liteb-provider-modulename) | The class that answers it |
-| [`event <module>/<name>`](#liteb-event-modulename) | Something this module announces |
-| [`slot <module>/<name>`](#liteb-slot-modulename) | An extension point others may fill |
+| [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | What this module shares: a contract, a slot or an event |
+| [`provider <module>/<name>`](#liteb-provider-modulename) | The class that answers a contract or fills a slot |
 | [`listener <module>/<name>`](#liteb-listener-modulename) | A reaction to an event |
 | [`migrate`](#liteb-migrate) | Runs the pending migrations |
 | [`migrate:status`](#liteb-migratestatus) | What each module declares, and what already ran |
@@ -71,7 +69,7 @@ billing/
 ├── entities/*.entity.ts        migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
 ├── providers/*.provider.ts
-└── contracts/*.contract.ts     events/*.event.ts         slots/*.slot.ts
+└── tokens/*.token.ts           (contracts, slots and events)
 ```
 
 The first two rows are globs liteb reads at boot. The last row is not: a token
@@ -312,7 +310,7 @@ the disk is not where anyone reads logs and the files go with the container.
 So the one import that crosses modules stops being a staircase:
 
 ```typescript
-import { UserDirectory } from '@/identity/contracts/user-directory.contract';
+import { UserDirectory } from '@/identity/tokens/user-directory.token';
 //                            ^ src/modules/, however deep the file is
 ```
 
@@ -508,19 +506,43 @@ run the same DDL twice. `liteb migrate` first.
 
 ---
 
-## `liteb contract <module>/<name>`
+## `liteb token <module>/<name> <kind>`
 
 ```bash
-npx liteb contract identity/directory
+npx liteb token identity/directory contract   # exactly one answers it
+npx liteb token catalog/product-badges slot   # however many are installed fill it
+npx liteb token billing/charge-issued event   # nobody answers it
 ```
 
-What other modules may ask this one for. Writes
-`contracts/<name>.contract.ts` with the interface and the token sharing a name
-— TypeScript keeps types and values in separate namespaces, so one import gives
-you both the shape the compiler checks and the identity the container resolves.
+The one thing two modules share. Writes `tokens/<name>.token.ts`, and the second
+argument is the same one `token(id, kind)` takes inside the file: the three
+differ in exactly one thing, how many may answer.
 
-The consumer imports this file and nothing else from your module. Change how it
-works and nothing outside your module moves.
+| kind | Who answers | How it is read |
+| --- | --- | --- |
+| `contract` | exactly one | `this.get(Token)`, and it waits for the answer |
+| `slot` | however many are installed | `this.all(Token)`; an empty array is normal |
+| `event` | nobody | it is not read: announce it with `this.emit(Token, payload)` |
+
+With **`contract`**, the interface and the token share a name on purpose:
+TypeScript keeps types and values in separate namespaces, so one import gives you
+both the shape the compiler checks and the identity the container resolves. The
+consumer imports this file and nothing else from your module.
+
+With **`slot`** there are **two** names: the interface is the shape of ONE
+contribution and the token names the collection. And watch the direction — the
+module that opens the slot is the one extensions depend on: it knows nothing
+about who fills it, which is what lets it be core while every contributor stays
+removable.
+
+With **`event`**, the payload has to carry what a listener needs: listeners read
+on their own connection, so they cannot see rows a transaction has not committed
+yet. There is no answer, a listener that throws does not fail whoever emitted,
+and an event nobody listens to is normal.
+
+All three land in the **same** folder on purpose. Splitting them across
+`contracts/`, `slots/` and `events/` asked you to file a decision already made
+inside the file, in the second argument.
 
 ---
 
@@ -553,45 +575,8 @@ It is built the first time someone asks for it, then reused — a contract nobod
 calls costs nothing.
 
 With `--slot`, the generated import is a placeholder pointing at
-`@/<module>/slots/…`: the slot belongs to the module that **opened** it, and an
+`@/<module>/tokens/…`: the slot belongs to the module that **opened** it, and an
 extension imports that token, never the other way round.
-
----
-
-## `liteb event <module>/<name>`
-
-```bash
-npx liteb event billing/charge-issued
-```
-
-Something this module announces, for whoever is listening. Writes
-`events/<name>.event.ts`.
-
-**An event is not a call.** There is no answer, a listener that throws does not
-fail whoever emitted, and an event nobody listens to is normal. When the
-outcome matters to the caller, that is a contract.
-
-The payload has to carry what a listener needs: listeners read on their own
-connection, so they cannot see rows a transaction has not committed yet.
-
----
-
-## `liteb slot <module>/<name>`
-
-```bash
-npx liteb slot catalog/product-badges
-```
-
-An extension point this module opens for others to fill. Writes
-`slots/<name>.slot.ts` with two names: the interface is the shape of **one**
-contribution, the token names the collection.
-
-**Watch the direction.** The module that opens the slot is the one extensions
-depend on: it knows nothing about who fills it, which is what lets it be core
-while every contributor stays removable. Backwards, core would depend on its
-own extensions and none of them could be removed.
-
-Read it with `this.all(Token)`. An empty array is a normal answer.
 
 ---
 
@@ -608,7 +593,7 @@ The generated file declares a placeholder token so it compiles on its own —
 replace it with the real import from the module that announces the event:
 
 ```typescript
-import { ChargeIssued } from '@/billing/events/charge-issued.event';
+import { ChargeIssued } from '@/billing/tokens/charge-issued.token';
 ```
 
 Listeners run only while their module is **enabled**, and they read on their

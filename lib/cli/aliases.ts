@@ -6,8 +6,8 @@ import slash from 'slash';
  * Path aliases, carried from the compiler into the build.
  *
  * `tsconfig`'s `paths` is a COMPILE-TIME map: `tsc` type-checks
- * `import { X } from '@/identity/contracts/x.contract'` and then emits
- * `require("@/identity/contracts/x.contract")` verbatim. Node has never heard
+ * `import { X } from '@/identity/tokens/x.token'` and then emits
+ * `require("@/identity/tokens/x.token")` verbatim. Node has never heard
  * of `@/`, so the build throws MODULE_NOT_FOUND on its first require — the
  * failure everyone hits once and nobody enjoys.
  *
