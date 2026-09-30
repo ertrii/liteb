@@ -414,6 +414,29 @@ Keep them distinct; collapsing any two is the easiest way to ruin this design.
 the other goes. They are otherwise structurally identical, and that one
 confusion is the one that matters: one provider versus many.
 
+**They are the EXTENSION surface, not the default tissue between modules.**
+A module is the unit of installation, and the test is whether it can be
+**absent**. An application whose modules all ship together — every one `core`,
+with permissions rather than installation deciding who sees what — has modules
+that are an organisation of the code, and between those a direct import is
+simpler and better typed. Of the five costs of a direct import that
+`docs/es/wiring.md` lists, only two survive when nothing is ever turned off: the
+import pulls the whole tree at boot, and two crossed imports still produce a
+mute `undefined`. Wiring still earns its place where the implementation must be
+swappable, where the other side is written by somebody else, or where the
+announcer must not break when a reaction fails — that last one has no import
+equivalent.
+
+The failure mode is not under-wiring. A wiring that is the exception gets read
+carefully; a wiring that is everywhere stops marking a boundary at all.
+
+Note what the manifest asks for, because it is the evidence: **`consumes` is a
+field and `provides` is not.** Provision is DISCOVERED — liteb reads
+`providers/` and takes the token off the decorator — while consumption has to be
+DECLARED, because the framework cannot see which contracts your code calls. That
+field buys exactly one thing: failing at boot instead of on the first request
+that needed it.
+
 ## Still missing in 2.0
 
 The license gate — which arguably does not belong in an MIT framework at all and
@@ -492,6 +515,24 @@ test. What would earn the file is what a project repeats on every invocation and
 is not a matter of taste — `--dir`, the entry file `liteb module` edits, the `@/`
 alias. Waiting for a SECOND such field, so it is born with two or three concrete
 ones instead of as a drawer.
+
+**The extension story, and the fork it waits on.** Decided 2026-09-30 that
+modules are organisation and are never turned off; extensions are a separate
+concern. What that needs is not designed yet, and one question blocks it: does an
+extension run IN this process (WordPress-shaped: hooks, shared database, and the
+host must survive bad third-party code) or OUTSIDE it (its own project, its own
+database, an HTTP contract)? They lead to different frameworks, and the answer
+depends on whether the authors are third parties or us.
+
+Measured against the hook model while comparing: liteb has actions
+(`emit`/`@On`) but **no filter** — nothing takes a value through N contributors
+in order and returns it changed. A slot folds to one in a line
+(`this.all(X).reduce(...)`), so the primitive may not be needed; what IS missing
+is **declared priority**. A slot's order is module dependency order — stable
+across boots, but a contributor cannot ask to run early, and in a chained filter
+that is the whole point. Also missing: **discovery**. Modules arrive as a list
+passed to `Liteb.create({ modules })`, and nobody can put a third party's plugin
+in a list written before it existed.
 
 **`ConfigService.get()`** still returns `string` for a key that may be missing.
 The options are to throw (with a `getOptional()` beside it) or to type it

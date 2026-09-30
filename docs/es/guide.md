@@ -610,6 +610,17 @@ antes de planificar alrededor:
 Un módulo alcanza a otro por su contrato, nunca importándolo — que es lo que
 permite que el proveedor cambie o se reemplace sin tocar a quienes lo llaman.
 
+> **Antes que nada, decidí si te hace falta.** Un módulo es la unidad de
+> instalación, y la prueba es si puede estar **ausente**. Cuando la respuesta es
+> "nunca" —todos se despliegan juntos y quién ve qué lo deciden los permisos y
+> no la instalación— esos módulos son una organización del código, y un import
+> directo entre ellos es más simple y mejor tipado. Contratos, slots y eventos
+> son la **superficie de extensión**: lo que permite que participe algo que no
+> escribiste, o que puede no estar instalado. No son el tejido por defecto entre
+> carpetas del mismo producto. Un cableado que es la excepción se lee con
+> atención; uno que está en todos lados deja de señalar un límite. Ver
+> [cuándo un import directo sí va](./wiring.md#cuándo-un-import-directo-sí-va).
+
 ```typescript
 @Group('sales')
 @HttpPost('/')

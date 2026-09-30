@@ -55,6 +55,56 @@ importa: una interfaz y un token. Un **cumplimiento**, que no se importa nunca:
 la clase que la responde. Quien llama depende de la promesa, y la promesa no
 depende de nada.
 
+### Cuándo un import directo SÍ va
+
+La lista de arriba no se aplica entera a cualquier aplicación, y tratarla como
+si se aplicara es lo que llena de ceremonia un proyecto que no la necesita.
+Empecemos por la pregunta de la que cuelga todo:
+
+> **Un módulo es la unidad de instalación. La prueba es: ¿puede estar ausente?**
+
+Si la respuesta es "nunca", eso no es un módulo instalable: es una **carpeta**,
+una división del código para que la gente se oriente. Las dos cosas se declaran
+igual en liteb —`defineModule()`— y ahí está la trampa: la palabra hace dos
+trabajos.
+
+Para una aplicación donde **ningún módulo se apaga** (todos `core: true`, y quién
+ve qué lo deciden los permisos, no la instalación), de los cinco costos de arriba
+sobreviven dos y medio:
+
+| Costo del import directo | ¿Sigue valiendo con módulos siempre presentes? |
+| --- | --- |
+| no se puede apagar | **no** — nada se apaga |
+| el CLI no puede instalar uno sin el otro | **no** — se instalan juntos siempre |
+| no se puede reemplazar | **a medias** — es disciplina, no necesidad, si el código es tuyo |
+| arrastra su árbol entero al arrancar | **sí** — el import carga todo aunque la petición nunca pase |
+| el orden de carga empieza a importar | **sí** — dos imports cruzados siguen dando un `undefined` mudo |
+
+O sea: quedan un costo de arranque y un riesgo de ciclos. Reales, pero no son el
+argumento de "dos módulos tienen que poder no conocerse", porque en ese
+escenario **siempre se conocen**.
+
+De ahí la regla:
+
+> **Si dos módulos siempre van juntos y ninguno va a estar sin el otro,
+> importá directo. El cableado no se justifica solo.**
+>
+> **Las tres formas de esta página son la superficie de EXTENSIÓN** — lo que
+> permite que algo que no escribiste, o que puede no estar instalado, participe.
+> No son el tejido por defecto entre carpetas del mismo producto.
+
+Un cableado bien puesto es la excepción visible, y por eso se lee con atención.
+Cuando es el tejido por defecto, deja de decir nada: si todo pasa por un token,
+el token dejó de señalar un límite.
+
+Dónde sigue valiendo la pena aunque nada se apague:
+
+- Cuando de verdad querés poder **cambiar la implementación** sin tocar a quien
+  llama — una pasarela, un proveedor de mensajería, un almacenamiento.
+- Cuando el otro lado lo escribe **alguien más**, ahora o después.
+- Cuando el que avisa **no debe romperse** si quien reacciona falla: eso es un
+  evento, y no tiene sustituto por import.
+
 ## 2. Las tres formas
 
 | | Qué dice | Cuántos responden | Quién lee | Si no hay nadie | Si falla |

@@ -552,6 +552,19 @@ around it:
 A module reaches another through its contract, never by importing it — which is
 what lets the provider change or be swapped without touching its callers.
 
+> **First, decide whether you need this at all.** A module is the unit of
+> installation, and the test is whether it can be **absent**. When the answer is
+> never — every module ships together and who sees what is decided by
+> permissions rather than by installation — those modules are an organisation of
+> the code, and a direct import between them is simpler and better typed.
+> Contracts, extension points and events are the **extension surface**: what
+> lets something you did not write, or that may not be installed, take part.
+> They are not the default tissue between folders of the same product. A wiring
+> that is the exception is read carefully; a wiring that is everywhere stops
+> marking a boundary at all. See
+> [when a direct import is fine](../es/wiring.md#cuándo-un-import-directo-sí-va)
+> (Spanish; the English page is owed).
+
 ```typescript
 @Group('sales')
 @HttpPost('/')
