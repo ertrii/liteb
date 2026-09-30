@@ -5,6 +5,7 @@ import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import { currentRequestId, defineModule, Liteb } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 /**
  * Un id por petición, en la cabecera, en el cuerpo del error y en cada línea
@@ -28,6 +29,7 @@ describe('x-request-id', () => {
   beforeAll(async () => {
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [site],
       version: '2.0.0',
@@ -95,6 +97,7 @@ describe('x-request-id', () => {
     // Reusa el MISMO DataSource: `createTestDb()` cierra el anterior, que es
     // el que está sirviendo a esta suite.
     const suya = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [],
       version: '2.0.0',
@@ -114,7 +117,12 @@ describe('x-request-id', () => {
     // El id viaja en AsyncLocalStorage, no pasado como parámetro. Las líneas
     // que interesa correlacionar son las que se escriben adentro —un
     // proveedor, un oyente, un repositorio— y ninguna recibió nada.
-    const suya = await Liteb.create({ db, modules: [], version: '2.0.0' });
+    const suya = await Liteb.create({
+      auth: cualquiera,
+      db,
+      modules: [],
+      version: '2.0.0',
+    });
 
     let visto: string | null = 'no corrió';
     suya.use(async (_req, res, next) => {

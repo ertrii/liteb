@@ -14,6 +14,7 @@ import {
 } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { visto } from './fixtures/events/shared';
+import { cualquiera } from './helpers/auth';
 
 const fakeDb = {} as DataSource;
 
@@ -124,6 +125,7 @@ describe('eventos entre módulos', () => {
 
   const boot = async () => {
     app = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [emisor(), oyente()],
       version: '2.0.0-dev.0',

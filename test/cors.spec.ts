@@ -4,6 +4,7 @@ import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import { CorsConfig, CorsConfigError, Liteb } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 /**
  * CORS: el mecanismo lo pone liteb, la política la pone la aplicación — el
@@ -19,7 +20,13 @@ describe('CORS', () => {
 
   const build = async (cors: CorsConfig) => {
     db = await createTestDb();
-    app = await Liteb.create({ db, modules: [], version: '2.0.0', cors });
+    app = await Liteb.create({
+      auth: cualquiera,
+      db,
+      modules: [],
+      version: '2.0.0',
+      cors,
+    });
     await app.start(0);
     return app.getApp();
   };
@@ -111,6 +118,7 @@ describe('CORS', () => {
 
     await expect(
       Liteb.create({
+        auth: cualquiera,
         db,
         modules: [],
         version: '2.0.0',
@@ -124,6 +132,7 @@ describe('CORS', () => {
 
     await expect(
       Liteb.create({
+        auth: cualquiera,
         db,
         modules: [],
         version: '2.0.0',
@@ -134,7 +143,12 @@ describe('CORS', () => {
 
   it('sin la opción no se manda ninguna cabecera', async () => {
     db = await createTestDb();
-    app = await Liteb.create({ db, modules: [], version: '2.0.0' });
+    app = await Liteb.create({
+      auth: cualquiera,
+      db,
+      modules: [],
+      version: '2.0.0',
+    });
     await app.start(0);
 
     const res = await request(app.getApp())

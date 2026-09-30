@@ -65,7 +65,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to `{ token }`. Nothing else moves: the folders, the manifest fields and
   `this.get()` / `this.all()` / `this.emit()` are the same.
 
+- **`auth` is required by `Liteb.create()`.** [BREAKING]
+
+  It is the one option with no sensible default: any default the framework
+  picked would be the framework deciding who may do what. An application that
+  gates nothing writes one all the same —
+  `auth: defineAuth(async () => ({ actor: {} as LitebAuth.Actor, permissions: ['*'] }))`
+  — because "everyone is allowed" is an answer somebody chose, and it should
+  read like one instead of being the silence of an option nobody passed.
+
+  **Migrating:** pass `auth` wherever `Liteb.create()` is called. `liteb init`
+  already writes one and `src/index.ts` already passes it, so a scaffolded
+  project needs no change.
+
 ### Fixed
+
+- **A scaffolded project could not use the session it was told to use.** The
+  generated resolver reads `request.session?.userId` and a login writes
+  `this.request.session.userId`, and neither compiled: `express-session` was in
+  no dependency list, so the type did not exist — and `declare module
+  'express-session'` cannot augment a module that does not resolve.
+
+  `liteb init` now writes `src/config/session.ts`: `express-session` mounted
+  with an `httpOnly` cookie, `saveUninitialized: false` so a visitor who never
+  signs in gets no cookie, and the `SessionData` declaration that types what the
+  session carries. `src/index.ts` mounts it ahead of the routes, `.env` gets a
+  `SESSION_SECRET` generated for that project, and the package and its types are
+  in `dependencies` / `devDependencies`.
+
+  The default store is in-memory, which the file says in as many words: lost on
+  restart, and invisible to a second process. It is a development default, not a
+  deployment one.
+
+- **The scaffolded actor was a lie.** `actor: {} as LitebAuth.Actor` meant that
+  the moment an application declared `interface Actor { userId: number }` —
+  which the scaffold now does for you — `this.auth.actor.userId` was typed
+  `number` and was `undefined` at run time. The default resolver now returns
+  `{ userId: request.session?.userId ?? 0 }`, so it is half real from the start:
+  `0` is nobody, and a login that writes the session makes it the signed-in user
+  in every endpoint. It still grants `*`, and still says so in the log.
 
 - **`emit()` accepted a contract or a slot, and then reached nobody.**
   `EventToken` carried no `kind`, so it was structurally a subset of both:

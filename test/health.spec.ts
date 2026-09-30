@@ -12,6 +12,7 @@ import type { DataSource } from 'typeorm';
 import { buildHealth, Liteb } from '../lib';
 import type { HealthConfig } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 /**
  * El chequeo de salud es el contrato con TODO lo que corre un backend: un
@@ -36,6 +37,7 @@ describe('/health', () => {
 
   const build = async (health: HealthConfig = {}) => {
     app = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [],
       version: '3.1.0',
@@ -174,6 +176,7 @@ describe('/health', () => {
     // silencio a la de la base y el endpoint diría pass sin haberla mirado.
     await expect(
       Liteb.create({
+        auth: cualquiera,
         db,
         modules: [],
         health: { checks: { database: () => true } },
@@ -182,7 +185,12 @@ describe('/health', () => {
   });
 
   it('sin la opción no hay endpoint', async () => {
-    app = await Liteb.create({ db, modules: [], version: '3.1.0' });
+    app = await Liteb.create({
+      auth: cualquiera,
+      db,
+      modules: [],
+      version: '3.1.0',
+    });
     await app.start(0);
 
     expect((await request(app.getApp()).get('/health')).status).toBe(404);

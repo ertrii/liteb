@@ -28,6 +28,7 @@ import {
   ResolvedModule,
 } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 /**
  * El CLI escribe la FORMA de un módulo, y esta prueba es la razón por la que
@@ -254,7 +255,61 @@ describe('liteb init', () => {
       'src/index.ts',
       'src/config/permissions.ts',
       'src/config/auth.ts',
+      'src/config/session.ts',
     ]);
+  });
+
+  it('la sesión viene puesta: sin eso, `request.session` no compila', () => {
+    const archivos = createProject({ name: 'mi-app', litebVersion }).files;
+    const busca = (ruta: string) =>
+      archivos.find((file) => file.path === ruta)!.content;
+
+    // El caso que esto ataja: el resolutor de auth que se genera lee
+    // `request.session?.userId`, y un login escribe `this.request.session`.
+    // Sin el paquete Y sus tipos, ninguna de las dos cosas compila, y
+    // `declare module 'express-session'` tampoco puede aumentar un módulo que
+    // no se resuelve.
+    const pkg = JSON.parse(busca('package.json'));
+    expect(pkg.dependencies['express-session']).toBeDefined();
+    expect(pkg.devDependencies['@types/express-session']).toBeDefined();
+
+    // Lo que lleva la sesión se declara una vez, y queda tipado en todos lados.
+    const session = busca('src/config/session.ts');
+    expect(session).toContain("declare module 'express-session'");
+    expect(session).toContain('interface SessionData');
+    expect(session).toContain('userId?: number');
+    // Sin cookie para quien nunca inició sesión.
+    expect(session).toContain('saveUninitialized: false');
+    expect(session).toContain('httpOnly: true');
+
+    // Y montado ANTES de las rutas, o lo que el login escriba no se lee.
+    const index = busca('src/index.ts');
+    expect(index).toContain("import session from './config/session'");
+    expect(index).toContain('app.use(session);');
+
+    // El secreto se genera por proyecto: uno por defecto que nadie cambia es
+    // lo mismo que no firmar la cookie.
+    const env = busca('.env');
+    expect(env).toMatch(/^SESSION_SECRET=[0-9a-f]{64}$/m);
+    // Y NO viaja en la plantilla que se commitea.
+    expect(busca('.env.template')).toContain('SESSION_SECRET=');
+    expect(busca('.env.template')).not.toMatch(/SESSION_SECRET=.+/);
+  });
+
+  it('el actor generado tiene forma, y el userId sale de la sesión', () => {
+    const archivos = createProject({ name: 'mi-app', litebVersion }).files;
+    const auth = archivos.find(
+      (file) => file.path === 'src/config/auth.ts',
+    )!.content;
+
+    // `{} as LitebAuth.Actor` mentía: en cuanto la app declara `userId`,
+    // `this.auth.actor.userId` decía `number` y valía `undefined`.
+    expect(auth).not.toContain('{} as LitebAuth.Actor');
+    expect(auth).toContain('interface Actor');
+    expect(auth).toContain('userId: number');
+    expect(auth).toContain('request.session?.userId ?? 0');
+    // Y sigue sin bloquear nada mientras no haya autenticación de verdad.
+    expect(auth).toContain("permissions: ['*']");
   });
 
   it('el formato del documento queda decidido, no a criterio de cada editor', () => {
@@ -678,6 +733,7 @@ describe('un módulo generado y puesto a andar', () => {
     expect(abierto).not.toContain('this.auth');
 
     const sinAuth = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [
         require(path.join(workspace, modulesDir, 'inventory/module.ts'))

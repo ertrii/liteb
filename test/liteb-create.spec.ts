@@ -9,6 +9,7 @@ import { collectModuleEntities } from '../lib/modules/collect-entities';
 import { ModuleDefinitionError } from '../lib/modules/module-manifest';
 import { Product } from './fixtures/modules/catalog/product.entity';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 const catalogDir = path.join(__dirname, 'fixtures/modules/catalog');
 
@@ -85,6 +86,7 @@ describe('Liteb.create', () => {
 
   it('registra las entidades del módulo en el DataSource', async () => {
     app = await Liteb.create({
+      auth: cualquiera,
       db: {
         type: 'postgres',
         driver: new PGliteDriver().driver,
@@ -107,7 +109,12 @@ describe('Liteb.create', () => {
   it('acepta un DataSource ya construido', async () => {
     const db: DataSource = await createTestDb();
 
-    app = await Liteb.create({ db, modules: [], version: '2.0.0-dev.0' });
+    app = await Liteb.create({
+      auth: cualquiera,
+      db,
+      modules: [],
+      version: '2.0.0-dev.0',
+    });
     await app.start(0);
 
     expect(app.getApp()).toBeDefined();
@@ -119,6 +126,7 @@ describe('Liteb.create', () => {
 
     await expect(
       Liteb.create({
+        auth: cualquiera,
         db: { type: 'postgres', database: 'x' } as never,
         modules: [a, b],
       }),
@@ -127,7 +135,7 @@ describe('Liteb.create', () => {
 
   it('sin módulos arranca, pero avisa que no servirá nada', async () => {
     const db = await createTestDb();
-    app = await Liteb.create({ db, modules: [] });
+    app = await Liteb.create({ auth: cualquiera, db, modules: [] });
 
     // No es fatal: una app puede montar handlers propios con getApp(). Pero
     // desde que los módulos son el único camino para rutas y tareas, una lista

@@ -69,10 +69,20 @@ export interface LitebOptions {
   version?: string;
 
   /**
-   * Turns a request into whoever is behind it. Without one, `this.auth` in an
-   * endpoint stays anonymous and reading `this.auth.actor` is an error.
+   * Turns a request into whoever is behind it.
+   *
+   * Required, and it is the one option with no sensible default: a framework
+   * that decided this for you would be deciding who may do what. Returning
+   * `null` is how it says nobody is behind this request, and that `null` is
+   * what turns `this.auth.assert(...)` into a 401.
+   *
+   * An application that gates nothing still writes one — `defineAuth(async
+   * () => ({ actor: {} as LitebAuth.Actor, permissions: ['*'] }))` — because
+   * "everyone is allowed" is an answer somebody chose, and it reads like one.
+   * `liteb init` writes exactly that, so a new project answers from the first
+   * request.
    */
-  auth?: AuthResolver;
+  auth: AuthResolver;
 
   /**
    * Who may call this API from a browser. Left out, no CORS headers are sent,
@@ -153,7 +163,7 @@ export default class Liteb extends Server {
   private container?: Container;
   private events?: EventBus;
   private permissionRegistry = new PermissionRegistry();
-  private authResolver?: AuthResolver;
+  private authResolver: AuthResolver;
   private moduleRoutines: Array<new () => Routine> = [];
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;

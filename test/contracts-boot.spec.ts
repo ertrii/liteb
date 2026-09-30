@@ -7,6 +7,7 @@ import { defineModule } from '../lib/modules/define-module';
 import { ModuleStore } from '../lib/modules/module-store';
 import { BillingService } from './fixtures/modules/contracts';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 const salesDir = path.join(__dirname, 'fixtures/modules/sales');
 const billingDir = path.join(__dirname, 'fixtures/modules/billing');
@@ -44,6 +45,7 @@ describe('contratos entre módulos', () => {
 
   const boot = async (modules: ReturnType<typeof billing>[]) => {
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: modules,
       version: '2.0.0-dev.0',
@@ -74,6 +76,7 @@ describe('contratos entre módulos', () => {
     });
 
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [billingOpcional, sales()],
       version: '2.0.0-dev.0',
@@ -97,6 +100,7 @@ describe('contratos entre módulos', () => {
     });
 
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [billingMudo, sales()],
       version: '2.0.0-dev.0',
@@ -117,7 +121,7 @@ describe('contratos entre módulos', () => {
 
   it('sin módulos, pedir un contrato explica qué falta', async () => {
     db = await createTestDb();
-    app = await Liteb.create({ db, modules: [] });
+    app = await Liteb.create({ auth: cualquiera, db, modules: [] });
     await app.start(0);
 
     // Un endpoint suelto sin contenedor: el mensaje debe decir qué hacer.

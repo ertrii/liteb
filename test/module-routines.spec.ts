@@ -6,6 +6,7 @@ import { defineModule } from '../lib/modules/define-module';
 import { ModuleStore } from '../lib/modules/module-store';
 import { beats, heard } from './fixtures/modules/heartbeat/shared';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 const heartbeatDir = path.join(__dirname, 'fixtures/modules/heartbeat');
 
@@ -48,6 +49,7 @@ describe('rutinas de los módulos', () => {
   it('arranca la rutina de un módulo habilitado', async () => {
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [heartbeat(true)],
       version: '2.0.0-dev.0',
@@ -63,6 +65,7 @@ describe('rutinas de los módulos', () => {
     // exactamente lo que no se nota hasta que importa.
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [heartbeat(true)],
       version: '2.0.0-dev.0',
@@ -75,6 +78,7 @@ describe('rutinas de los módulos', () => {
   it('le inyecta db y contenedor, como a un endpoint', async () => {
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [heartbeat(true)],
       version: '2.0.0-dev.0',
@@ -90,6 +94,7 @@ describe('rutinas de los módulos', () => {
   it('NO arranca la rutina de un módulo apagado', async () => {
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [heartbeat(false)],
       version: '2.0.0-dev.0',
@@ -105,6 +110,7 @@ describe('rutinas de los módulos', () => {
     db = await createTestDb();
 
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [heartbeat(false)],
       version: '2.0.0-dev.0',
@@ -114,6 +120,7 @@ describe('rutinas de los módulos', () => {
     await app.close({ database: false });
 
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [heartbeat(false)],
       version: '2.0.0-dev.0',
@@ -126,6 +133,7 @@ describe('rutinas de los módulos', () => {
   it('cerrar la aplicación detiene la rutina', async () => {
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [heartbeat(true)],
       version: '2.0.0-dev.0',

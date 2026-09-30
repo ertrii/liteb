@@ -34,9 +34,10 @@ abierta, así cerrarla después es un solo archivo.
 
 Reemplazá su cuerpo (paso 3) y todo lo ya escrito empieza a aplicarse.
 
-Igual, `auth` es opcional para el framework: un endpoint que nunca lee
-`this.auth` no necesita resolutor, y una aplicación hecha sólo de esos corre sin
-ningún cableado de autorización. Eso es lo que anda `--public`.
+`auth` es obligatorio en `Liteb.create()`, así que la pregunta "quién llama"
+siempre tiene una respuesta elegida. Lo que sigue siendo opcional es
+**gatear**: un endpoint que nunca lee `this.auth` no comprueba nada, y eso es lo
+que anda `--public`.
 
 ```typescript
 @HttpGet()

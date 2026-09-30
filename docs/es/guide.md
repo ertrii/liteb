@@ -854,11 +854,21 @@ entrada `files` mal puesta.
 > Paso a paso, con recetas y una tabla de diagnóstico:
 > [docs/authorization.md](./authorization.md).
 
-`auth` es **opcional** para el framework: un endpoint que nunca lee `this.auth`
-no necesita resolutor, y una API de endpoints simples se levanta sin decidir
-primero quiénes son tus usuarios.
+`auth` es **obligatorio**. Es la única opción sin un valor por defecto sensato:
+cualquiera que el framework eligiera sería el framework decidiendo quién puede
+hacer qué. Una aplicación que no gatea nada igual escribe uno —
 
-Un proyecto hecho con `liteb init` igual tiene uno. `src/config/auth.ts` deja
+```typescript
+auth: defineAuth(async () => ({
+  actor: {} as LitebAuth.Actor,
+  permissions: ['*'],
+})),
+```
+
+— porque "pasan todos" es una respuesta que alguien eligió, y así se lee como
+tal en vez de ser el silencio de una opción que nadie puso.
+
+Un proyecto hecho con `liteb init` ya lo trae escrito. `src/config/auth.ts` deja
 pasar a TODOS con todos los permisos — no es autenticación, pero alcanza para que
 `this.auth`, `this.auth.assert(...)` y las claves chequeadas por el compilador
 funcionen desde la primera petición. Por eso el andamiaje escribe la línea

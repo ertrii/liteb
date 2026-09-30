@@ -120,6 +120,7 @@ eslint.config.mjs     flat config; formatting left to Prettier
 src/index.ts          createApp() separated from main()
 src/config/permissions.ts
 src/config/auth.ts
+src/config/session.ts cookie sessions, and what they carry
 ```
 
 Three things in there are worth knowing about, because getting any of them
@@ -145,6 +146,18 @@ holds a resolver that lets **everyone** through with every permission, and
 all work on the first request, so replacing it later is one file and not a
 migration of every endpoint you wrote in the meantime. It says so in the log,
 once, the first time it lets a request through.
+
+**Sessions are wired.** `src/config/session.ts` mounts `express-session` with an
+`httpOnly` cookie and none handed to visitors who never sign in, declares what
+the session carries — `userId`, to start — and `src/index.ts` mounts it ahead of
+the routes. `.env` gets a `SESSION_SECRET` generated for that project. Without
+this the generated resolver could not read `request.session?.userId` and a login
+could not write `this.request.session`: the type does not exist until the
+package **and** its types are installed.
+
+> The default store lives in memory: it is lost on every restart, and a second
+> process does not see the first one's sessions. When this has users, put the
+> sessions in the database you already run and pass it as `store`.
 
 `src/config/permissions.ts` starts with its `declare global` block already
 open. It is empty until the first module; `liteb module` appends one block per

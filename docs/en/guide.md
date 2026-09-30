@@ -802,11 +802,21 @@ resolves through symlinks and can hide a missing file or a bad `files` entry.
 > Step by step, with recipes and a troubleshooting table:
 > [docs/authorization.md](./authorization.md).
 
-`auth` is **optional** to the framework: an endpoint that never reads
-`this.auth` needs no resolver, and an API of plain endpoints stands up without
-deciding who your users are first.
+`auth` is **required**. It is the one option with no sensible default: any
+default the framework picked would be the framework deciding who may do what. An
+application that gates nothing writes one all the same —
 
-A project made by `liteb init` has one anyway. `src/config/auth.ts` lets
+```typescript
+auth: defineAuth(async () => ({
+  actor: {} as LitebAuth.Actor,
+  permissions: ['*'],
+})),
+```
+
+— because "everyone is allowed" is an answer somebody chose, and this way it
+reads like one instead of being the silence of an option nobody passed.
+
+A project made by `liteb init` comes with it written. `src/config/auth.ts` lets
 EVERYONE through with every permission — not authentication, but enough that
 `this.auth`, `this.auth.assert(...)` and the compiler-checked permission keys
 all work from the first request. So the scaffold writes the

@@ -34,9 +34,9 @@ later is one file.
 
 Replace its body (step 3) and everything already written starts being enforced.
 
-`auth` is optional to the framework, all the same: an endpoint that never reads
-`this.auth` needs no resolver, and an application made only of those runs with
-no authorization wiring whatsoever. That is what `--public` scaffolds.
+`auth` is required by `Liteb.create()`, so "who is calling" always has an
+answer somebody chose. What stays optional is **gating**: an endpoint that never
+reads `this.auth` checks nothing, and that is what `--public` scaffolds.
 
 ```typescript
 @HttpGet()

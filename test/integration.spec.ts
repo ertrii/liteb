@@ -6,6 +6,7 @@ import request from 'supertest';
 import { defineModule, Liteb } from '../lib';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 /**
  * The fixtures mounted as what they would be in a real app: a module. Since
@@ -67,6 +68,7 @@ const rawRequest = (method: string, pathname: string, body?: unknown) =>
 beforeAll(async () => {
   const db = await createTestDb();
   liteb = await Liteb.create({
+    auth: cualquiera,
     db,
     modules: [fixtures],
     version: '2.0.0-dev.0',

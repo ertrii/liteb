@@ -120,6 +120,7 @@ eslint.config.mjs     flat config; el formato queda para Prettier
 src/index.ts          createApp() separado de main()
 src/config/permissions.ts
 src/config/auth.ts
+src/config/session.ts sesión por cookie, y qué lleva adentro
 ```
 
 Tres cosas de ahí conviene conocerlas, porque equivocarse en cualquiera cuesta
@@ -145,6 +146,18 @@ se lo pasa. Eso no es autenticación — es lo que hace que `this.auth`,
 funcionen en la primera petición, así reemplazarlo después es un archivo y no una
 migración de todos los endpoints que escribiste mientras tanto. Lo dice en el
 log, una vez, la primera vez que deja pasar una petición.
+
+**La sesión viene puesta.** `src/config/session.ts` monta `express-session` con
+la cookie `httpOnly` y sin entregarle una a quien nunca inicia sesión, declara
+qué lleva la sesión adentro —`userId`, para empezar— y `src/index.ts` la monta
+antes de las rutas. `.env` recibe un `SESSION_SECRET` generado para ese
+proyecto. Sin esto, el resolutor que se genera no podría leer
+`request.session?.userId` ni un login escribir `this.request.session`: el tipo
+no existe hasta que el paquete **y** sus tipos están instalados.
+
+> El store por defecto vive en memoria: se pierde en cada reinicio y un segundo
+> proceso no ve las sesiones del primero. Cuando esto tenga usuarios, poné las
+> sesiones en la base que ya corrés y pasala como `store`.
 
 `src/config/permissions.ts` arranca con su bloque `declare global` ya abierto.
 Está vacío hasta el primer módulo; `liteb module` le añade un bloque por módulo y

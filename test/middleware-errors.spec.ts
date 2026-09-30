@@ -4,6 +4,7 @@ import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import { Liteb, NotFoundError } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 /**
  * Lo que lanza un MIDDLEWARE sale con el mismo contrato que un endpoint.
@@ -20,7 +21,12 @@ describe('un middleware que lanza', () => {
 
   const build = async (middleware: Parameters<Liteb['use']>[0]) => {
     db = await createTestDb();
-    app = await Liteb.create({ db, modules: [], version: '2.0.0' });
+    app = await Liteb.create({
+      auth: cualquiera,
+      db,
+      modules: [],
+      version: '2.0.0',
+    });
     app.use(middleware);
     await app.start(0);
     return app.getApp();

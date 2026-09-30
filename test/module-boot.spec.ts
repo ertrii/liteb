@@ -7,6 +7,7 @@ import { defineModule } from '../lib/modules/define-module';
 import { ModuleStore } from '../lib/modules/module-store';
 import { ModuleMigrator } from '../lib/modules/module-migrator';
 import { closeTestDb, createTestDb, tableNames } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 const billingDir = path.join(__dirname, 'fixtures/modules/billing');
 
@@ -61,6 +62,7 @@ describe('un grupo con su propio basePath', () => {
     // vaya a enlazar, pero `/api/tienda/items` sí es la API.
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [site()],
       basePath: '/api',
@@ -76,6 +78,7 @@ describe('un grupo con su propio basePath', () => {
   it('y ninguna de las dos contesta en el lugar de la otra', async () => {
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [site()],
       basePath: '/api',
@@ -95,6 +98,7 @@ describe('arranque con módulos', () => {
 
   const boot = async (modules: ReturnType<typeof billing>[]) => {
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: modules,
       version: '2.0.0-dev.0',
@@ -155,6 +159,7 @@ describe('arranque con módulos', () => {
 
     // Segundo arranque, misma base: ahora monta.
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [news()],
       version: '2.0.0-dev.0',
@@ -171,6 +176,7 @@ describe('arranque con módulos', () => {
     await app.close({ database: false });
 
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [billing()],
       version: '2.0.0-dev.0',
@@ -190,6 +196,7 @@ describe('arranque con módulos', () => {
     });
 
     app = await Liteb.create({
+      auth: cualquiera,
       db: db,
       modules: [futuro],
       version: '2.0.0-dev.0',
@@ -207,14 +214,13 @@ describe('arranque con módulos', () => {
       requires: ['fantasma'],
     });
 
-    app = await Liteb.create({ db, modules: [huerfano] });
-
+    app = await Liteb.create({ auth: cualquiera, db, modules: [huerfano] });
     await expect(app.start(0)).rejects.toThrow(/is not installed/);
   });
 
   it('sin módulos, el arranque es el de siempre', async () => {
     db = await createTestDb();
-    app = await Liteb.create({ db, modules: [] });
+    app = await Liteb.create({ auth: cualquiera, db, modules: [] });
     await app.start(0);
 
     expect(await tableNames(db)).not.toContain('_modules');

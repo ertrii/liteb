@@ -4,6 +4,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import Liteb from '../lib/core/liteb';
 import { defineModule } from '../lib/modules/define-module';
 import { closeTestDb, createTestDb, tableNames } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 /**
  * Migrar sin levantar el servidor.
@@ -62,7 +63,12 @@ describe('app.migrate()', () => {
   let app: Liteb;
 
   const build = async (modules: ReturnType<typeof billing>[]) => {
-    app = await Liteb.create({ db, modules, version: '2.0.0' });
+    app = await Liteb.create({
+      auth: cualquiera,
+      db,
+      modules,
+      version: '2.0.0',
+    });
     return app;
   };
 
@@ -137,6 +143,7 @@ describe('app.migrationStatus()', () => {
   it('dice qué declaró cada módulo y qué de eso ya corrió', async () => {
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [billing(), news()],
       version: '2.0.0',
@@ -168,6 +175,7 @@ describe('app.migrationStatus()', () => {
     // el archivo existe pero el índice no lo exporta.
     db = await createTestDb();
     app = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [sinMigraciones()],
       version: '2.0.0',

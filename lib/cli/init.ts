@@ -1,4 +1,5 @@
 import { execFileSync } from 'child_process';
+import { randomBytes } from 'crypto';
 import { CliError, toKebab } from './names';
 import { plan, Plan } from './plan';
 
@@ -43,6 +44,7 @@ export function createProject(options: InitOptions): Plan {
   "dependencies": {
     "class-validator": "^0.14.0",
     "express": "^4.18.2",
+    "express-session": "^1.18.1",
     "liteb": "${options.litebVersion}",
     "pg": "^8.11.2",
     "reflect-metadata": "^0.1.13",
@@ -51,6 +53,7 @@ export function createProject(options: InitOptions): Plan {
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/express": "^4.17.21",
+    "@types/express-session": "^1.18.0",
     "@types/node": "^24.0.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
@@ -110,6 +113,7 @@ export function createProject(options: InitOptions): Plan {
 
   const index = `import { ConfigService, Liteb } from 'liteb';
 import auth from './config/auth';
+import session from './config/session';
 
 /**
  * The application: a database, the modules it is made of, and how a request
@@ -118,7 +122,7 @@ import auth from './config/auth';
  * Exported so a test or a script can build it without starting a server.
  */
 export async function createApp() {
-  return Liteb.create({
+  const app = await Liteb.create({
     db: {
       type: 'postgres',
       host: ConfigService.get('DB_HOST'),
@@ -199,6 +203,13 @@ export async function createApp() {
     // written yet. Replace it before this has users.
     auth,
   });
+
+  // Cookie sessions, before the routes: what a login writes into
+  // \`this.request.session\` is what src/config/auth.ts reads back on the next
+  // request. Middleware added here runs ahead of every module's routes.
+  app.use(session);
+
+  return app;
 }
 
 async function main() {
@@ -210,8 +221,17 @@ async function main() {
 if (require.main === module) void main();
 `;
 
+  // Generated per project rather than left as a placeholder: a shared secret
+  // signs every session cookie, and a default one that nobody changes is the
+  // same as no signature at all.
+  const sessionSecret = randomBytes(32).toString('hex');
+
   const env = `NODE_ENV=development
 SERVER_PORT=3000
+
+# Signs the session cookie. Generated for this project; changing it logs
+# everyone out, and every process serving this app needs the same value.
+SESSION_SECRET=${sessionSecret}
 
 # Origins allowed to call this API from a browser, comma separated. Exact,
 # with scheme and port. Empty means no browser may.
@@ -445,7 +465,69 @@ declare global {
 }
 `;
 
+  const sessionFile = `import session from 'express-session';
+import { ConfigService } from 'liteb';
+
+/**
+ * What the session carries.
+ *
+ * Every field declared here shows up typed on \`this.request.session\`, in
+ * every endpoint, and on \`request.session\` inside the auth resolver. That is
+ * the whole reason this block exists: without it TypeScript knows the session
+ * is there but not what is in it.
+ */
+declare module 'express-session' {
+  interface SessionData {
+    /** Written at login, read by src/config/auth.ts. */
+    userId?: number;
+  }
+}
+
+/**
+ * Cookie sessions, mounted before the routes in src/index.ts.
+ *
+ * \`saveUninitialized: false\` is what keeps a cookie from being handed to
+ * every visitor who never signs in, and \`resave: false\` keeps a request that
+ * changed nothing from writing to the store.
+ *
+ * WORTH KNOWING: the default store lives in memory. It is fine while you
+ * develop, and wrong in production for two reasons that both bite — it is lost
+ * on every restart, and a second process does not see the first one's
+ * sessions. When this has users, put the sessions in the database you already
+ * run (\`connect-pg-simple\` over the same Postgres) and pass it as \`store\`.
+ */
+export default session({
+  secret: ConfigService.get('SESSION_SECRET'),
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    // Over HTTPS only, once this is deployed. Left off in development because
+    // a secure cookie is not sent over http://localhost.
+    secure: ConfigService.mode() === 'production',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  },
+});
+`;
+
   const authFile = `import { defineAuth, Logger } from 'liteb';
+
+/**
+ * Whoever is making the request, as THIS application defines it.
+ *
+ * liteb leaves it empty on purpose — a user id, a tenant, an API key issued to
+ * an extension are all valid — so the shape is yours. It starts with the one
+ * field the session carries; add what your endpoints need to read off
+ * \`this.auth.actor\`, and it is typed everywhere at once.
+ */
+declare global {
+  namespace LitebAuth {
+    interface Actor {
+      userId: number;
+    }
+  }
+}
 
 let warned = false;
 
@@ -493,7 +575,7 @@ let warned = false;
  *   return { actor: { userId }, permissions: PERMISSIONS_BY_ROLE[user.role] };
  * });
  */
-const auth = defineAuth(async () => {
+const auth = defineAuth(async (request) => {
   if (!warned) {
     warned = true;
     Logger.warn(
@@ -502,9 +584,11 @@ const auth = defineAuth(async () => {
   }
 
   return {
-    // Nobody, in the shape your application will give an actor. The cast is
-    // the honest part: there is no one behind this request to describe.
-    actor: {} as LitebAuth.Actor,
+    // Half real already: \`0\` is nobody, and the moment a login writes
+    // \`request.session.userId\`, \`this.auth.actor.userId\` is the signed-in
+    // user in every endpoint. What is still missing is the other half — who
+    // this user IS and what they may do.
+    actor: { userId: request.session?.userId ?? 0 },
     // \`*\` grants everything. Real ones are the keys your modules declare,
     // which src/config/permissions.ts carries into the type system.
     permissions: ['*'],
@@ -531,6 +615,7 @@ export default auth;
       { path: 'src/index.ts', content: index },
       { path: 'src/config/permissions.ts', content: permissionTypes },
       { path: 'src/config/auth.ts', content: authFile },
+      { path: 'src/config/session.ts', content: sessionFile },
     ],
     [],
     [

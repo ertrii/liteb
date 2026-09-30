@@ -13,6 +13,7 @@ import {
 import type { DataSource } from 'typeorm';
 import { defineModule, Liteb, Logger } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
+import { cualquiera } from './helpers/auth';
 
 /**
  * Los archivos existen desde el primer arranque, vacíos.
@@ -55,6 +56,7 @@ describe('archivos de log', () => {
     logs?: Parameters<typeof Liteb.create>[0]['logs'],
   ) => {
     app = await Liteb.create({
+      auth: cualquiera,
       db,
       modules: [site],
       version: '2.0.0',
