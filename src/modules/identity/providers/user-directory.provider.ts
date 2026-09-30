@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { Provider, Provides } from '../../../../lib';
-import { publicColumns, type PublicUser } from '../domain/user.projection';
+import { UserProjection, type PublicUser } from '../domain/user.projection';
 import { UserDirectory } from '../tokens/user-directory.token';
 import { users } from '../tables/user.table';
 
@@ -16,7 +16,7 @@ export class UserDirectoryProvider extends Provider implements UserDirectory {
 
   public async find(userId: number): Promise<PublicUser | null> {
     const [user] = await this.db
-      .select(publicColumns)
+      .select(UserProjection.columns)
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);

@@ -1,6 +1,6 @@
 import { asc } from 'drizzle-orm';
 import { Endpoint, HttpGet, Group } from '../../../../lib';
-import { publicColumns } from '../domain/user.projection';
+import { UserProjection } from '../domain/user.projection';
 import { users } from '../tables/user.table';
 
 @Group('users')
@@ -10,6 +10,9 @@ export class ListUsersEndpoint extends Endpoint {
     // 401 when anonymous, 403 when signed in without the key.
     this.auth.assert('identity.users.view');
 
-    return this.db.select(publicColumns).from(users).orderBy(asc(users.id));
+    return this.db
+      .select(UserProjection.columns)
+      .from(users)
+      .orderBy(asc(users.id));
   }
 }

@@ -1,9 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import {
-  asPublic,
-  loginColumns,
-  publicColumns,
-} from '../src/modules/identity/domain/user.projection';
+import { UserProjection } from '../src/modules/identity/domain/user.projection';
 
 /**
  * La capa de proyección: qué forma tiene un usuario visto desde afuera.
@@ -23,7 +19,7 @@ describe('la proyección de usuario', () => {
   };
 
   it('no deja pasar la contraseña aunque la fila la traiga', () => {
-    const visto = asPublic(fila);
+    const visto = UserProjection.asPublic(fila);
 
     expect(visto).toEqual({
       id: 7,
@@ -39,11 +35,11 @@ describe('la proyección de usuario', () => {
     // entra sola en la respuesta el día que alguien la agrega a la tabla.
     const conExtra = { ...fila, resetToken: 'no-debería-salir' };
 
-    expect(asPublic(conExtra)).not.toHaveProperty('resetToken');
+    expect(UserProjection.asPublic(conExtra)).not.toHaveProperty('resetToken');
   });
 
   it('el juego público no nombra la contraseña', () => {
-    expect(Object.keys(publicColumns).sort()).toEqual([
+    expect(Object.keys(UserProjection.columns).sort()).toEqual([
       'fullName',
       'id',
       'role',
@@ -54,6 +50,6 @@ describe('la proyección de usuario', () => {
   it('el juego de login la nombra, y es el único', () => {
     // Que la excepción tenga nombre propio es lo que la distingue de un
     // descuido: `grep loginColumns` es la auditoría completa.
-    expect(Object.keys(loginColumns)).toContain('password');
+    expect(Object.keys(UserProjection.loginColumns)).toContain('password');
   });
 });

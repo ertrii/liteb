@@ -7,7 +7,7 @@ import {
   Group,
 } from '../../../../lib';
 import { LoginDto } from '../dto/login.dto';
-import { asPublic, loginColumns } from '../domain/user.projection';
+import { UserProjection } from '../domain/user.projection';
 import { users } from '../tables/user.table';
 import { verifyPassword } from '../services/password';
 
@@ -21,10 +21,11 @@ import { verifyPassword } from '../services/password';
 @Body(LoginDto)
 export class LoginEndpoint extends Endpoint<null, LoginDto> {
   async main() {
-    // `loginColumns` instead of `select()`: this is the one case that may see
-    // the hash, and saying so is what tells it apart from a place that forgot.
+    // `loginColumns` instead of a bare `select()`: this is the one case that
+    // may see the hash, and saying so is what tells it apart from a place
+    // that forgot.
     const [user] = await this.db
-      .select(loginColumns)
+      .select(UserProjection.loginColumns)
       .from(users)
       .where(eq(users.username, this.body.username))
       .limit(1);
@@ -38,6 +39,6 @@ export class LoginEndpoint extends Endpoint<null, LoginDto> {
     // request by the auth resolver, through this module's contract.
     this.request.session.userId = user.id;
 
-    return asPublic(user);
+    return UserProjection.asPublic(user);
   }
 }

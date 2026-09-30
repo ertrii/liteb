@@ -7,7 +7,7 @@ import {
   HttpStatus,
   Group,
 } from '../../../../lib';
-import { publicColumns } from '../domain/user.projection';
+import { UserProjection } from '../domain/user.projection';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { users } from '../tables/user.table';
 import { hashPassword } from '../services/password';
@@ -39,7 +39,7 @@ export class CreateUserEndpoint extends Endpoint<null, CreateUserDto> {
         password: hashPassword(this.body.password),
         role: this.body.role,
       })
-      .returning(publicColumns);
+      .returning(UserProjection.columns);
 
     this.httpStatus = HttpStatus.CREATED;
     return user;
