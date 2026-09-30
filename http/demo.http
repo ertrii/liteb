@@ -5,6 +5,11 @@
 ###   staff -> can view users, and view/manage products
 @host = http://localhost:16001
 
+### The same flow from a browser, if you prefer clicking it:
+###   http://localhost:16001/public/
+### It is served by this application's own `static()`, so it is same-origin and
+### the session cookie needs nothing argued about.
+
 ### ---------------------------------------------------------------- 1. Anonymous
 ### `me` answers the anonymous: it reads `this.auth.optional`, not `.actor`.
 GET {{host}}/api/auth/me

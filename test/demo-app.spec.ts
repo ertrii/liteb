@@ -152,6 +152,61 @@ describe('la app de ejemplo (src/)', () => {
     expect(res.body[0]).not.toHaveProperty('password');
   });
 
+  /**
+   * La pagina de `src/public/` lee ESTOS campos. Sin esto se rompe en silencio
+   * el dia que un endpoint cambie de forma, que es exactamente la podredumbre
+   * que esta suite existe para evitar.
+   */
+  describe('las formas que consume la web', () => {
+    it('/auth/me dice si hay sesion, quien es y que puede', async () => {
+      const res = await request(server())
+        .get('/api/auth/me')
+        .set('x-user', '2')
+        .set('x-perms', STAFF.join(','));
+
+      expect(res.body).toEqual({
+        authenticated: true,
+        userId: 2,
+        permissions: STAFF,
+      });
+    });
+
+    it('/auth/me contesta al anonimo en vez de lanzar 401', async () => {
+      const res = await request(server()).get('/api/auth/me');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ authenticated: false });
+    });
+
+    it('un usuario trae exactamente la proyeccion, ni un campo mas', async () => {
+      const res = await request(server())
+        .get('/api/users')
+        .set('x-user', '1')
+        .set('x-perms', '*');
+
+      expect(Object.keys(res.body[0]).sort()).toEqual([
+        'fullName',
+        'id',
+        'role',
+        'username',
+      ]);
+    });
+
+    it('un fallo trae title, detail y status: lo que la pagina imprime', async () => {
+      const res = await request(server())
+        .get('/api/users')
+        .set('x-user', '2')
+        .set('x-perms', 'catalog.products.view');
+
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({
+        status: 403,
+        title: expect.any(String),
+        detail: expect.any(String),
+      });
+    });
+  });
+
   it('valida el cuerpo antes de llegar a main()', async () => {
     const res = await request(server())
       .post('/api/products')
