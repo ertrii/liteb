@@ -13,9 +13,9 @@ import { UserDirectory } from '@/identity/tokens/user-directory.token';
 @On(ProductRestocked)
 export class RestockLogListener extends Listener<ProductRestocked> {
   async on(payload: ProductRestocked) {
-    const who = await this.get(UserDirectory).nameOf(payload.userId);
+    const who = await this.get(UserDirectory).find(payload.userId);
     console.log(
-      `[reports] ${who ?? 'someone'} restocked #${payload.productId} ` +
+      `[reports] ${who?.fullName ?? 'someone'} restocked #${payload.productId} ` +
         `by ${payload.quantity} (now ${payload.stock})`,
     );
   }

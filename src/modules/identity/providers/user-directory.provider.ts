@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { Provider, Provides } from '../../../../lib';
+import { publicColumns, type PublicUser } from '../domain/user.view';
 import { UserDirectory } from '../tokens/user-directory.token';
 import { users } from '../tables/user.table';
 
@@ -13,13 +14,13 @@ export class UserDirectoryProvider extends Provider implements UserDirectory {
     return this.db.$count(users);
   }
 
-  public async nameOf(userId: number): Promise<string | null> {
+  public async find(userId: number): Promise<PublicUser | null> {
     const [user] = await this.db
-      .select({ fullName: users.fullName })
+      .select(publicColumns)
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
 
-    return user?.fullName ?? null;
+    return user ?? null;
   }
 }

@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Group,
 } from '../../../../lib';
+import { publicColumns } from '../domain/user.view';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { users } from '../tables/user.table';
 import { hashPassword } from '../services/password';
@@ -30,8 +31,6 @@ export class CreateUserEndpoint extends Endpoint<null, CreateUserDto> {
       });
     }
 
-    // `returning` names the columns: the password is written here and must not
-    // come back out, not even into a variable this function throws away.
     const [user] = await this.db
       .insert(users)
       .values({
@@ -40,11 +39,7 @@ export class CreateUserEndpoint extends Endpoint<null, CreateUserDto> {
         password: hashPassword(this.body.password),
         role: this.body.role,
       })
-      .returning({
-        id: users.id,
-        username: users.username,
-        role: users.role,
-      });
+      .returning(publicColumns);
 
     this.httpStatus = HttpStatus.CREATED;
     return user;

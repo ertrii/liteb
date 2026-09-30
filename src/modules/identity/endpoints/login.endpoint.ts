@@ -7,6 +7,7 @@ import {
   Group,
 } from '../../../../lib';
 import { LoginDto } from '../dto/login.dto';
+import { asPublic, loginColumns } from '../domain/user.view';
 import { users } from '../tables/user.table';
 import { verifyPassword } from '../services/password';
 
@@ -20,8 +21,10 @@ import { verifyPassword } from '../services/password';
 @Body(LoginDto)
 export class LoginEndpoint extends Endpoint<null, LoginDto> {
   async main() {
+    // `loginColumns` instead of `select()`: this is the one case that may see
+    // the hash, and saying so is what tells it apart from a place that forgot.
     const [user] = await this.db
-      .select()
+      .select(loginColumns)
       .from(users)
       .where(eq(users.username, this.body.username))
       .limit(1);
@@ -35,6 +38,6 @@ export class LoginEndpoint extends Endpoint<null, LoginDto> {
     // request by the auth resolver, through this module's contract.
     this.request.session.userId = user.id;
 
-    return { id: user.id, fullName: user.fullName, role: user.role };
+    return asPublic(user);
   }
 }

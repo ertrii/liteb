@@ -91,11 +91,11 @@ from `node_modules` and from bytecode.
 export default class CreateChargeApi extends Endpoint<null, CreateChargeDto> {
   public async main(): Promise<DataJson> {
     this.auth.assert('billing.charge');            // 401 anonymous, 403 not allowed
-    const who = await this.get(UserDirectory).nameOf(this.auth.actor.userId);
+    const who = await this.get(UserDirectory).find(this.auth.actor.userId);
 
     const [charge] = await this.db
       .insert(charges)
-      .values({ ...this.body, by: who })
+      .values({ ...this.body, by: who?.fullName })
       .returning();
     await this.emit(ChargeCreated, { chargeId: charge.id });
 

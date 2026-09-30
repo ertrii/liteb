@@ -751,7 +751,7 @@ await this.emit(ProductRestocked, { productId, quantity });
 @On(ProductRestocked)
 export class RestockLog extends Listener<ProductRestocked> {
   async on(payload: ProductRestocked) {
-    await this.get(UserDirectory).nameOf(payload.userId);
+    await this.get(UserDirectory).find(payload.userId);
   }
 }
 ```
