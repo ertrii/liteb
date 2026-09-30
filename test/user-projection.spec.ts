@@ -3,7 +3,7 @@ import {
   asPublic,
   loginColumns,
   publicColumns,
-} from '../src/modules/identity/domain/user.view';
+} from '../src/modules/identity/domain/user.projection';
 
 /**
  * La capa de proyección: qué forma tiene un usuario visto desde afuera.

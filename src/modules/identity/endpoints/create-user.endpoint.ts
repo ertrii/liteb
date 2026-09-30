@@ -7,7 +7,7 @@ import {
   HttpStatus,
   Group,
 } from '../../../../lib';
-import { publicColumns } from '../domain/user.view';
+import { publicColumns } from '../domain/user.projection';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { users } from '../tables/user.table';
 import { hashPassword } from '../services/password';

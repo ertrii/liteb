@@ -1,6 +1,6 @@
 import { asc } from 'drizzle-orm';
 import { Endpoint, HttpGet, Group } from '../../../../lib';
-import { publicColumns } from '../domain/user.view';
+import { publicColumns } from '../domain/user.projection';
 import { users } from '../tables/user.table';
 
 @Group('users')

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { Provider, Provides } from '../../../../lib';
-import { publicColumns, type PublicUser } from '../domain/user.view';
+import { publicColumns, type PublicUser } from '../domain/user.projection';
 import { UserDirectory } from '../tokens/user-directory.token';
 import { users } from '../tables/user.table';
 

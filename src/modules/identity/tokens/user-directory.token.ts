@@ -1,5 +1,5 @@
 import { token } from '../../../../lib';
-import type { PublicUser } from '../domain/user.view';
+import type { PublicUser } from '../domain/user.projection';
 
 /**
  * What other modules may ask about users — WITHOUT importing anything else

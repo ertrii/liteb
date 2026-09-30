@@ -7,7 +7,7 @@ import {
   Group,
 } from '../../../../lib';
 import { LoginDto } from '../dto/login.dto';
-import { asPublic, loginColumns } from '../domain/user.view';
+import { asPublic, loginColumns } from '../domain/user.projection';
 import { users } from '../tables/user.table';
 import { verifyPassword } from '../services/password';
 
