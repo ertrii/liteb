@@ -23,15 +23,11 @@ import reports from './modules/reports/module';
 export async function createApp() {
   const app = await Liteb.create({
     db: {
-      type: 'postgres',
       host: ConfigService.get('DB_HOST'),
       port: +ConfigService.get('DB_PORT'),
-      username: ConfigService.get('DB_USERNAME'),
+      user: ConfigService.get('DB_USERNAME'),
       password: ConfigService.get('DB_PASSWORD'),
       database: ConfigService.get('DB_NAME'),
-      // Off, deliberately: every table here comes from a module's own
-      // migration, which is what a real installation does.
-      synchronize: false,
     },
     modules: [identity, catalog, reports],
     // Checked against each module's `engine` range.

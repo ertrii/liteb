@@ -1,5 +1,6 @@
+import { eq } from 'drizzle-orm';
 import { defineAuth } from '../../lib';
-import { User } from '../modules/identity/entities/user.entity';
+import { users } from '../modules/identity/tables/user.table';
 import { PERMISSIONS_BY_ROLE } from './roles';
 
 declare module 'express-session' {
@@ -33,7 +34,7 @@ declare global {
  * It queries `db` directly, which is all a resolver needs: liteb stores no
  * users and no roles, it receives a list of keys per request and compares
  * strings. `get` is also available, to reach a module's contract instead —
- * worth it when the resolver must not import a module's entity, because that
+ * worth it when the resolver must not import a module's table, because that
  * module comes installed from somewhere else. Here the application owns all
  * three, so the import is the honest shorter path. `reports` is where this
  * demo shows a contract doing its actual job.
@@ -48,7 +49,12 @@ const sessionAuth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId;
   if (!userId) return null;
 
-  const user = await db.getRepository(User).findOneBy({ id: userId });
+  const [user] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
   if (!user) return null;
 
   return { actor: { userId }, permissions: PERMISSIONS_BY_ROLE[user.role] };

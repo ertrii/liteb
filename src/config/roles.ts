@@ -1,5 +1,5 @@
 import type { PermissionKey } from '../../lib';
-import { UserRole } from '../modules/identity/entities/user.entity';
+import { UserRole } from '../modules/identity/tables/user.table';
 
 /**
  * Role -> permission keys.

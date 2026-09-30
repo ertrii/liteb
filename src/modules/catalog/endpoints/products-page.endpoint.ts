@@ -1,3 +1,4 @@
+import { asc } from 'drizzle-orm';
 import {
   ApiHidden,
   DataJson,
@@ -6,7 +7,7 @@ import {
   Group,
   view,
 } from '../../../../lib';
-import { Product } from '../entities/product.entity';
+import { products } from '../tables/product.table';
 
 /**
  * An HTML page instead of JSON.
@@ -26,11 +27,9 @@ import { Product } from '../entities/product.entity';
 @HttpGet('page')
 @ApiHidden()
 export default class ProductsPageEndpoint extends Endpoint {
-  private readonly products = this.db.getRepository(Product);
-
   public async main(): Promise<DataJson> {
     return view('products', {
-      products: await this.products.find({ order: { id: 'ASC' } }),
+      products: await this.db.select().from(products).orderBy(asc(products.id)),
     });
   }
 }

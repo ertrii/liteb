@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import {
   Body,
   CustomerError,
@@ -6,7 +7,7 @@ import {
   Group,
 } from '../../../../lib';
 import { LoginDto } from '../dto/login.dto';
-import { User } from '../entities/user.entity';
+import { users } from '../tables/user.table';
 import { verifyPassword } from '../services/password';
 
 /**
@@ -18,10 +19,12 @@ import { verifyPassword } from '../services/password';
 @HttpPost('login')
 @Body(LoginDto)
 export class LoginEndpoint extends Endpoint<null, LoginDto> {
-  private readonly users = this.db.getRepository(User);
-
   async main() {
-    const user = await this.users.findOneBy({ username: this.body.username });
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.username, this.body.username))
+      .limit(1);
 
     // Same answer for "no such user" and "wrong password", on purpose.
     if (!user || !verifyPassword(this.body.password, user.password)) {

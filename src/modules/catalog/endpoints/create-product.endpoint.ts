@@ -1,19 +1,21 @@
 import { Body, Endpoint, HttpPost, HttpStatus, Group } from '../../../../lib';
 import { CreateProductDto } from '../dto/create-product.dto';
-import { Product } from '../entities/product.entity';
+import { products } from '../tables/product.table';
 
 @Group('products')
 @HttpPost()
 @Body(CreateProductDto)
 export class CreateProductEndpoint extends Endpoint<null, CreateProductDto> {
-  private readonly products = this.db.getRepository(Product);
-
   async main() {
     this.auth.assert('catalog.products.manage');
 
-    const product = await this.products.save(
-      this.products.create({ name: this.body.name, stock: this.body.stock }),
-    );
+    // `returning()` and not a second read: the row the database wrote is the
+    // one to answer with, and asking for it again is a round trip that can
+    // disagree with what was just inserted.
+    const [product] = await this.db
+      .insert(products)
+      .values({ name: this.body.name, stock: this.body.stock })
+      .returning();
 
     this.httpStatus = HttpStatus.CREATED;
     return product;

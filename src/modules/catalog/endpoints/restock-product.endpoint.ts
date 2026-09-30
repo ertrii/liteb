@@ -1,3 +1,4 @@
+import { eq, sql } from 'drizzle-orm';
 import {
   Body,
   Endpoint,
@@ -8,8 +9,8 @@ import {
 } from '../../../../lib';
 import { ProductIdDto } from '../dto/product-id.dto';
 import { RestockDto } from '../dto/restock.dto';
-import { Product } from '../entities/product.entity';
-import { StockMove } from '../entities/stock-move.entity';
+import { products } from '../tables/product.table';
+import { stockMoves } from '../tables/stock-move.table';
 import { ProductRestocked } from '../tokens/product-restocked.token';
 
 /**
@@ -32,17 +33,23 @@ export class RestockProductEndpoint extends Endpoint<ProductIdDto, RestockDto> {
     const { quantity } = this.body;
     const userId = this.auth.actor.userId;
 
-    const result = await this.db.transaction(async (manager) => {
-      const product = await manager.findOneBy(Product, { id: productId });
-      if (!product) throw new NotFoundError('Product not found.');
+    const result = await this.db.transaction(async (tx) => {
+      // The increment happens in the database, not in JavaScript. Reading the
+      // stock, adding to it and writing it back is a lost update the moment two
+      // restocks overlap — and a demo that shows the racy version teaches it.
+      const [updated] = await tx
+        .update(products)
+        .set({ stock: sql`${products.stock} + ${quantity}` })
+        .where(eq(products.id, productId))
+        .returning({ id: products.id, stock: products.stock });
 
-      product.stock += quantity;
-      await manager.save(product);
-      await manager.save(
-        manager.create(StockMove, { productId, quantity, userId }),
-      );
+      // No row updated means no such product. One statement instead of a read
+      // and then a write, and it cannot disagree with itself.
+      if (!updated) throw new NotFoundError('Product not found.');
 
-      return { id: product.id, stock: product.stock };
+      await tx.insert(stockMoves).values({ productId, quantity, userId });
+
+      return updated;
     });
 
     // AFTER the transaction commits, never inside it: a listener reads on its

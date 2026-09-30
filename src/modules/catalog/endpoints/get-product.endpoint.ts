@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import {
   Endpoint,
   HttpGet,
@@ -7,7 +8,7 @@ import {
   Priority,
 } from '../../../../lib';
 import { ProductIdDto } from '../dto/product-id.dto';
-import { Product } from '../entities/product.entity';
+import { products } from '../tables/product.table';
 
 /** Priority 2: the `:id` route must come after the literal `/page`. */
 @Group('products')
@@ -15,12 +16,15 @@ import { Product } from '../entities/product.entity';
 @Params(ProductIdDto)
 @Priority(2)
 export class GetProductEndpoint extends Endpoint<ProductIdDto> {
-  private readonly products = this.db.getRepository(Product);
-
   async main() {
     this.auth.assert('catalog.products.view');
 
-    const product = await this.products.findOneBy({ id: +this.params.id });
+    const [product] = await this.db
+      .select()
+      .from(products)
+      .where(eq(products.id, +this.params.id))
+      .limit(1);
+
     // Thrown, not returned: the framework maps it to a 404 with the same shape
     // as every other error.
     if (!product) throw new NotFoundError('Product not found.');

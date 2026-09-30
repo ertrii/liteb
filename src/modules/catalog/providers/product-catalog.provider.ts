@@ -1,20 +1,22 @@
+import { sum } from 'drizzle-orm';
 import { Provider, Provides } from '../../../../lib';
 import { ProductCatalog } from '../tokens/product-catalog.token';
-import { Product } from '../entities/product.entity';
+import { products } from '../tables/product.table';
 
 @Provides(ProductCatalog)
 export class ProductCatalogProvider extends Provider implements ProductCatalog {
-  private readonly products = this.db.getRepository(Product);
-
   public count(): Promise<number> {
-    return this.products.count();
+    return this.db.$count(products);
   }
 
   public async totalStock(): Promise<number> {
-    const row = await this.products
-      .createQueryBuilder('p')
-      .select('coalesce(sum(p.stock), 0)', 'total')
-      .getRawOne<{ total: string }>();
+    // `sum()` comes back as a string — Postgres returns numeric for it, and a
+    // numeric does not fit in a JavaScript number in general, so the driver
+    // refuses to guess. It is null on an empty table.
+    const [row] = await this.db
+      .select({ total: sum(products.stock) })
+      .from(products);
+
     return Number(row?.total ?? 0);
   }
 }

@@ -1,11 +1,11 @@
-import { DataSource } from 'typeorm';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { ConfigService, ModuleStore } from '../../lib';
 
 /**
  * Turns modules on and off from the command line.
  *
- * `ModuleStore` is public API and talks to `_modules` with plain SQL, so it
- * needs no entities registered — which is the point: the framework's own
+ * `ModuleStore` is public API and talks to `_modules` with plain SQL, so the
+ * connection needs no schema at all — which is the point: the framework's own
  * bookkeeping must not force an application to know about it.
  *
  *   npm run modules -- list
@@ -15,18 +15,16 @@ import { ConfigService, ModuleStore } from '../../lib';
 async function main() {
   const [action, moduleId] = process.argv.slice(2);
 
-  const db = new DataSource({
-    type: 'postgres',
-    host: ConfigService.get('DB_HOST'),
-    port: +ConfigService.get('DB_PORT'),
-    username: ConfigService.get('DB_USERNAME'),
-    password: ConfigService.get('DB_PASSWORD'),
-    database: ConfigService.get('DB_NAME'),
-    entities: [],
-    synchronize: false,
+  const db = drizzle({
+    connection: {
+      host: ConfigService.get('DB_HOST'),
+      port: +ConfigService.get('DB_PORT'),
+      user: ConfigService.get('DB_USERNAME'),
+      password: ConfigService.get('DB_PASSWORD'),
+      database: ConfigService.get('DB_NAME'),
+    },
   });
 
-  await db.initialize();
   const store = new ModuleStore(db);
 
   try {
@@ -52,12 +50,12 @@ async function main() {
     console.log('Usage: npm run modules -- list | enable <id> | disable <id>');
     process.exitCode = 1;
   } finally {
-    await db.destroy();
+    await db.$client.end();
   }
 }
 
 // The rejection handler is the point: `main()` handles its own expected
-// failures, but `db.destroy()` in the `finally` can still throw, and an
+// failures, but ending the pool in the `finally` can still throw, and an
 // unhandled rejection exits with a stack and no exit code anybody set.
 main().catch((error) => {
   console.error(error);
