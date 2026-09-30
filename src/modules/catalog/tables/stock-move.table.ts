@@ -1,4 +1,5 @@
 import { integer, pgTable, serial, timestamp } from 'drizzle-orm/pg-core';
+import { users } from '@/identity/tables/user.table';
 import { products } from './product.table';
 
 /**
@@ -12,11 +13,16 @@ export const stockMoves = pgTable('demo_stock_moves', {
     .references(() => products.id),
   quantity: integer('quantity').notNull(),
   /**
-   * Who did it. A plain id, NOT a reference: `identity` owns that table, and a
-   * constraint across modules would stop either of them from being installed or
-   * removed on its own.
+   * Who did it — a real foreign key, although `identity` owns that table.
+   *
+   * liteb does not restrict relations across modules: `catalog` already
+   * declares `requires: ['identity']`, so the resolver refuses to run without
+   * it and the migrator runs identity's migrations first. Whether a reference
+   * should be a constraint is the application's call, not the framework's.
    */
-  userId: integer('user_id').notNull(),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

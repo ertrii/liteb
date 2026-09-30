@@ -20,7 +20,7 @@ export class CreateProducts1758000100000 implements Migration {
           id serial primary key,
           product_id int not null references demo_products(id),
           quantity int not null,
-          user_id int not null,
+          user_id int not null references demo_users(id),
           created_at timestamptz not null default now()
         )
       `),
