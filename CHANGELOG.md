@@ -107,11 +107,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **A generated endpoint carries no comments.** The permission line came with
-  one above it, and a generator that explains its own output leaves that
-  explanation in every file it ever wrote — by the second one it reads as noise.
-  The reasoning stays in the docs; the generated file is the code you were going
-  to write.
+- **Nothing a generator writes carries a comment.** [BREAKING for anyone
+  grepping generated files]
+
+  `liteb init` still explains the project, because that file is written once. A
+  generator runs every day, and its explanation ends up copied into the tenth
+  endpoint, the fifth token and the third migration, where it teaches nobody
+  anything: it is text to read past or delete by hand, and it becomes a lie the
+  day the framework changes and the old files are still there.
+
+  What the author has to know is printed as a `next` hint by the command that
+  wrote the file — said once, where it is new — and the reasoning lives in the
+  docs. Every hint the removed comments carried is now a hint: `engine` is the
+  host application's version, the manifest names no paths, a slot's interface is
+  ONE contribution, a listener's token belongs to the announcing module, a
+  provider is built once and reused, an empty migration would be recorded as
+  applied.
+
+- **A generated import is wrapped the way prettier would wrap it.** `liteb
+  provider <module>/<name> --slot <slot>` wrote its import on one line, and with
+  two names and an aliased path that line goes past 80 columns — so the file
+  failed the scaffolded project's own `prettier --check` on the first commit.
+  Same fix the generated token already had.
 
 - **A scaffolded project could not use the session it was told to use.** The
   generated resolver reads `request.session?.userId` and a login writes

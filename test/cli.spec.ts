@@ -49,17 +49,17 @@ const litebVersion = '^2.0.0-alpha.1';
 const read = (file: string) =>
   fs.readFileSync(path.join(workspace, file), 'utf8');
 
-/**
- * Un archivo sin sus comentarios: lo que DECLARA, no lo que explica.
- *
- * La plantilla del manifiesto documenta la disposición estándar — y nombra
- * `routes:` para mostrar cómo cambiarla — así que buscar el texto pelado
- * confundiría la explicación con una declaración.
- */
-const declared = (file: string) =>
-  read(file)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+/** Todo lo generado bajo un módulo, para recorrerlo archivo por archivo. */
+const generated = (dir: string): string[] => {
+  const full = path.join(workspace, dir);
+  return fs
+    .readdirSync(full, { withFileTypes: true })
+    .flatMap((entry) =>
+      entry.isDirectory()
+        ? generated(`${dir}/${entry.name}`)
+        : [`${dir}/${entry.name}`],
+    );
+};
 
 describe('nombres', () => {
   it('normaliza venga como venga', () => {
@@ -199,6 +199,44 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
     });
 
     expect(after).toBe("export * from './1-create';\n");
+  });
+});
+
+describe('lo generado entra en el ancho de prettier', () => {
+  // Ninguna línea de un archivo generado puede pasar de 80 columnas: el
+  // proyecto que `liteb init` arma corre `prettier --check`, así que romperlo
+  // le rompe el lint al consumidor en su primer commit.
+  it('parte el import cuando no entra, y no cuando sí', () => {
+    const corto = createProvider({
+      target: 'reports/flag',
+      modulesDir: 'src/modules',
+      from: 'liteb',
+    }).files[0].content;
+
+    expect(corto).toContain("import { Provides, Provider } from 'liteb';");
+    expect(corto).toContain("import { Flag } from '../tokens/flag.token';");
+
+    // El import de una ranura trae DOS nombres y una ruta con el alias: es el
+    // que se pasa de largo.
+    const largo = createProvider({
+      target: 'reports/low-stock',
+      slot: 'product-badges',
+      modulesDir: 'src/modules',
+      from: 'liteb',
+    }).files[0].content;
+
+    expect(largo).toContain(
+      [
+        'import {',
+        '  ProductBadge,',
+        '  ProductBadges,',
+        "} from '@/<module>/tokens/product-badges.token';",
+      ].join('\n'),
+    );
+
+    for (const linea of largo.split('\n')) {
+      expect(linea.length).toBeLessThanOrEqual(80);
+    }
   });
 });
 
@@ -484,12 +522,10 @@ describe('un módulo generado y puesto a andar', () => {
       .find((name) => name.endsWith('-create-items.ts')) as string;
     const ruta = path.join(carpeta, archivo);
 
-    // Escribe el SQL y saca el freno: todo lo que hay desde el comentario que
-    // lo anuncia hasta el cierre del throw.
+    // Escribe el SQL y saca el freno: el throw y la línea en blanco que lo
+    // separa del SQL.
     const lineas = fs.readFileSync(ruta, 'utf8').split('\n');
-    const desde = lineas.findIndex((line) =>
-      line.includes('Delete this once the SQL above is written'),
-    );
+    const desde = lineas.findIndex((line) => line.includes('throw new Error('));
     const hasta = lineas.findIndex(
       (line, i) => i > desde && line.trim() === ');',
     );
@@ -639,9 +675,7 @@ describe('un módulo generado y puesto a andar', () => {
     expect(read(file)).toContain('class InventoryEndpoint extends Endpoint');
 
     // Y la carpeta es lo único que lo dice: el manifiesto no repite el camino.
-    expect(declared(`${modulesDir}/inventory/module.ts`)).not.toContain(
-      'routes:',
-    );
+    expect(read(`${modulesDir}/inventory/module.ts`)).not.toContain('routes:');
     expect(inventory.implicit).toContain('routes');
   });
 
@@ -679,17 +713,30 @@ describe('un módulo generado y puesto a andar', () => {
     expect(endpoint).not.toContain('// this.auth.assert(');
   });
 
-  it('el endpoint generado no lleva ni un comentario', () => {
-    // Un generador que explica su propia salida deja la explicación en cada
-    // archivo que escribió, y el segundo ya se lee como ruido. El porqué vive
-    // en la documentación; el archivo generado es el código que ibas a
-    // escribir vos.
-    const endpoint = read(
-      `${modulesDir}/inventory/endpoints/inventory.endpoint.ts`,
-    );
+  it('nada de lo generado lleva un comentario', () => {
+    // `liteb init` explica el proyecto una vez, porque ese archivo se escribe
+    // una vez. Un generador corre todos los días, y su explicación termina
+    // copiada en el décimo endpoint, donde ya es ruido que hay que leer de
+    // largo o borrar. Lo que el autor tiene que SABER lo imprime el comando
+    // como pista, dicho una vez, donde es nuevo.
+    const archivos = generated(`${modulesDir}/inventory`);
 
-    expect(endpoint).not.toContain('//');
-    expect(endpoint).not.toContain('/*');
+    // Los ocho: manifiesto, dos endpoints, entidad, rutina, oyente,
+    // migración, tres tokens y el proveedor.
+    expect(archivos.length).toBeGreaterThanOrEqual(10);
+
+    for (const archivo of archivos) {
+      const contenido = read(archivo);
+
+      expect({ archivo, tiene: contenido.includes('//') }).toEqual({
+        archivo,
+        tiene: false,
+      });
+      expect({ archivo, tiene: contenido.includes('/*') }).toEqual({
+        archivo,
+        tiene: false,
+      });
+    }
   });
 
   it('las claves se declaran en UN lugar: el manifiesto', () => {
@@ -781,7 +828,7 @@ describe('un módulo generado y puesto a andar', () => {
   it('la entidad la encuentra la carpeta: el manifiesto no la lista', () => {
     // Escribir la clase es todo lo que hay que hacer. Que el manifiesto no la
     // nombre no es un olvido: `./entities/*.entity.ts` es donde liteb mira.
-    const manifest = declared(`${modulesDir}/inventory/module.ts`);
+    const manifest = read(`${modulesDir}/inventory/module.ts`);
 
     expect(manifest).not.toContain('entities:');
     expect(manifest).not.toContain('item.entity');
@@ -820,8 +867,8 @@ describe('un módulo generado y puesto a andar', () => {
   it('el contrato y su proveedor quedan enchufados, sin manifiesto', async () => {
     // Dos archivos: el token en tokens/, la clase en providers/. El
     // manifiesto no nombra ninguno y el contenedor igual lo resuelve.
-    const declaredManifest = declared(`${modulesDir}/inventory/module.ts`);
-    expect(declaredManifest).not.toContain('provides');
+    const manifestoLeido = read(`${modulesDir}/inventory/module.ts`);
+    expect(manifestoLeido).not.toContain('provides');
 
     expect(
       read(`${modulesDir}/inventory/providers/stock.provider.ts`),
@@ -852,9 +899,11 @@ describe('un módulo generado y puesto a andar', () => {
     expect(archivo.content).toContain(
       'extends Provider implements ProductBadge',
     );
-    // Y el import trae las dos mitades, con el alias.
+    // Y el import trae las dos mitades, con el alias. Va partido porque en una
+    // línea se pasa de 80 columnas — el ancho lo cubre su propia prueba.
+    expect(archivo.content).toContain('ProductBadge,');
     expect(archivo.content).toContain(
-      "import { ProductBadge, ProductBadges } from '@/<module>/tokens/product-badges.token';",
+      "} from '@/<module>/tokens/product-badges.token';",
     );
     // El cuerpo es el de una contribución, no el de un contrato.
     expect(archivo.content).toContain("public readonly id = 'low-stock';");
@@ -884,7 +933,7 @@ describe('un módulo generado y puesto a andar', () => {
     // Cuatro generadores escribieron archivos y NINGUNO editó module.ts. Eso
     // es lo que hace que un módulo se pueda leer de un vistazo: lo que dice es
     // lo particular de este módulo, no la lista de carpetas que tienen todos.
-    const manifest = declared(`${modulesDir}/inventory/module.ts`);
+    const manifest = read(`${modulesDir}/inventory/module.ts`);
 
     expect(manifest).not.toContain('routines:');
     expect(manifest).not.toContain('listeners:');

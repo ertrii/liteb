@@ -21,6 +21,13 @@ import {
  * could compile and nothing could test. Here they are part of the same build as
  * everything else, and `test/cli.spec.ts` scaffolds a module and BOOTS it, so a
  * template that stops matching the framework fails the suite.
+ *
+ * They carry NO comments. `liteb init` explains the project once, because that
+ * file is written once; a generator runs again every day, and an explanation in
+ * its output is copied into the tenth endpoint, where it is noise the author has
+ * to read past or delete. What the author has to KNOW is printed as a hint by
+ * the command that wrote the file — said once, where it is new — and the
+ * reasoning lives in the docs.
  */
 
 export interface CommonOptions {
@@ -79,48 +86,17 @@ export function createModule(options: ModuleOptions): Plan {
     options.label ?? toPascal(id).replace(/([a-z])([A-Z])/g, '$1 $2');
   const from = relativeFrom(options.from, 2);
 
-  const manifest = `import { defineModule } from '${from}';
+  const manifest = `${importLine(['defineModule'], from)}
 
-/**
- * ${label}.
- *
- * The manifest is the contract between this module and the application: what
- * it owns (entities, migrations), what it exposes (routes, routines, listeners),
- * what it needs (\`requires\`, \`consumes\`) and what it lets others do
- * (\`permissions\`, \`provides\`).
- *
- * What it does NOT have is paths. The folders below are the standard layout
- * and liteb finds them from \`dir\`:
- *
- *     entities/*.entity.ts      migrations/*.ts      endpoints/*.endpoint.ts
- *     routines/*.routine.ts     listeners/*.listener.ts
- *     providers/*.provider.ts   (tokens/ holds the tokens)
- *
- * Name a field — \`routes: './apis/*.api.ts'\` — only to say something else.
- */
 export default defineModule({
   id: '${id}',
   version: '1.0.0',
   label: '${label}',
-  // Core modules cannot be turned off. Set this to false for an extension
-  // that installs disabled and is enabled on purpose.
   core: ${options.optional ? 'false' : 'true'},
-  // Which versions of the HOST APPLICATION this module plugs into — the
-  // \`version\` passed to Liteb.create(). Not liteb's own version.
   engine: '^1.0.0',
-  // Always __dirname: this is what the layout resolves against, so the module
-  // keeps working from a build, from node_modules or from bytecode.
   dir: __dirname,
 
-  // Other modules this one refuses to start without.
   requires: [],
-
-  // Everything this module can gate, spelled ONCE — here. The endpoints assert
-  // these strings and src/config/permissions.ts carries them into the type
-  // system, so a typo anywhere else does not compile.
-  //
-  // A key can carry text for a roles screen when it cannot say it alone:
-  // { key: '${id}.export', label: 'Download the full list' }.
   permissions: ['${id}.view'],
 });
 `;
@@ -175,6 +151,9 @@ export default defineModule({
       options.optional
         ? 'It installs DISABLED (core: false): an extension is turned on on purpose.'
         : 'It is a core module: it cannot be turned off. Pass --optional for an extension that installs disabled.',
+      "`engine` is which versions of YOUR APPLICATION this module plugs into — the `version` passed to Liteb.create(), not liteb's own.",
+      'The manifest names no paths: entities/, migrations/, endpoints/, routines/, listeners/ and providers/ are found from `dir`. Name a field only to say something else.',
+      `Everything this module can gate is spelled once, in \`permissions\`. Give a key a { key, label } when it does not say it on its own — the label is what a roles screen shows.`,
     ],
   );
 }
@@ -190,10 +169,6 @@ export default defineModule({
  * still open.
  *
  * `--public` leaves it out, for the handful that are meant to be.
- *
- * No comment above it. A generator that explains its own output leaves the
- * explanation in every file it ever wrote, and the second one already reads as
- * noise — the reasoning belongs here and in the docs, not in the application.
  */
 function permissionBlock(permission: { key: string } | null): string {
   if (!permission) return '';
@@ -253,7 +228,7 @@ function endpointSource(args: {
   const imports = ['DataJson', 'Endpoint', args.decorator];
   if (args.group) imports.splice(2, 0, 'Group');
   const group = args.group ? `@Group('${args.group}')\n` : '';
-  return `import { ${imports.join(', ')} } from '${args.from}';
+  return `${importLine(imports, args.from)}
 
 ${group}@${args.decorator}(${route})
 export default class ${args.className} extends Endpoint {
@@ -374,15 +349,9 @@ export function createRoutine(options: RoutineOptions): Plan {
 
   const content = `import { Cron, Routine } from '${from}';
 
-/**
- * Runs only while the module is ENABLED: turning "${target.module}" off stops
- * this schedule without touching any data.
- */
 @Cron('${cron}')
 export default class ${className} extends Routine {
   public async start(now: Date | 'manual' | 'init'): Promise<void> {
-    // this.db, this.get(Contract) and this.emit(Event) work here exactly as in
-    // an endpoint. \`now\` is a Date, or 'init' when @Cron got runOnInit.
     console.log('[${target.module}] ${target.name} ran', now);
   }
 }
@@ -393,6 +362,8 @@ export default class ${className} extends Routine {
     [],
     [
       `Cron expression: '${cron}' — change it in the @Cron decorator. Set a timezone there too, or it follows the server's.`,
+      `It runs only while the module is ENABLED: turning "${target.module}" off stops this schedule without touching any data.`,
+      "`this.db`, `this.get(Contract)` and `this.emit(Event)` work here exactly as in an endpoint. `now` is a Date, or 'init' when @Cron got runOnInit.",
     ],
   );
 }
@@ -408,17 +379,8 @@ export function createListener(options: ListenerOptions): Plan {
   const tokenName = toPascal(target.name);
   const from = relativeFrom(options.from, 3);
 
-  const content = `import { token, Listener, On } from '${from}';
+  const content = `${importLine(['token', 'Listener', 'On'], from)}
 
-/**
- * The token belongs to the module that ANNOUNCES the event, not to this one.
- * Replace this with the real import — \`@/\` is the alias for your modules
- * folder, so it reads:
- *
- *     import { ${tokenName} } from '@/<module>/tokens/${target.name}.token';
- *
- * It is declared here only so the file compiles on its own.
- */
 ${tokenDeclaration({
   constName: tokenName,
   typeName: '{ id: number }',
@@ -426,11 +388,6 @@ ${tokenDeclaration({
   kind: 'event',
 })}
 
-/**
- * Reacting is not answering: throwing here does not fail whoever emitted, and
- * an event nobody listens to is normal. When the outcome matters to the
- * caller, that is a contract, not an event.
- */
 @On(${tokenName})
 export default class ${className} extends Listener<{ id: number }> {
   public async on(payload: { id: number }): Promise<void> {
@@ -443,20 +400,32 @@ export default class ${className} extends Listener<{ id: number }> {
     [{ path: `${dir}/listeners/${target.name}.listener.ts`, content }],
     [],
     [
+      `The token belongs to the module that ANNOUNCES the event. Replace the declaration with: import { ${tokenName} } from '@/<module>/tokens/${target.name}.token'; — \`@/\` is the alias for your modules folder, and the token is declared here only so the file compiles on its own.`,
+      'Reacting is not answering: throwing here does not fail whoever emitted, and an event nobody listens to is normal. When the outcome matters to the caller, that is a contract, not an event.',
       'Listeners read on their own connection: emit AFTER the transaction commits, or they cannot see the rows.',
     ],
   );
 }
 
 /**
- * A `token(id, kind)` declaration, wrapped the way prettier would wrap it.
+ * A named import, and a `token(id, kind)` declaration, wrapped the way prettier
+ * would wrap them.
  *
  * The scaffolded project runs `prettier --check`, and the width depends on the
- * module and the name, which only the generator knows: `liteb slot
- * subscriptions/invoice-line-renderers` goes past 80 columns and
- * `liteb slot shop/tags` does not. Getting it wrong means a generated file
- * fails the project's own lint on the first commit.
+ * module and the name, which only the generator knows: `liteb token
+ * subscriptions/invoice-line-renderers slot` goes past 80 columns and
+ * `liteb token shop/tags slot` does not. Getting it wrong means a generated
+ * file fails the project's own lint on the first commit.
  */
+function importLine(names: string[], from: string): string {
+  const oneLine = `import { ${names.join(', ')} } from '${from}';`;
+
+  if (oneLine.length <= 80) return oneLine;
+
+  const listed = names.map((name) => `  ${name},`).join('\n');
+  return `import {\n${listed}\n} from '${from}';`;
+}
+
 function tokenDeclaration(args: {
   constName: string;
   typeName: string;
@@ -504,38 +473,20 @@ export function createToken(options: TokenOptions): Plan {
     // guessed wrong.
     const item = name.endsWith('s') ? name.slice(0, -1) : `${name}Entry`;
 
-    body = `/**
- * The shape of ONE contribution.
- */
-export interface ${item} {
+    body = `export interface ${item} {
   id: string;
 }
 
-/**
- * The point itself: "${target.module}" reads whoever is installed with
- * \`this.all(${name})\`, and an empty array is a normal answer — a slot nobody
- * filled is a feature nobody installed.
- *
- * Note the direction: the module that OPENS it is the one extensions depend
- * on. It knows nothing about who fills it, which is what lets it be core while
- * every contributor stays removable.
- */
 ${tokenDeclaration({ constName: name, typeName: item, id, kind: 'slot' })}`;
 
     hints = [
-      `Read it: const filled = this.all(${name});`,
+      `${item} is the shape of ONE contribution; ${name} is the collection.`,
+      `Read it: const filled = this.all(${name}). An empty array is a normal answer — a slot nobody filled is a feature nobody installed.`,
       `Fill it from another module: liteb provider <module>/<name> --slot ${target.name}`,
+      `Note the direction: "${target.module}" opens it and knows nothing about who fills it, which is what lets it be core while every contributor stays removable.`,
     ];
   } else if (options.kind === 'event') {
-    body = `/**
- * Announced after it happened. "${target.module}" does not know or care who
- * reacts — that is the difference with a contract, where it would be asking
- * someone in particular to do something and waiting for the answer.
- *
- * The payload has to carry what a listener needs: listeners read on their own
- * connection, so they cannot see rows a transaction has not committed yet.
- */
-export interface ${name} {
+    body = `export interface ${name} {
   id: number;
 }
 
@@ -544,31 +495,25 @@ ${tokenDeclaration({ constName: name, typeName: name, id, kind: 'event' })}`;
     hints = [
       `Announce it: await this.emit(${name}, { id }) from an endpoint, a routine or a provider.`,
       `React to it from any module: liteb listener <module>/<name>, then import this token.`,
+      'The payload has to carry what a listener needs: listeners read on their own connection, so they cannot see rows a transaction has not committed yet.',
+      `Announced after it happened: "${target.module}" does not know or care who reacts. When it needs someone in particular to do something and has to wait for the answer, that is a contract.`,
     ];
   } else {
-    body = `/**
- * What other modules may ask "${target.module}" for — WITHOUT importing
- * anything else from it. They import this file; the implementation stays
- * private, in ./providers.
- *
- * The interface and the token share a name on purpose: TypeScript keeps types
- * and values in separate namespaces, so one import gives you both the shape
- * the compiler checks and the identity the container resolves.
- */
-export interface ${name} {
-  /** Rename this: it is the promise the rest of the application relies on. */
+    body = `export interface ${name} {
   describe(): Promise<string>;
 }
 
 ${tokenDeclaration({ constName: name, typeName: name, id, kind: 'contract' })}`;
 
     hints = [
+      'Rename describe(): it is the promise the rest of the application relies on.',
       `Answer it: liteb provider ${target.module}/${target.name}`,
+      `It is what other modules may ask "${target.module}" for WITHOUT importing anything else from it: they import this file, and the implementation stays private, in ./providers.`,
       `A module that CALLS it should list it in \`consumes\`, so a missing provider stops the boot instead of the first request that needs it.`,
     ];
   }
 
-  const content = `import { token } from '${from}';
+  const content = `${importLine(['token'], from)}
 
 ${body}
 `;
@@ -607,35 +552,25 @@ export function createProvider(options: ProviderOptions): Plan {
     const slotFile = toKebab(options.slot as string);
     token = toPascal(options.slot as string);
     implemented = token.endsWith('s') ? token.slice(0, -1) : `${token}Entry`;
-    tokenImport = `// The slot belongs to the module that OPENED it: replace <module> with the one
-// that declared it. \`@/\` is the alias for your modules folder.
-import { ${implemented}, ${token} } from '@/<module>/tokens/${slotFile}.token';`;
+    tokenImport = importLine(
+      [implemented, token],
+      `@/<module>/tokens/${slotFile}.token`,
+    );
     body = `  public readonly id = '${target.name}';`;
   } else {
     token = name;
     implemented = name;
-    tokenImport = `import { ${token} } from '../tokens/${target.name}.token';`;
+    tokenImport = importLine([token], `../tokens/${target.name}.token`);
     body = `  public async describe(): Promise<string> {
     return '${target.module}';
   }`;
   }
 
-  const content = `import { Provides, Provider } from '${from}';
+  const content = `${importLine(['Provides', 'Provider'], from)}
 ${tokenImport}
 
-/**
- * The half the consumer never sees. Change how this works and nothing outside
- * this file moves.
- *
- * \`this.db\`, \`this.get(Contract)\`, \`this.all(Slot)\` and
- * \`this.emit(Event)\` are injected BEFORE the instance is built, so a field
- * initializer can already reach for a repository. Built the first time someone
- * asks for it, then reused.
- */
 @Provides(${token})
 export class ${name}Provider extends Provider implements ${implemented} {
-  // private readonly things = this.db.getRepository(Thing);
-
 ${body}
 }
 `;
@@ -645,8 +580,10 @@ ${body}
     [],
     [
       fillsSlot
-        ? 'Point the import at the module that opened the slot: an extension imports the token, never the other way round.'
+        ? 'Point the import at the module that opened the slot — replace <module>: an extension imports the token, never the other way round.'
         : 'Nothing lists it: the folder is what registers it, and the decorator says which contract it answers.',
+      'It is the half the consumer never sees: change how it works and nothing outside the file moves.',
+      '`this.db`, `this.get(Contract)`, `this.all(Slot)` and `this.emit(Event)` are injected BEFORE the instance is built, so a field initializer can already reach for a repository. Built the first time someone asks for it, then reused.',
     ],
   );
 }
@@ -699,24 +636,12 @@ export function createMigration(options: MigrationOptions): Plan {
 
   const content = `import { MigrationInterface, QueryRunner } from 'typeorm';
 
-/**
- * The trailing timestamp is not decoration: it is what orders this migration
- * inside the module, and liteb refuses a migration class without one.
- */
 export class ${className} implements MigrationInterface {
   public async up(runner: QueryRunner): Promise<void> {
     await runner.query(\`
       -- what this migration creates
     \`);
 
-    // Delete this once the SQL above is written.
-    //
-    // It is here because an EMPTY migration succeeds: a query that is only a
-    // comment runs fine, so liteb records the migration as applied — and from
-    // then on it has no reason to run it again. The SQL written afterwards
-    // would never execute, and \`liteb migrate\` would keep answering "nothing
-    // to migrate" about a table that was never created. Failing here rolls the
-    // whole thing back and leaves no row behind.
     throw new Error(
       '${className} has no SQL yet: write it, or delete the file.',
     );
@@ -734,8 +659,8 @@ export class ${className} implements MigrationInterface {
     [{ path: `${dir}/migrations/${file}.ts`, content }],
     [],
     [
-      'Migrations run per module, before any route is mounted. Inside a module the trailing timestamp is the order — nothing lists them.',
-      'It THROWS until you write its SQL. An empty migration would be recorded as applied, and what you wrote afterwards would never run.',
+      'Migrations run per module, before any route is mounted. Inside a module the trailing timestamp is the order — nothing lists them, and liteb refuses a migration class without one.',
+      'It THROWS until you write its SQL, and deleting that line is the last step. An empty migration SUCCEEDS — a query that is only a comment runs fine — so it would be recorded as applied, `liteb migrate` would keep answering "nothing to migrate", and the SQL written afterwards would never run.',
       `Or let TypeORM write it from your entities: liteb migration:generate ${target.module}/${target.name}`,
     ],
   );

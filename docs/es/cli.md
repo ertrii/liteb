@@ -89,6 +89,35 @@ agregar.
 
 ---
 
+## Lo que genera no lleva comentarios
+
+Un archivo generado es código y nada más. El único que explica es `liteb init`, y
+es el único que se escribe una vez.
+
+Un generador corre todos los días. Su explicación termina copiada en el décimo
+endpoint, en el quinto token y en la tercera migración, donde ya no le enseña
+nada a nadie: es texto para leer de largo o borrar a mano, y se vuelve mentira el
+día que el framework cambia y los archivos viejos siguen ahí.
+
+Lo que hay que saber se dice una vez, cuando es nuevo — el comando lo imprime al
+terminar:
+
+```bash
+$ npx liteb token catalog/product-badges slot
+
+  created  src/modules/catalog/tokens/product-badges.token.ts
+
+  next     ProductBadge is the shape of ONE contribution; ProductBadges is the collection.
+  next     Read it: const filled = this.all(ProductBadges). An empty array is a normal answer — a slot nobody filled is a feature nobody installed.
+  next     Fill it from another module: liteb provider <module>/<name> --slot product-badges
+  next     Note the direction: "catalog" opens it and knows nothing about who fills it, which is what lets it be core while every contributor stays removable.
+```
+
+Y el porqué vive en esta página y en [wiring.md](wiring.md): un solo lugar, que
+se puede corregir.
+
+---
+
 ## `liteb init [name]`
 
 ```bash

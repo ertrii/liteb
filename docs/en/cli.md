@@ -89,6 +89,35 @@ silently mangles a file you wrote is worse than one that tells you what to add.
 
 ---
 
+## What it generates carries no comments
+
+A generated file is code and nothing else. The only command that explains itself
+is `liteb init`, and it is the only one that writes a file once.
+
+A generator runs every day. Its explanation ends up copied into the tenth
+endpoint, the fifth token and the third migration, where it teaches nobody
+anything: it is text to read past or delete by hand, and it becomes a lie the day
+the framework changes and the old files are still there.
+
+What you have to know is said once, where it is new — the command prints it when
+it is done:
+
+```bash
+$ npx liteb token catalog/product-badges slot
+
+  created  src/modules/catalog/tokens/product-badges.token.ts
+
+  next     ProductBadge is the shape of ONE contribution; ProductBadges is the collection.
+  next     Read it: const filled = this.all(ProductBadges). An empty array is a normal answer — a slot nobody filled is a feature nobody installed.
+  next     Fill it from another module: liteb provider <module>/<name> --slot product-badges
+  next     Note the direction: "catalog" opens it and knows nothing about who fills it, which is what lets it be core while every contributor stays removable.
+```
+
+And the reasoning lives on this page and in the guide: one place, which can be
+corrected.
+
+---
+
 ## `liteb init [name]`
 
 ```bash
