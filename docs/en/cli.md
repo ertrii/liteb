@@ -125,11 +125,13 @@ npx liteb@alpha init my-app                 # into ./my-app
 npx liteb@alpha init                        # into the current folder
 npx liteb@alpha init my-app --skip-install  # write the files, run npm install yourself
 npx liteb@alpha init my-app --dir src/bc    # modules live somewhere else
+npx liteb@alpha init my-app --no-git        # no repository, no first commit
 ```
 
 | Flag | Effect |
 | --- | --- |
 | `--skip-install` | write the files and stop |
+| `--no-git` | do not create a repository, or the first commit |
 | `--dir <path>` | where modules will live (default `src/modules`) |
 
 Writes:
@@ -185,6 +187,20 @@ package **and** its types are installed.
 > The default store lives in memory: it is lost on every restart, and a second
 > process does not see the first one's sessions. When this has users, put the
 > sessions in the database you already run and pass it as `store`.
+
+**And it is born under version control.** It runs `git init` on branch `main` and
+leaves the scaffold as the first commit, after `npm install` so the lockfile is in
+it. The commit is the point: sixteen files nobody typed are not your work, and
+with no commit of their own they end up inside the first real one, where nobody
+reviewing it can tell the two apart. With it, your first `git diff` is only what
+you wrote, and `git checkout .` has somewhere to go back to from minute one.
+
+Three things stop it, none of them an error, and each is reported in one line:
+there is no git on the machine; the folder is **already** inside a repository
+(`liteb init my-app` inside a monorepo is a normal thing to do, and a nested
+repository hides the project from the one that already tracks it); or the commit
+itself fails, most often because git has no identity there — the repository still
+stands, and the reason is git's own words, not ours. `--no-git` skips all of it.
 
 `src/config/permissions.ts` starts with its `declare global` block already
 open. It is empty until the first module; `liteb module` appends one block per

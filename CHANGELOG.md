@@ -107,6 +107,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`liteb init` leaves the project under git, with the scaffold committed.** It
+  runs `git init` on branch `main` and commits after `npm install`, so the
+  lockfile is in that first commit.
+
+  The commit is the point. Sixteen files nobody typed are not the author's work,
+  and with no commit of their own they end up inside the first real one, where
+  nobody reviewing it can tell the two apart. Committed on their own, the next
+  `git diff` is only what the author wrote.
+
+  Three things stop it, none of them an error, each reported in one line: no git
+  on the machine; the folder is already inside a repository (`liteb init my-app`
+  inside a monorepo is normal, and a nested repository hides the project from the
+  one that already tracks it); or the commit fails, most often for a missing
+  identity — the repository stays, and the reason is git's own words. `--no-git`
+  skips all of it.
+
 - **Nothing a generator writes carries a comment.** [BREAKING for anyone
   grepping generated files]
 

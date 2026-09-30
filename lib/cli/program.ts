@@ -3,7 +3,7 @@ import path from 'path';
 import { Command } from 'commander';
 import { connect, loadApp } from './app-loader';
 import { runBuild } from './build';
-import { createProject, install } from './init';
+import { createProject, GitResult, initGit, install } from './init';
 import {
   createEndpoint,
   createEntity,
@@ -63,6 +63,17 @@ function report(target: Plan, flags: CommonFlags): void {
   }
 }
 
+/** What happened with git, in the one line that follows the created files. */
+function gitLine(result: GitResult): string {
+  if (result.status === 'committed') {
+    return 'repository created, and the scaffold is its first commit — the next diff is only your own work.';
+  }
+  if (result.status === 'initialized') {
+    return `repository created, nothing committed: ${result.reason}`;
+  }
+  return `no repository: ${result.reason}`;
+}
+
 export function buildProgram(): Command {
   const program = new Command();
 
@@ -77,6 +88,7 @@ export function buildProgram(): Command {
       'A project that runs: package.json, tsconfig, .env, entry point',
     )
     .option('--skip-install', 'write the files and stop')
+    .option('--no-git', 'do not create a repository, or the first commit')
     .option('--dir <path>', 'where modules will live', 'src/modules')
     .action((name: string | undefined, flags) => {
       const project = name ?? path.basename(process.cwd());
@@ -98,7 +110,11 @@ export function buildProgram(): Command {
         install(root);
       }
 
+      // After the install, so the lockfile is in the first commit.
+      const git = flags.git ? initGit(root) : null;
+
       console.log('');
+      if (git) console.log(`  git      ${gitLine(git)}`);
       if (name) console.log(`  next     cd ${name}`);
       // Until the dependencies are installed, `npx liteb` would go to the
       // registry and resolve the `latest` tag — a different major, with a

@@ -1,5 +1,7 @@
 import 'reflect-metadata';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
@@ -16,7 +18,7 @@ import {
 } from '../lib/cli/generators';
 import { applyEdit } from '../lib/cli/writer';
 import { apply } from '../lib/cli/writer';
-import { createProject } from '../lib/cli/init';
+import { createProject, initGit } from '../lib/cli/init';
 import { parseTarget, toKebab, toPascal } from '../lib/cli/names';
 import {
   AuthResolver,
@@ -493,6 +495,127 @@ describe('liteb init', () => {
     expect(tsconfig.content).not.toContain('"baseUrl"');
     expect(tsconfig.content).toContain(
       '"ts-node": { "require": ["tsconfig-paths/register"] }',
+    );
+  });
+});
+
+describe('liteb init deja el proyecto en git', () => {
+  // El commit es el punto. Dieciséis archivos que nadie tipeó no son trabajo
+  // del autor, y sin un commit propio terminan adentro del primero de verdad,
+  // donde quien lo revise no puede distinguir una cosa de la otra.
+
+  /** Una identidad de git que no depende de cómo esté esta máquina. */
+  const sinIdentidad = (dir: string): NodeJS.ProcessEnv => {
+    const env = { ...process.env };
+
+    // Un archivo que no existe es una config vacía: así el commit falla por
+    // falta de identidad en CUALQUIER máquina, no sólo en una sin configurar.
+    env.GIT_CONFIG_GLOBAL = path.join(dir, 'sin-config');
+    env.GIT_CONFIG_SYSTEM = path.join(dir, 'sin-config');
+    delete env.GIT_AUTHOR_NAME;
+    delete env.GIT_AUTHOR_EMAIL;
+    delete env.GIT_COMMITTER_NAME;
+    delete env.GIT_COMMITTER_EMAIL;
+    delete env.EMAIL;
+
+    return env;
+  };
+
+  const conIdentidad = (dir: string): NodeJS.ProcessEnv => ({
+    ...sinIdentidad(dir),
+    GIT_AUTHOR_NAME: 'Prueba',
+    GIT_AUTHOR_EMAIL: 'prueba@example.com',
+    GIT_COMMITTER_NAME: 'Prueba',
+    GIT_COMMITTER_EMAIL: 'prueba@example.com',
+  });
+
+  const creadas: string[] = [];
+
+  /** Una carpeta FUERA del repositorio de liteb: adentro vería el de arriba. */
+  const afuera = (): string => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'liteb-git-'));
+    creadas.push(dir);
+    return dir;
+  };
+
+  const proyecto = (): string => {
+    const dir = afuera();
+    apply(createProject({ name: 'git-app', litebVersion }), { root: dir });
+    return dir;
+  };
+
+  const git = (dir: string, args: string[]): string =>
+    execFileSync('git', args, { cwd: dir, env: conIdentidad(dir) })
+      .toString()
+      .trim();
+
+  afterAll(() => {
+    creadas.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true }));
+  });
+
+  it('el andamiaje es el primer commit, y lo ignorado queda afuera', () => {
+    const dir = proyecto();
+    // Lo que el install deja al lado, para que .gitignore tenga qué ignorar.
+    fs.mkdirSync(path.join(dir, 'node_modules/liteb'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'node_modules/liteb/index.js'), '');
+
+    expect(initGit(dir, { env: conIdentidad(dir) })).toEqual({
+      status: 'committed',
+    });
+    expect(git(dir, ['log', '--oneline'])).toContain(
+      'Initial commit: liteb project scaffold',
+    );
+
+    const versionados = git(dir, ['show', '--name-only', '--format=']).split(
+      '\n',
+    );
+
+    expect(versionados).toContain('package.json');
+    expect(versionados).toContain('src/index.ts');
+    expect(versionados.some((file) => file.startsWith('node_modules'))).toBe(
+      false,
+    );
+    // Y .env tampoco: lo escribe el andamiaje con un secreto de sesión adentro.
+    expect(versionados).not.toContain('.env');
+    expect(versionados).toContain('.env.template');
+  });
+
+  it('la rama arranca en main, no en master', () => {
+    const dir = proyecto();
+    initGit(dir, { env: conIdentidad(dir) });
+
+    expect(git(dir, ['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('main');
+  });
+
+  it('no anida un repositorio adentro de otro', () => {
+    // `liteb init my-app` adentro de un monorepo es normal, y un repositorio
+    // anidado esconde el proyecto del que ya lo versiona.
+    const padre = afuera();
+    execFileSync('git', ['init'], {
+      cwd: padre,
+      env: conIdentidad(padre),
+      stdio: 'ignore',
+    });
+    const hijo = path.join(padre, 'my-app');
+    fs.mkdirSync(hijo);
+
+    expect(initGit(hijo, { env: conIdentidad(hijo) })).toEqual({
+      status: 'skipped',
+      reason: 'the folder is already inside a git repository',
+    });
+    expect(fs.existsSync(path.join(hijo, '.git'))).toBe(false);
+  });
+
+  it('sin identidad el repositorio igual queda, y el porqué lo dice git', () => {
+    const dir = proyecto();
+
+    const result = initGit(dir, { env: sinIdentidad(dir) });
+
+    expect(result.status).toBe('initialized');
+    expect(fs.existsSync(path.join(dir, '.git'))).toBe(true);
+    // El texto es de git, no nuestro: inventarlo sería adivinar por qué falló.
+    expect((result as { reason: string }).reason).toMatch(
+      /identity|author|user\.email/i,
     );
   });
 });

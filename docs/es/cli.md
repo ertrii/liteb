@@ -125,11 +125,13 @@ npx liteb@alpha init my-app                 # dentro de ./my-app
 npx liteb@alpha init                        # en la carpeta actual
 npx liteb@alpha init my-app --skip-install  # escribe los archivos, el npm install lo corrés vos
 npx liteb@alpha init my-app --dir src/bc    # los módulos viven en otro lado
+npx liteb@alpha init my-app --no-git        # sin repositorio ni primer commit
 ```
 
 | Bandera | Efecto |
 | --- | --- |
 | `--skip-install` | escribe los archivos y para |
+| `--no-git` | no crea el repositorio, ni el primer commit |
 | `--dir <path>` | dónde van a vivir los módulos (por defecto `src/modules`) |
 
 Escribe:
@@ -185,6 +187,20 @@ no existe hasta que el paquete **y** sus tipos están instalados.
 > El store por defecto vive en memoria: se pierde en cada reinicio y un segundo
 > proceso no ve las sesiones del primero. Cuando esto tenga usuarios, poné las
 > sesiones en la base que ya corrés y pasala como `store`.
+
+**Y nace versionado.** Corre `git init` en la rama `main` y deja el andamiaje
+como primer commit, después del `npm install` para que el lockfile entre. El
+punto es el commit: dieciséis archivos que nadie tipeó no son trabajo tuyo, y sin
+un commit propio terminan adentro del primero de verdad, donde quien lo revise no
+puede distinguir una cosa de la otra. Con él, tu primer `git diff` es sólo lo que
+escribiste vos, y `git checkout .` tiene a dónde volver desde el minuto uno.
+
+Tres cosas lo detienen, ninguna es un error, y las tres se dicen en una línea: no
+hay git instalado; la carpeta **ya** está adentro de un repositorio (`liteb init
+my-app` en un monorepo es normal, y anidar uno esconde el proyecto del que ya lo
+versiona); o el commit falla, casi siempre porque git no tiene identidad en esa
+máquina — ahí el repositorio queda igual y el porqué lo dice git, no nosotros.
+`--no-git` lo saltea del todo.
 
 `src/config/permissions.ts` arranca con su bloque `declare global` ya abierto.
 Está vacío hasta el primer módulo; `liteb module` le añade un bloque por módulo y

@@ -411,3 +411,17 @@ There is still no **grant store**: the resolver hands the actor's permission
 list over and the framework trusts it. That is deliberate — who holds what is
 the application's policy — but it means liteb validates the keys, never the
 grants.
+
+## Deferred on purpose
+
+**A `liteb.json`.** Proposed (2026-09-29) as somewhere to turn generator
+behaviour off. Turned down for that: a switch for "comments yes/no" is a knob on
+a default that should just be right, and it doubles the output to maintain and
+test. What would earn the file is what a project repeats on every invocation and
+is not a matter of taste — `--dir`, the entry file `liteb module` edits, the `@/`
+alias. Waiting for a SECOND such field, so it is born with two or three concrete
+ones instead of as a drawer.
+
+**`ConfigService.get()`** still returns `string` for a key that may be missing.
+The options are to throw (with a `getOptional()` beside it) or to type it
+`string | undefined`. Undecided.

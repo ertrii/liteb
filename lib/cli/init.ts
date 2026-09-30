@@ -650,3 +650,93 @@ export function install(cwd: string): void {
     );
   }
 }
+/** What `liteb init` left behind, version-control wise. */
+export type GitResult =
+  | { status: 'committed' }
+  | { status: 'initialized'; reason: string }
+  | { status: 'skipped'; reason: string };
+
+export interface GitOptions {
+  /** Injectable for tests: the environment git runs in, identity included. */
+  env?: NodeJS.ProcessEnv;
+}
+
+/**
+ * Puts the new project under git, and makes the scaffold its first commit.
+ *
+ * The commit is the point. Sixteen files nobody typed are not the author's
+ * work, and with no commit of their own they end up inside the first real one,
+ * where nobody reviewing it can tell the two apart. Committed on their own, the
+ * next `git diff` is only what the author did, and `git checkout .` has
+ * somewhere to go back to from the first minute.
+ *
+ * It runs AFTER `npm install`, so the lockfile is in that commit — the one file
+ * a fresh clone needs to get the same tree.
+ *
+ * Three things stop it, and none of them is an error:
+ *
+ *  - No git on the machine. The project is written, it just is not tracked.
+ *  - The folder is ALREADY inside a repository. A nested one would hide the
+ *    project from the repository that already tracks it, and running
+ *    `liteb init my-app` inside a monorepo is a normal thing to do.
+ *  - The commit itself fails, most often because git has no identity here. The
+ *    repository stays, and git's own complaint is the hint.
+ */
+export function initGit(cwd: string, options: GitOptions = {}): GitResult {
+  const git = (args: string[]): string =>
+    execFileSync('git', args, {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: options.env ?? process.env,
+    })
+      .toString()
+      .trim();
+
+  try {
+    git(['--version']);
+  } catch {
+    return { status: 'skipped', reason: 'git is not installed' };
+  }
+
+  try {
+    git(['rev-parse', '--git-dir']);
+    return {
+      status: 'skipped',
+      reason: 'the folder is already inside a git repository',
+    };
+  } catch {
+    // Not a repository yet, which is the whole case for this function.
+  }
+
+  try {
+    try {
+      // `-b main`: without `init.defaultBranch` set, git still starts on
+      // "master" and prints a paragraph about it. Older gits do not know the
+      // flag, and the name of a branch is not worth failing a scaffold over.
+      git(['init', '-b', 'main']);
+    } catch {
+      git(['init']);
+    }
+
+    git(['add', '-A']);
+    git(['commit', '-m', 'Initial commit: liteb project scaffold']);
+    return { status: 'committed' };
+  } catch (error) {
+    return { status: 'initialized', reason: gitComplaint(error) };
+  }
+}
+
+/** git's own complaint, first line of it, so the hint is not ours to invent. */
+function gitComplaint(error: unknown): string {
+  const streams = [
+    (error as { stderr?: Buffer }).stderr,
+    (error as { stdout?: Buffer }).stdout,
+  ];
+
+  const text = streams
+    .map((stream) => stream?.toString().trim() ?? '')
+    .find((value) => value.length > 0);
+
+  const first = text?.split('\n').find((line) => line.trim().length > 0);
+  return first?.trim() ?? 'git refused to commit';
+}
