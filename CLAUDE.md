@@ -412,6 +412,63 @@ list over and the framework trusts it. That is deliberate — who holds what is
 the application's policy — but it means liteb validates the keys, never the
 grants.
 
+## TypeORM → Drizzle: what it costs
+
+Decided 2026-09-29, in progress. The audit said yes; this is the list of what is
+given up, kept open on purpose so it can be revisited with better options.
+
+Verified before deciding: `drizzle-kit/api`'s `pushSchema(schema, db)` reads the
+LIVE schema and returns the statements without applying them, which is what
+`schemaDiff()` does with TypeORM today; `generateMigration(prev, cur)` over
+snapshots returns `up` AND `down` with no database at all; `is(value, PgTable)`
+replaces `getMetadataArgsStorage()` and, unlike it, needs no open connection.
+
+The chosen baseline is **a snapshot per module** (`migrations/meta/`), because it
+gives `down` and does not need a connected database to generate. `pushSchema` is
+kept for reporting drift between the code and the real database.
+
+What it costs:
+
+1. **The relational query API (`db.query.users.findMany()`) is unavailable.** It
+   needs the whole schema, with its types, at COMPILE time; in liteb the schema
+   is the union of what the installed modules contribute, assembled at runtime.
+   `db.select().from(table)` stays fully typed. A module that wants the
+   relational API can build its own instance over the same client:
+   `drizzle(this.db.$client, { schema: itsOwnTables })` — one line, and it sees
+   only its own tables, which is the right scope anyway. **Open**: whether liteb
+   should hand that instance to a module itself.
+
+2. **`find({ relations: [...] })` and eager loading go away.** A consumer who
+   reads through a repository gets explicit joins instead. Cascades, subscribers
+   and `save()`'s upsert-ish semantics have no equivalent either. This is the
+   biggest change for existing application code, bigger than the syntax.
+
+3. **`QueryRunner`'s DDL helpers go away** in migrations: no `hasTable`,
+   `createTable(new Table(...))`, `addColumn`. Migrations become SQL, which is
+   arguably what they always were, but it IS a loss for anyone who used them.
+
+4. **Liteb becomes Postgres-only in its types.** Table detection keys on
+   `PgTable`. In practice it already was — PGlite in tests, `type: 'postgres'`,
+   `$1` placeholders — but the types stop pretending otherwise.
+
+5. **`hasDataLoss` cannot be trusted.** Measured: dropping a column with data
+   reported `hasDataLoss: false` and zero warnings. No liteb decision leans on
+   that field. **Open**: whether to detect destructive statements ourselves.
+
+6. **The snapshot is a committed artifact that can drift.** Two authors adding a
+   migration to the same module conflict on one JSON file, and a migration
+   edited by hand leaves the snapshot describing a schema that never existed.
+   Today's live diff has no such artifact. **Open**: `migrate:status` comparing
+   snapshot against the live database is the mitigation, not a fix.
+
+7. **`drizzle-kit` pulls in `esbuild` and `tsx`**, and only
+   `migration:generate` needs it, so it goes in as an optional peer. It also
+   writes a spinner straight to stdout, which the CLI has to silence.
+
+8. **Drizzle v1 is still a release candidate** (`1.0.0-rc.5`). Pinning the stable
+   `drizzle-orm@0.45` and `drizzle-kit@0.31` means a second, smaller migration
+   later. **Open**: whether to wait for v1 instead.
+
 ## Deferred on purpose
 
 **A `liteb.json`.** Proposed (2026-09-29) as somewhere to turn generator
