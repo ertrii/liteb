@@ -43,7 +43,7 @@ que anda `--public`.
 @HttpGet()
 export default class ListTasksEndpoint extends Endpoint {
   public async main() {
-    return this.db.getRepository(Task).find();
+    return this.db.select().from(tasks);
   }
 }
 ```
@@ -182,7 +182,12 @@ const sessionAuth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId;
   if (!userId) return null; // anónimo
 
-  const user = await db.getRepository(User).findOneBy({ id: userId });
+  const [user] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
   if (!user) return null; // borrado a mitad de la sesión
 
   return {
@@ -309,10 +314,12 @@ export default class CreateTaskEndpoint extends Endpoint<null, CreateTaskDto> {
   public async main() {
     this.auth.assert('tasks.manage');
 
-    return this.db.getRepository(Task).save({
-      ...this.body,
-      createdBy: this.auth.actor.userId,
-    });
+    const [task] = await this.db
+      .insert(tasks)
+      .values({ ...this.body, createdBy: this.auth.actor.userId })
+      .returning();
+
+    return task;
   }
 }
 ```

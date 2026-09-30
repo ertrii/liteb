@@ -8,7 +8,7 @@ Liteb es un framework de backend liviano y simple. Su objetivo principal es
 facilitar el desarrollo de APIs modernas con una configuración mínima y sin
 abandonar las buenas prácticas. Está inspirado en la arquitectura y la facilidad
 de uso de frameworks como NestJS: organización modular, manejo intuitivo de
-rutas, integración con la base de datos a través de TypeORM y soporte para
+rutas, integración con la base de datos a través de Drizzle y soporte para
 trabajo programado.
 
 Con Liteb podés definir rápido los módulos y los endpoints de tu API, asociar
@@ -24,7 +24,7 @@ manteniendo una estructura sólida y extensible.
 ## Requisitos
 
 - **Node.js >= 20**
-- **PostgreSQL** (o cualquier base soportada por TypeORM) alcanzable al arrancar
+- **PostgreSQL** alcanzable al arrancar
 - `reflect-metadata` lo carga el framework — no hace falta que lo importes
 
 ## Instalación
@@ -33,7 +33,7 @@ manteniendo una estructura sólida y extensible.
 npm install liteb
 ```
 
-`liteb` se apoya en unas pocas dependencias que ponés vos: `typeorm`, `express`,
+`liteb` se apoya en unas pocas dependencias que ponés vos: `drizzle-orm`, `express`,
 `class-validator` y `typescript`. Agregá `express-session` sólo si tu resolutor
 de autenticación usa sesiones por cookie — el framework ya no depende de él.
 
@@ -68,7 +68,7 @@ npx liteb@alpha init my-app     # sólo el primer comando necesita la versión:
                                 # que sigue siendo 1.x y trae otro CLI.
 npx liteb module billing
 npx liteb endpoint billing/issue-charge --method post
-npx liteb entity billing/charge
+npx liteb table billing/charge
 npx liteb migration billing/create-charges
 npx liteb build --bytecode
 ```
@@ -91,7 +91,7 @@ código lo escribís vos.
 | `event <module>/<name>` | Algo que este módulo anuncia |
 | `slot <module>/<name>` | Un punto de extensión que otros pueden llenar |
 | `listener <module>/<name>` | Un oyente |
-| `entity <module>/<name>` | Una entidad (`--table`) |
+| `table <module>/<name>` | Una tabla y sus tipos de fila (`--name`) |
 | `migration <module>/<name>` | Una migración con sello de tiempo |
 | `migrate` | Corre las migraciones pendientes sin levantar el servidor (`--dry-run`, `--entry`) |
 | `migrate:status` | Qué declara cada módulo, y qué de eso ya corrió |
@@ -143,11 +143,13 @@ class UserParams {
 @HttpGet(':id')
 @Params(UserParams)
 export class GetUserApi extends Endpoint<UserParams> {
-  // `this.db` está disponible en los inicializadores de campo.
-  private readonly repo = this.db.getRepository(User);
-
   async main() {
-    const user = await this.repo.findOneBy({ id: this.params.id });
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, this.params.id))
+      .limit(1);
+
     if (!user) throw new NotFoundError('User not found');
     return user; // se serializa como JSON con el estado `this.httpStatus` (200 por defecto)
   }
@@ -171,17 +173,24 @@ export class GetUserApi extends Endpoint<UserParams> {
 
 ### Transacciones
 
-No hay gancho de transacción ni decorador de transacción. Usá el de TypeORM:
+No hay gancho de transacción ni decorador de transacción. Usá el de Drizzle:
 
 ```typescript
 async main() {
-  return this.db.transaction(async (manager) => {
-    const charge = await manager.save(Charge, { ... });
-    await manager.update(Subscription, id, { lastChargeId: charge.id });
+  return this.db.transaction(async (tx) => {
+    const [charge] = await tx.insert(charges).values({ ... }).returning();
+    await tx
+      .update(subscriptions)
+      .set({ lastChargeId: charge.id })
+      .where(eq(subscriptions.id, id));
     return charge;
   });
 }
 ```
+
+`tx` es el mismo tipo que `this.db` menos una cosa: no lleva `$client`, que es
+por donde abrirías una segunda conexión y te saldrías de la transacción que te
+dieron.
 
 Confirmar, revertir y liberar son el contrato del callback, así que no se pueden
 olvidar. Repartirlos entre ganchos del ciclo de vida — `startTransaction` en un
@@ -317,16 +326,20 @@ lo que tiene de particular **este** módulo. Las carpetas se encuentran desde
 
 | Carpeta | Qué carga liteb de ahí |
 | --- | --- |
-| `entities/*.entity.ts` | las clases decoradas, para el DataSource |
+| `tables/*.table.ts` | las tablas, y los enums que usan |
 | `migrations/*.ts` | las clases de migración |
 | `endpoints/*.endpoint.ts` | los endpoints, montados bajo el id del módulo |
 | `routines/*.routine.ts` | las rutinas programadas |
 | `listeners/*.listener.ts` | los oyentes de eventos |
 | `providers/*.provider.ts` | las clases `Provider`: qué responde, qué aporta |
 
-Escribir el archivo es todo lo que hay que hacer. `liteb entity billing/charge`
-escribe `entities/charge.entity.ts` y no edita **nada**: la carpeta es lo que lo
+Escribir el archivo es todo lo que hay que hacer. `liteb table billing/charge`
+escribe `tables/charge.table.ts` y no edita **nada**: la carpeta es lo que lo
 declara.
+
+Un **enum** tiene que estar exportado ahí, no sólo usado por una columna: una
+tabla con columna de enum genera DDL que **referencia** el tipo, así que un
+esquema sin el enum produce una migración que falla al correr.
 
 Sólo se toman las entidades decoradas y las clases de migración. Un enum, un DTO
 o un helper exportado del mismo archivo se ignoran, así que una carpeta puede
@@ -382,13 +395,13 @@ Un glob que ESCRIBISTE y no encuentra nada se reporta al arrancar; uno por
 defecto que no encuentra nada, no, porque un módulo sin rutinas es un módulo
 común.
 
-Arrancá la aplicación desde sus módulos. `Liteb.create` es dueño del DataSource,
-porque TypeORM necesita las entidades de todos los módulos cuando se construye la
-conexión:
+Arrancá la aplicación desde sus módulos. `Liteb.create` es dueño de la conexión,
+porque el esquema es la unión de lo que aporta cada módulo y la aplicación no
+puede armarla a mano sin conocer las internas de cada uno:
 
 ```typescript
 const app = await Liteb.create({
-  db: { type: 'postgres', host, database },
+  db: { host, database, user, password },
   modules: [identity, billing, inventory],
   version: '2.0.0', // se comprueba contra el `engine` de cada módulo
   basePath: '/api', // prefijo de las rutas de los módulos
@@ -637,9 +650,10 @@ export const BillingService = token<BillingService>(
 // billing/providers/billing-service.provider.ts — cómo se cumple
 @Provides(BillingService)
 export class BillingServiceProvider extends Provider implements BillingService {
-  private readonly charges = this.db.getRepository(Charge);
-
-  async issueCharge(input: IssueChargeInput) { ... }
+  async issueCharge(input: IssueChargeInput) {
+    const [charge] = await this.db.insert(charges).values(input).returning();
+    return charge;
+  }
 }
 ```
 
@@ -887,7 +901,12 @@ const auth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId; // o un token bearer, o una API key
   if (!userId) return null; // anónimo
 
-  const user = await db.getRepository(User).findOneBy({ id: userId });
+  const [user] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
   if (!user) return null; // borrado a mitad de la sesión
 
   return {
@@ -1266,7 +1285,7 @@ import { csv, file, pdf, view } from 'liteb';
 @Query(ListClientsDto)
 export class ListClientsApi extends Endpoint<null, null, ListClientsDto> {
   async main() {
-    const clients = await this.db.getRepository(Client).find();
+    const clients = await this.db.select().from(clientsTable);
 
     if (this.query.format === 'csv') {
       return csv(clients, {
@@ -1359,8 +1378,8 @@ ConfigService.mode(); // 'development' | 'production', desde NODE_ENV
 ```
 
 Las variables que tu app necesita (host de la base, credenciales, puerto, etc.)
-las definís vos y se las pasás a tu `DataSource` de TypeORM; liteb no exige
-ningún nombre en particular más allá de los de logging de arriba.
+las definís vos y se las pasás a `db` en `Liteb.create`; liteb no exige ningún
+nombre en particular más allá de los de logging de arriba.
 
 ## Aplicación de ejemplo
 

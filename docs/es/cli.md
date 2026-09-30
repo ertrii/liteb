@@ -33,9 +33,9 @@ sin ella `npx liteb` trae la etiqueta `latest`, que es otro major con otro CLI.
 | [`module <name>`](#liteb-module-name) | Un módulo: su manifiesto, sus permisos y un primer endpoint |
 | [`endpoint <module>/<name>`](#liteb-endpoint-modulename) | Un endpoint HTTP |
 | [`routine <module>/<name>`](#liteb-routine-modulename) | Trabajo con horario |
-| [`entity <module>/<name>`](#liteb-entity-modulename) | Una entidad de TypeORM |
+| [`table <module>/<name>`](#liteb-table-modulename) | Una tabla, con sus tipos de fila |
 | [`migration <module>/<name>`](#liteb-migration-modulename) | Una migración con sello de tiempo |
-| [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | La misma, escrita por TypeORM desde tus entidades |
+| [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | La misma, escrita desde tus tablas |
 | [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | Lo que este módulo comparte: contrato, slot o evento |
 | [`provider <module>/<name>`](#liteb-provider-modulename) | La clase que responde un contrato o llena un slot |
 | [`listener <module>/<name>`](#liteb-listener-modulename) | Una reacción a un evento |
@@ -65,7 +65,7 @@ mantener sincronizada, porque **la carpeta es lo que registra el archivo**:
 ```
 billing/
 ├── module.ts                   ← el cableado, y las claves de permiso
-├── entities/*.entity.ts        migrations/*.ts
+├── tables/*.table.ts           migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
 ├── providers/*.provider.ts
 └── tokens/*.token.ts           (contratos, slots y eventos)
@@ -159,7 +159,7 @@ una tarde.
 `emitDecoratorMetadata`. Sacá cualquiera de las dos y cada ruta y cada entidad
 pasan a no hacer nada, en silencio — nada falla, nada contesta.
 
-**`strictPropertyInitialization: false`.** Las entidades de TypeORM y los DTO
+**`strictPropertyInitialization: false`.** Los DTO
 validados declaran campos que el constructor nunca asigna; los llena el ORM. Con
 la bandera encendida, cada uno de ellos es un error.
 
@@ -366,7 +366,7 @@ import { UserDirectory } from '@/identity/tokens/user-directory.token';
 ```
 
 Sólo los imports entre módulos lo necesitan. Dentro de un módulo,
-`../entities/charge.entity` es más corto y dice más.
+`../tables/charge.table` es más corto y dice más.
 
 **Un alias de `paths` existe sólo en tiempo de compilación.** `tsc` lo
 typechequea y después emite `require("@/…")` tal cual, algo de lo que Node nunca
@@ -475,22 +475,45 @@ declaró con `{ runOnInit: true }`.
 
 ---
 
-## `liteb entity <module>/<name>`
+## `liteb table <module>/<name>`
 
 ```bash
-npx liteb entity billing/charge
-npx liteb entity billing/charge --table facturacion_cargos
+npx liteb table billing/charge
+npx liteb table billing/charge --name facturacion_cargos
 ```
 
 | Bandera | Efecto |
 | --- | --- |
-| `--table <name>` | nombre de la tabla (por defecto `<module>_<name>`, en snake_case) |
+| `--name <name>` | nombre en SQL (por defecto `<module>_<name>`, en snake_case) |
 
-Escribe la clase y no edita nada: `entities/*.entity.ts` es donde liteb mira.
+Escribe la tabla y los dos tipos de fila que van con ella, y no edita nada:
+`tables/*.table.ts` es donde liteb mira.
 
-**Declarar una entidad no crea su tabla.** liteb no te enciende `synchronize`
-— cada tabla sale de una migración, que es lo que una instalación es. Seguile
-con `liteb migration:generate`.
+```typescript
+export const charge = pgTable('billing_charge', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+});
+
+export type Charge = typeof charge.$inferSelect;
+export type NewCharge = typeof charge.$inferInsert;
+```
+
+Los tipos van escritos porque son lo que el resto del módulo se pasa entre
+funciones: una función que recibe una fila quiere el tipo, y derivarlo en cada
+lugar es como dos de ellos terminan en desacuerdo.
+
+**El prefijo no es adorno.** Las tablas de todos los módulos comparten un
+namespace, y `billing_charge` es lo que evita que dos módulos quieran `charge`.
+También es lo que hace que una base se lea por módulo de un vistazo.
+
+**Un enum va exportado acá también**, no sólo usado por una columna. Una tabla
+con columna de enum genera `"status" "billing_status" NOT NULL`, que
+**referencia** el tipo: si el enum no está en el esquema, la migración sale
+creando una tabla que apunta a un tipo que nada creó, y falla al correr.
+
+**Declarar una tabla no la crea.** Cada tabla sale de una migración, que es lo
+que una instalación es. Seguile con `liteb migration:generate`.
 
 ---
 
@@ -506,7 +529,7 @@ Escribe `migrations/<timestamp>-<name>.ts`. Nada la lista.
 módulo — liteb rechaza una clase de migración sin uno, porque el orden de
 declaración no es un contrato. Entre módulos el orden es el de dependencias, así
 que las tablas de un módulo existen antes de que un dependiente las toque. El
-runner de TypeORM no puede hacer eso: ordena todas las migraciones del DataSource
+runner de un ORM no puede hacer eso: ordena todas las migraciones que conoce
 globalmente, y un módulo escrito el año pasado migraría antes que la dependencia
 que necesita.
 
@@ -531,28 +554,41 @@ npx liteb migration:generate billing/add-due-date --print
 | `--entry <file>` | archivo que exporta `createApp()` |
 | `--dir <path>` | dónde viven los módulos (por defecto `src/modules`) |
 | `--print` | muestra el SQL y no escribe nada |
+| `--check` | además dice qué le falta a la base viva |
 | `--force` | sobrescribe un archivo que ya existe |
 
-**Este es el generador de TypeORM, archivado por módulo.** Conecta, le pide a
-TypeORM que lea el esquema vivo, lo compare contra tus entidades y escriba el SQL
-que cierra la diferencia — la misma maquinaria detrás de `synchronize: true`,
-menos la parte donde corre a tus espaldas. Esa mitad es de TypeORM y la hace
-mejor que cualquier cosa a mano.
+**No necesita base de datos.** Compara las tablas del módulo contra el
+**snapshot** de ese módulo, que es un archivo:
 
-Lo que TypeORM no puede hacer es decidir **dónde** va la migración: ve un solo
-esquema, y los módulos no existen para él. Esa mitad es de liteb, y se decide con
-lo único que lo sabe — qué módulo declara qué entidad. Entonces:
+```
+src/modules/billing/
+├── tables/*.table.ts
+└── migrations/
+    ├── 1790000000000-add-due-date.ts
+    └── meta/snapshot.json        ← contra esto se compara la próxima
+```
 
-- un diff que cae entero en otro módulo se **rechaza**, y nombra al módulo que lo
-  posee. Una migración en el módulo equivocado corre en el orden equivocado, o no
-  corre si ese módulo está apagado, y eso aparece en producción sobre datos que
-  ya existen;
-- uno que además toca tablas de otro módulo se escribe, con un aviso que las
-  nombra. Partirlo es criterio y liteb no lo ejerce por vos.
+Escribe **dos** archivos: la migración y el snapshot nuevo. **Commiteá los dos**
+— sin el snapshot, la próxima migración se escribe contra un esquema que ya no
+corresponde y sale creando lo que existe.
 
-**Se niega mientras haya migraciones pendientes.** Una pendiente es un cambio que
-la base no vio, así que el diff lo describiría una segunda vez y correrías el
-mismo DDL dos veces. Primero `liteb migrate`.
+Comparar dos descripciones de un esquema y escribir el SQL lo hace Drizzle Kit,
+mejor que cualquier cosa a mano. Lo que decide liteb es **qué** se compara, y es
+por módulo: las tablas de un módulo contra el snapshot de ese módulo. Eso hace
+que no haya nada que atribuir — un diff de todo el esquema habría que repartirlo,
+y de ese reparto sale en qué orden corre la migración.
+
+Un statement puede **nombrar** la tabla de otro módulo, porque una foreign key
+apunta a algún lado, y eso está bien: la constraint es de quien la declara, y
+liteb migra en orden de dependencias, así que para cuando se aplica la tabla
+apuntada ya existe.
+
+**Sale también el `down()`**, que es la misma pregunta al revés — y por eso es
+confiable en la misma medida que el `up`.
+
+Con `--check` además conecta y dice si la base viva se separó del código: una
+migración aplicada a mano, una columna borrada desde una consola o un snapshot
+que nadie commiteó aparecen ahí y en ningún otro lado.
 
 > **Leé lo que escribe.** Un diff no distingue un rename de un drop más un add,
 > así que una columna renombrada sale como perder una y ganar otra — y sobre una
@@ -620,7 +656,7 @@ ya puede alcanzar un repositorio:
 ```typescript
 @Provides(UserDirectory)
 export class UserDirectoryProvider extends Provider implements UserDirectory {
-  private readonly users = this.db.getRepository(User);
+  private readonly users = () => this.db.select().from(users);
 }
 ```
 

@@ -4,9 +4,94 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0-alpha.5] - 2026-09-29
+## [2.0.0-alpha.5] - 2026-09-30
 
 ### Changed
+
+- **TypeORM is replaced by Drizzle.** [BREAKING]
+
+  ```typescript
+  // before
+  @Entity('billing_charge')
+  export class Charge {
+    @PrimaryGeneratedColumn() id: number;
+    @Column() name: string;
+  }
+  const charges = await this.db.getRepository(Charge).find();
+
+  // after
+  export const charge = pgTable('billing_charge', {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+  });
+  export type Charge = typeof charge.$inferSelect;
+
+  const charges = await this.db.select().from(charge);
+  ```
+
+  `this.db` is now `Database`, which is Drizzle's `PgDatabase` with no driver and
+  no schema named in it, plus `$client`. Both a `pg` pool and a PGlite instance
+  satisfy it, and `db.select().from(table)` stays exactly typed because the types
+  come from the TABLE, not from a schema generic.
+
+  **What changed beyond the syntax:**
+
+  - `entities` is **`tables`**, and `entities/*.entity.ts` is
+    `tables/*.table.ts`. `liteb entity` is now **`liteb table`**, and it writes
+    the table plus its `$inferSelect` / `$inferInsert` types.
+  - **An ENUM has to be exported from a file under `tables/`**, not only used by
+    a column. A table with an enum column emits DDL that *references* the type,
+    so a schema without the enum generates a migration that fails when it runs.
+    Liteb collects six kinds — tables, enums, sequences, views, materialized
+    views, schemas — and ignores everything else exported from the same file.
+  - **Liteb defines `Migration`**, so an application's migrations no longer type
+    against the ORM. They take a `Transaction` — the database minus `$client`,
+    which is how you would have opened a second connection and stepped outside
+    the transaction you were handed.
+  - **`liteb migration:generate` needs no database.** It compares one module's
+    tables against that module's snapshot (`migrations/meta/snapshot.json`) and
+    writes both the migration and the new snapshot. `down()` comes from the same
+    diff, so it is trustworthy in the same measure the `up` is — and when the
+    diff finds no way back, there is no `down()` at all rather than an empty one
+    claiming this is undone by doing nothing.
+  - **Nothing has to be attributed to a module any more.** A whole-schema diff
+    had to be split up — which module owns this table? — and where each piece
+    landed decided what order it ran in. A per-module diff has nothing to guess,
+    and ~100 lines of attribution went with it. A cross-module foreign key still
+    comes out right: it names the other module's table, and liteb migrates in
+    dependency order.
+  - **`--check`** (and `app.schemaDrift()`) answers the question snapshots
+    cannot: has the live database drifted from the code?
+  - **Liteb owns no ORM lifecycle.** A pool connects lazily, so `connect()` runs
+    `select 1` instead of reading a flag, and the health probe does the same: a
+    pool reports itself open while every connection in it is broken.
+  - **Liteb does not close a connection it did not open.** Passing your own
+    instance used to need `close({ database: false })` to survive.
+  - Postgres only, in the types as well as in practice.
+
+  **Migrating:** rewrite each entity class as a `pgTable` under `tables/`,
+  export its enums, change `getRepository(X).find()` to `select().from(x)`, and
+  replace `implements MigrationInterface` / `up(runner: QueryRunner)` with
+  `implements Migration` / `up(db: Transaction)`. Then delete the snapshot-less
+  history: `liteb migration:generate` against an empty snapshot regenerates the
+  schema from scratch, so run it once per module on a database that already
+  matches and commit the snapshot without applying the migration.
+
+  `drizzle-orm` is a peer dependency; **`drizzle-kit` is an OPTIONAL peer**,
+  required lazily, because it pulls in esbuild and tsx and only generating needs
+  it. A deploy that runs migrations someone else generated must not install a
+  build toolchain to do it.
+
+  What this gives up is written down in `CLAUDE.md`, including the two measured
+  surprises: the relational query api (`db.query.users.findMany()`) cannot work
+  when the schema is only known at runtime, and Drizzle's `hasDataLoss` reported
+  `false` for dropping a column that had data.
+
+- **A generator can declare a file it is expected to rewrite.** The writer
+  refuses to overwrite anything, because a migration is history — but a schema
+  snapshot exists to be replaced, and without this a module could only ever have
+  one migration before `liteb migration:generate` died with "Already there". It
+  is reported as `updated`, not `created`.
 
 - **One `token()` replaces `contract()`, `slot()` and `event()`.** The three
   differed in exactly one thing — how many may answer — so that is now an

@@ -10,6 +10,18 @@ export interface GeneratedFile {
   /** Path relative to the project root. */
   path: string;
   content: string;
+  /**
+   * A file whose whole purpose is to be rewritten, so finding it already there
+   * is not a collision.
+   *
+   * Almost nothing is this. A migration is HISTORY — overwriting one silently
+   * changes what already ran somewhere — and that is why the writer refuses by
+   * default. A schema snapshot is the opposite: it records where the last
+   * migration left the schema, so every generate after the first one has to
+   * replace it, and refusing would mean a module could only ever have one
+   * migration without `--force`.
+   */
+  replaces?: boolean;
 }
 
 /**

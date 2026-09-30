@@ -39,8 +39,10 @@ The first four sections are enough to build something.
 | `connect` | `() => Promise<void>` | Opens the connection without mounting anything, for a command that only touches the database. |
 | `migrate` | `(options?: { dryRun?: boolean }) => Promise<AppliedMigration[]>` | Runs every pending migration, per module, in dependency order. `dryRun` answers what WOULD run. |
 | `migrationStatus` | `() => Promise<ModuleMigrationStatus[]>` | What each module declares and what of it already ran. |
-| `pendingSchema` | `() => Promise<SchemaDiff>` | The SQL the database is missing to match the entities. What `migration:generate` is built on. |
-| `tableOwners` | `() => Map<string, string>` | Which module owns each table, read off the entities each one declares. |
+| `pendingSchema` | `(moduleId, previous?) => Promise<SchemaDiff>` | The SQL one module needs to go from `previous` to what its code says. Needs no database. What `migration:generate` is built on. |
+| `snapshotOf` | `(moduleId, previous?) => SchemaSnapshot` | What that module's tables describe now, to store beside the migration. |
+| `schemaDrift` | `() => Promise<string[]>` | What the LIVE database is missing to match every module. The question snapshots cannot answer. |
+| `tableOwners` | `() => Map<string, string>` | Which module owns each table, read off the tables each one declares. |
 | `permissions` | `() => RegisteredPermission[]` | Every key the installed modules declare, with its module. The catalog a roles screen renders. |
 | `getApp` | `() => Express` | The Express application, for anything liteb does not wrap. |
 | `use` | `(middleware) => void` | Adds middleware to that application. |
@@ -71,7 +73,7 @@ Four base classes. A file exporting one is found by the folder it is in — see
 | `previous` | `() => void \| Promise<void>` | Runs before `main`, on the same instance. |
 | `body` `params` `query` | `B` `P` `Q` | Validated input. `null` unless a `@Body` / `@Params` / `@Query` schema says otherwise. |
 | `auth` | `Auth` | Who is asking and what they may do. |
-| `db` | `DataSource` | The connection, injected. |
+| `db` | `Database` | The connection, injected. |
 | `container` | `Container` | Contracts other modules provide. |
 | `events` | `EventBus` | For `emit`. |
 | `file` / `files` | `UploadedFile` / `UploadedFile[]` or a map | Multipart uploads. |
@@ -117,7 +119,7 @@ way.
 | `ModuleHook` | `(ctx: ModuleContext) => void \| Promise<void>` | `onInstall`, `onEnable`, `onDisable`, `onUninstall`. |
 | `ModuleContext` | interface | `{ db }` — what a hook receives. |
 | `ModulePattern` | `string \| string[]` | A glob field's value. |
-| `ModuleEntity` | `Function \| EntitySchema` | An entity, as TypeORM types one. |
+| `ModuleTable` | `PgTable \| PgEnum \| PgSequence \| PgView \| ...` | Something the module puts in the schema. An enum belongs in this list: without it, a table with an enum column generates DDL that references a type nothing creates. |
 | `ModuleMigrations` | `Function[] \| Record<string, unknown>` | A list of migration classes, or a namespace import of them. |
 | `ModuleDefinitionError` | class | Thrown by `defineModule` when the manifest is wrong. At import, before anything boots. |
 

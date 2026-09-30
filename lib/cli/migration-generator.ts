@@ -34,14 +34,82 @@ export interface GenerateMigrationOptions {
   now?: number;
 }
 
+/** What prettier wraps at, and what liteb therefore has to wrap at. */
+const WIDTH = 80;
+
+/** Written like this so the generator's own source stays readable. */
+const BACKTICK = String.fromCharCode(96);
+
 /** Inside a template literal, only these two can end it early. */
 const escape = (sql: string): string =>
   sql.replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 
+/**
+ * One statement, wrapped the way prettier would wrap it.
+ *
+ * Third time this rule shows up — after the generated import and the token
+ * declaration — and for the same reason: the scaffolded project runs
+ * `prettier --check`, so a generated file that is one column too wide fails the
+ * consumer's own lint on the first commit. Here the width is a piece of SQL
+ * nobody can predict, which is why it is computed instead of guessed.
+ *
+ * Three forms, and prettier picks between them by measuring:
+ *
+ *     await db.execute(sql.raw(`DROP TABLE "x";`));          // fits
+ *     await db.execute(                                     // does not
+ *       sql.raw(`ALTER TABLE ...`),
+ *     );
+ *     await db.execute(                                     // nor does that
+ *       sql.raw(
+ *         `ALTER TABLE ... a long one ...`,
+ *       ),
+ *     );
+ *
+ * A multi-line statement — every `CREATE TABLE` Drizzle Kit writes — always
+ * takes the middle form: prettier cannot fold a literal that already has
+ * newlines in it, and it will not leave it on the same line as the call.
+ */
+const statement = (query: string): string => {
+  const literal = `${BACKTICK}${escape(query)}${BACKTICK}`;
+  const oneLine = `    await db.execute(sql.raw(${literal}));`;
+
+  if (!literal.includes('\n') && oneLine.length <= WIDTH) return oneLine;
+
+  const inner = `      sql.raw(${literal}),`;
+  if (literal.includes('\n') || inner.length <= WIDTH) {
+    return `    await db.execute(\n${inner}\n    );`;
+  }
+
+  return [
+    '    await db.execute(',
+    '      sql.raw(',
+    `        ${literal},`,
+    '      ),',
+    '    );',
+  ].join('\n');
+};
+
 const statements = (queries: string[]): string =>
-  queries
-    .map((query) => `    await db.execute(sql.raw(\`${escape(query)}\`));`)
-    .join('\n');
+  queries.map(statement).join('\n');
+
+/**
+ * The `down()`, or nothing at all.
+ *
+ * No method when the diff has no way back. An empty `down()` would claim this
+ * migration is undone by doing nothing, which is a different statement from "the
+ * undo has not been written" — and `Migration.down` is optional precisely so the
+ * difference can be said. It also keeps an unused parameter out of a file that
+ * has to pass the consumer's lint.
+ */
+const undo = (queries: string[]): string => {
+  if (queries.length === 0) return '';
+
+  return `
+  public async down(db: Transaction): Promise<void> {
+${statements(queries)}
+  }
+`;
+};
 
 /**
  * Turns a module's schema diff into a migration in that module.
@@ -85,11 +153,7 @@ export class ${className} implements Migration {
   public async up(db: Transaction): Promise<void> {
 ${statements(options.diff.up)}
   }
-
-  public async down(db: Transaction): Promise<void> {
-${statements(options.diff.down)}
-  }
-}
+${undo(options.diff.down)}}
 `;
 
   const hints = [
@@ -98,7 +162,7 @@ ${statements(options.diff.down)}
   ];
   if (options.diff.down.length === 0) {
     hints.push(
-      'It has no statements in down(): nothing here is reversible by a diff. Write the undo, or delete the method.',
+      'It has no down(): the diff found no way back, and an empty one would claim this is undone by doing nothing. Write it if this has to be reversible.',
     );
   }
 
@@ -108,6 +172,10 @@ ${statements(options.diff.down)}
       {
         path: snapshotPath(modulesDir, target.module),
         content: `${JSON.stringify(options.snapshot, null, 2)}\n`,
+        // Replaced on every generate: it is where the LAST migration left the
+        // schema. Without this, a module could only ever have one migration
+        // before the writer refused to touch the snapshot again.
+        replaces: true,
       },
     ],
     [],

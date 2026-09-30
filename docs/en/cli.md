@@ -34,9 +34,9 @@ different CLI.
 | [`module <name>`](#liteb-module-name) | A module: its manifest, its permissions and a first endpoint |
 | [`endpoint <module>/<name>`](#liteb-endpoint-modulename) | An HTTP endpoint |
 | [`routine <module>/<name>`](#liteb-routine-modulename) | Work on a schedule |
-| [`entity <module>/<name>`](#liteb-entity-modulename) | A TypeORM entity |
+| [`table <module>/<name>`](#liteb-table-modulename) | A table, with its row types |
 | [`migration <module>/<name>`](#liteb-migration-modulename) | A timestamped migration |
-| [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | The same, written from your entities by TypeORM |
+| [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | The same, written from your tables |
 | [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | What this module shares: a contract, a slot or an event |
 | [`provider <module>/<name>`](#liteb-provider-modulename) | The class that answers a contract or fills a slot |
 | [`listener <module>/<name>`](#liteb-listener-modulename) | A reaction to an event |
@@ -66,7 +66,7 @@ in sync, because **the folder is what registers the file**:
 ```
 billing/
 ├── module.ts                   ← the wiring, and the permission keys
-├── entities/*.entity.ts        migrations/*.ts
+├── tables/*.table.ts           migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
 ├── providers/*.provider.ts
 └── tokens/*.token.ts           (contracts, slots and events)
@@ -159,7 +159,7 @@ wrong costs an evening.
 Remove either and every route and every entity becomes a silent no-op —
 nothing fails, nothing answers.
 
-**`strictPropertyInitialization: false`.** TypeORM entities and validated DTOs
+**`strictPropertyInitialization: false`.** Validated DTOs
 declare fields the constructor never assigns; the ORM fills them. With the flag
 on, every one of them is an error.
 
@@ -359,7 +359,7 @@ import { UserDirectory } from '@/identity/tokens/user-directory.token';
 //                            ^ src/modules/, however deep the file is
 ```
 
-Only cross-module imports need it. Inside a module, `../entities/charge.entity`
+Only cross-module imports need it. Inside a module, `../tables/charge.table`
 is shorter and says more.
 
 **A `paths` alias is compile-time only.** `tsc` type-checks it and then emits
@@ -466,23 +466,45 @@ declared with `{ runOnInit: true }`.
 
 ---
 
-## `liteb entity <module>/<name>`
+## `liteb table <module>/<name>`
 
 ```bash
-npx liteb entity billing/charge
-npx liteb entity billing/charge --table facturacion_cargos
+npx liteb table billing/charge
+npx liteb table billing/charge --name facturacion_cargos
 ```
 
 | Flag | Effect |
 | --- | --- |
-| `--table <name>` | table name (default `<module>_<name>`, snake_cased) |
+| `--name <name>` | the name in SQL (default `<module>_<name>`, snake_cased) |
 
-Writes the class and edits nothing: `entities/*.entity.ts` is where liteb
-looks.
+Writes the table and the two row types that go with it, and edits nothing:
+`tables/*.table.ts` is where liteb looks.
 
-**Declaring an entity does not create its table.** liteb does not turn
-`synchronize` on for you — every table comes from a migration, which is what an
-installation is. Follow it with `liteb migration:generate`.
+```typescript
+export const charge = pgTable('billing_charge', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+});
+
+export type Charge = typeof charge.$inferSelect;
+export type NewCharge = typeof charge.$inferInsert;
+```
+
+The types are written out because they are what the rest of the module passes
+around: a function taking a row wants the type, and deriving it at each call site
+is how two of them end up disagreeing.
+
+**The prefix is not decoration.** Every module's tables share one namespace, and
+`billing_charge` is what keeps two modules from both wanting `charge`. It is also
+what makes a database readable by module at a glance.
+
+**An enum is exported here too**, not only used by a column. A table with an enum
+column generates `"status" "billing_status" NOT NULL`, which **references** the
+type: with the enum missing from the schema, the migration comes out creating a
+table that points at a type nothing created, and fails when it runs.
+
+**Declaring a table does not create it.** Every table comes from a migration,
+which is what an installation is. Follow it with `liteb migration:generate`.
 
 ---
 
@@ -497,8 +519,8 @@ Writes `migrations/<timestamp>-<name>.ts`. Nothing lists it.
 **The trailing timestamp in the class name is the order**, inside that module —
 liteb refuses a migration class without one, because declaration order is not a
 contract. Between modules the order is dependency order, so a module's tables
-exist before a dependent touches them. TypeORM's own runner cannot do that: it
-sorts every migration in the DataSource globally, and a module written last
+exist before a dependent touches them. An ORM's own runner cannot do that: it
+sorts every migration it knows about globally, and a module written last
 year would migrate before the dependency it needs.
 
 **It THROWS until you write its SQL**, and that is not politeness. An empty
@@ -522,24 +544,41 @@ npx liteb migration:generate billing/add-due-date --print
 | `--entry <file>` | file exporting `createApp()` |
 | `--dir <path>` | where modules live (default `src/modules`) |
 | `--print` | show the SQL and write nothing |
+| `--check` | also report what the live database is missing |
 | `--force` | overwrite a file that already exists |
 
-**This is TypeORM's generator, filed by module.** It connects, has TypeORM read
-the live schema, compare it against your entities and write the SQL that closes
-the gap — the same machinery behind `synchronize: true`, minus the part where it
-runs behind your back. That half is TypeORM's and it does it better than anything
-hand-rolled.
+**It needs no database.** It compares the module's tables against that module's
+**snapshot**, which is a file:
 
-What TypeORM cannot do is decide **where** the migration goes: it sees one
-schema, and modules do not exist for it. That half is liteb's, and it is decided
-from the only thing that knows — which module declares which entity. So:
+```
+src/modules/billing/
+├── tables/*.table.ts
+└── migrations/
+    ├── 1790000000000-add-due-date.ts
+    └── meta/snapshot.json        ← what the next one compares against
+```
 
-- a diff that lands entirely in another module is **refused**, and names the
-  module that owns it. A migration in the wrong module runs in the wrong order,
-  or not at all when that module is disabled, and that surfaces in production on
-  data that already exists;
-- one that touches another module's tables as well is written, with a warning
-  naming them. Splitting it is a judgement call and liteb does not make it.
+It writes **two** files: the migration and the new snapshot. **Commit both** —
+without the snapshot the next migration is written against a schema that no
+longer matches, and comes out creating what already exists.
+
+Comparing two descriptions of a schema and writing the SQL is Drizzle Kit's work,
+and it does it better than anything hand-rolled. What liteb decides is **what**
+gets compared, and that is per module: this module's tables against this module's
+snapshot. Which means there is nothing to attribute — a whole-schema diff would
+have to be split up, and where each piece lands decides what order it runs in.
+
+A statement may still **name** another module's table, because a foreign key
+points somewhere, and that is correct: the constraint belongs to the module that
+declared it, and liteb migrates in dependency order, so what it points at already
+exists by the time it runs.
+
+**`down()` comes out too**, being the same question asked backwards — which is
+why it is trustworthy in the same measure the `up` is.
+
+With `--check` it also connects and says whether the live database has drifted
+from the code: a migration applied by hand, a column dropped in a console, or a
+snapshot nobody committed show up there and nowhere else.
 
 It **refuses while migrations are pending**. A pending migration is a change the
 database has not seen, so the diff would describe it a second time and you would
@@ -612,7 +651,7 @@ reach for a repository:
 ```typescript
 @Provides(UserDirectory)
 export class UserDirectoryProvider extends Provider implements UserDirectory {
-  private readonly users = this.db.getRepository(User);
+  private readonly users = () => this.db.select().from(users);
 }
 ```
 

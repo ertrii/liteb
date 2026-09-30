@@ -4,7 +4,7 @@
 > decision, the failure each one prevents, and the parts that only matter once
 > you are deep in.
 
-Liteb is a lightweight and simple backend framework. Its main goal is to facilitate the development of modern APIs with minimal configuration while following best practices. Liteb is inspired by the architecture and ease of use of frameworks like NestJS, offering modular organization, intuitive route handling, database integration through TypeORM, and support for scheduled tasks.
+Liteb is a lightweight and simple backend framework. Its main goal is to facilitate the development of modern APIs with minimal configuration while following best practices. Liteb is inspired by the architecture and ease of use of frameworks like NestJS, offering modular organization, intuitive route handling, database integration through Drizzle, and support for scheduled tasks.
 
 With Liteb, you can quickly define your API modules and controllers, associate middlewares and schema validations, and manage recurring or scheduled tasks. The framework prioritizes ease of use, low resource consumption, and a short learning curve, without sacrificing the power needed to build robust and scalable applications.
 
@@ -13,7 +13,7 @@ This project is designed for developers who are looking for a simple and fast al
 ## Requirements
 
 - **Node.js >= 20**
-- **PostgreSQL** (or any database supported by TypeORM) reachable at startup
+- **PostgreSQL** reachable at startup
 - `reflect-metadata` is loaded by the framework itself — you do not need to import it
 
 ## Install
@@ -22,7 +22,7 @@ This project is designed for developers who are looking for a simple and fast al
 npm install liteb
 ```
 
-`liteb` relies on a few peer dependencies you provide in your app: `typeorm`, `express`, `class-validator` and `typescript`. Add `express-session` only if your auth resolver uses cookie sessions — the framework no longer depends on it.
+`liteb` relies on a few peer dependencies you provide in your app: `drizzle-orm`, `express`, `class-validator` and `typescript`. Add `express-session` only if your auth resolver uses cookie sessions — the framework no longer depends on it.
 
 ## Feature status
 
@@ -55,7 +55,7 @@ npx liteb@alpha init my-app     # only the first command needs the version:
                                 # which is still 1.x and ships another CLI.
 npx liteb module billing
 npx liteb endpoint billing/issue-charge --method post
-npx liteb entity billing/charge
+npx liteb table billing/charge
 npx liteb migration billing/create-charges
 npx liteb build --bytecode
 ```
@@ -77,7 +77,7 @@ writes the shape; you write the code.
 | `event <module>/<name>` | Something this module announces |
 | `slot <module>/<name>` | An extension point others may fill |
 | `listener <module>/<name>` | A listener |
-| `entity <module>/<name>` | An entity (`--table`) |
+| `table <module>/<name>` | A table and its row types (`--name`) |
 | `migration <module>/<name>` | A timestamped migration |
 | `migrate` | Runs pending migrations without starting the server (`--dry-run`, `--entry`) |
 | `migrate:status` | What each module declares, and what of it already ran |
@@ -126,10 +126,13 @@ class UserParams {
 @Params(UserParams)
 export class GetUserApi extends Endpoint<UserParams> {
   // `this.db` is available in field initializers.
-  private readonly repo = this.db.getRepository(User);
-
   async main() {
-    const user = await this.repo.findOneBy({ id: this.params.id });
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, this.params.id))
+      .limit(1);
+
     if (!user) throw new NotFoundError('User not found');
     return user; // serialized as JSON with status `this.httpStatus` (default 200)
   }
@@ -143,7 +146,7 @@ export class GetUserApi extends Endpoint<UserParams> {
 
 ### Transactions
 
-There is no transaction hook and no transaction decorator. Use TypeORM's own:
+There is no transaction hook and no transaction decorator. Use Drizzle's own:
 
 ```typescript
 async main() {
@@ -279,15 +282,15 @@ is particular to **this** module. The folders are found from `dir`:
 
 | Folder | What liteb loads from it |
 | --- | --- |
-| `entities/*.entity.ts` | the decorated classes, for the DataSource |
+| `tables/*.table.ts` | the tables, and the enums they use |
 | `migrations/*.ts` | the migration classes |
 | `endpoints/*.endpoint.ts` | the endpoints, mounted under the module id |
 | `routines/*.routine.ts` | the scheduled routines |
 | `listeners/*.listener.ts` | the event listeners |
 | `providers/*.provider.ts` | the `Provider` classes: what it answers, what it contributes |
 
-Writing the file is all there is to do. `liteb entity billing/charge`
-writes `entities/charge.entity.ts` and edits **nothing**: the folder is what
+Writing the file is all there is to do. `liteb table billing/charge`
+writes `tables/charge.table.ts` and edits **nothing**: the folder is what
 declares it.
 
 Only decorated entities and migration classes are taken. An enum, a DTO or a
@@ -342,8 +345,9 @@ Two rules are worth knowing:
 A glob you WROTE that finds nothing is reported at startup; a default that
 finds nothing is not, because a module with no routines is an ordinary module.
 
-Start the application from its modules. `Liteb.create` owns the DataSource,
-because TypeORM needs every module's entities when the connection is built:
+Start the application from its modules. `Liteb.create` owns the connection,
+because the schema is the union of what every module contributes, which the
+application cannot assemble by hand without knowing each module's internals:
 
 ```typescript
 const app = await Liteb.create({
@@ -588,9 +592,10 @@ export const BillingService = token<BillingService>(
 // billing/providers/billing-service.provider.ts — how it is kept
 @Provides(BillingService)
 export class BillingServiceProvider extends Provider implements BillingService {
-  private readonly charges = this.db.getRepository(Charge);
-
-  async issueCharge(input: IssueChargeInput) { ... }
+  async issueCharge(input: IssueChargeInput) {
+    const [charge] = await this.db.insert(charges).values(input).returning();
+    return charge;
+  }
 }
 ```
 
@@ -778,7 +783,7 @@ A new module installs **disabled** unless it is core, so an upgrade never turns
 on something nobody asked for.
 
 ```typescript
-const store = new ModuleStore(dataSource);
+const store = new ModuleStore(db);
 await store.enable('inventory');   // takes effect on the next boot
 await store.disable('inventory');
 await store.list();
@@ -834,7 +839,12 @@ const auth = defineAuth(async (request, { db }) => {
   const userId = request.session?.userId;  // or a bearer token, or an API key
   if (!userId) return null;                // anonymous
 
-  const user = await db.getRepository(User).findOneBy({ id: userId });
+  const [user] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
   if (!user) return null;                  // deleted mid-session
 
   return {
@@ -919,7 +929,7 @@ Notes:
   the normal error handling.
 - It receives `{ db, get }` as a second argument. Without it, an application
   whose permissions live in the database had to close over an imported
-  DataSource singleton, or copy them into the session at login and let them go
+  connection, or copy them into the session at login and let them go
   stale — a revoked role would keep working until the next sign-in.
 - `this.auth` is **per-request state**: like `params` and `body`, it is not
   readable from a constructor or a field initializer.
@@ -936,7 +946,7 @@ import identity from './modules/identity/module';
 import billing from './modules/billing/module';
 
 const app = await Liteb.create({
-  db: { type: 'postgres', /* ... */ },   // or a DataSource you already own
+  db: { host, database /* ... */ },      // or a connection you already own
   modules: [identity, billing],
   version: '3.0.0',
   basePath: '/api',
@@ -1179,7 +1189,7 @@ import { csv, file, pdf, view } from 'liteb';
 @Query(ListClientsDto)
 export class ListClientsApi extends Endpoint<null, null, ListClientsDto> {
   async main() {
-    const clients = await this.db.getRepository(Client).find();
+    const clients = await this.db.select().from(clientsTable);
 
     if (this.query.format === 'csv') {
       return csv(clients, {
@@ -1267,7 +1277,7 @@ ConfigService.get('DB_HOST');
 ConfigService.mode(); // 'development' | 'production' from NODE_ENV
 ```
 
-The variables your app needs (database host, credentials, port, etc.) are yours to define and pass to your TypeORM `DataSource`; liteb does not require any specific names beyond the logging ones above.
+The variables your app needs (database host, credentials, port, etc.) are yours to define and pass to `db` in `Liteb.create`; liteb does not require any specific names beyond the logging ones above.
 
 ## Example app
 

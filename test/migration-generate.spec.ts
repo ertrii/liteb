@@ -1,4 +1,7 @@
 import 'reflect-metadata';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import {
   afterAll,
   beforeAll,
@@ -22,12 +25,14 @@ import {
   snapshotPath,
 } from '../lib/cli/migration-generator';
 import { createMigration } from '../lib/cli/generators';
+import { apply } from '../lib/cli/writer';
 import type { ResolvedModule } from '../lib/modules/module-manifest';
 import {
   closeTestDb,
   createTestDb,
   query,
   resetSchema,
+  tableNames,
 } from './helpers/test-db';
 import type { Database, Migration, Transaction } from '../lib';
 
@@ -143,6 +148,62 @@ describe('migration:generate', () => {
     });
   });
 
+  it('la SEGUNDA migración se puede escribir: el snapshot se reemplaza', async () => {
+    // El caso que se escapó hasta probarlo en un proyecto de verdad. El writer
+    // se niega a pisar un archivo que ya existe —una migración es historia— y
+    // el snapshot cae en la misma bolsa, así que el segundo generate de un
+    // módulo moría con "Already there". Es lo contrario: el snapshot existe
+    // para ser reemplazado.
+    const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'liteb-snap-'));
+
+    try {
+      const primera = generateMigration({
+        target: 'users/create-users',
+        diff: await diffSnapshots(emptySnapshot(), moduleSnapshot(users)),
+        snapshot: moduleSnapshot(users),
+        now: 1,
+      });
+      apply(primera, { root: raiz });
+
+      const conNota = pgTable('gen_users', {
+        id: serial('id').primaryKey(),
+        name: text('name').notNull(),
+        note: text('note'),
+      });
+      const antes = moduleSnapshot(users);
+      const despues = moduleSnapshot(modulo('users', [conNota]), antes);
+
+      const segunda = generateMigration({
+        target: 'users/add-note',
+        diff: await diffSnapshots(antes, despues),
+        snapshot: despues,
+        now: 2,
+      });
+
+      // Sin --force, que es lo que haría un autor.
+      const result = apply(segunda, { root: raiz });
+
+      // La migración es nueva; el snapshot se reporta como actualizado, no
+      // como creado: decirle "created" de un archivo que ya estaba es una
+      // mentira chica que importa el día que busque qué cambió.
+      expect(result.created).toEqual([
+        'src/modules/users/migrations/2-add-note.ts',
+      ]);
+      expect(result.edited).toContain(
+        'src/modules/users/migrations/meta/snapshot.json',
+      );
+
+      // Y la primera migración sigue intacta: esa sí es historia.
+      expect(
+        fs.existsSync(
+          path.join(raiz, 'src/modules/users/migrations/1-create-users.ts'),
+        ),
+      ).toBe(true);
+    } finally {
+      fs.rmSync(raiz, { recursive: true, force: true });
+    }
+  });
+
   it('el camino del snapshot es uno solo, y lo dice el módulo', () => {
     expect(snapshotPath('src/modules', 'users')).toBe(
       'src/modules/users/migrations/meta/snapshot.json',
@@ -156,6 +217,66 @@ describe('migration:generate', () => {
     expect(() =>
       generateMigration({ target: 'users/nada', diff, snapshot: snap }),
     ).toThrow(/Nothing to generate: "users" has no changes/);
+  });
+
+  it('la migración generada entra en el ancho de prettier', () => {
+    // Tercera vez que aparece esta regla —después del import y del token— y por
+    // la misma razón: el proyecto que `liteb init` arma corre
+    // `prettier --check`, así que un archivo generado una columna más ancho le
+    // rompe el lint al consumidor en su primer commit. Acá el ancho es un
+    // pedazo de SQL que nadie puede prever.
+    const generado = (query: string) =>
+      generateMigration({
+        target: 'users/x',
+        diff: { up: [query], down: [] },
+        snapshot: emptySnapshot(),
+        now: 1,
+      }).files[0].content;
+
+    // Corta: entra en una línea.
+    expect(generado('DROP TABLE "x";')).toContain(
+      '    await db.execute(sql.raw(`DROP TABLE "x";`));',
+    );
+
+    // Larga: prettier baja el sql.raw y después el literal.
+    const larga =
+      'ALTER TABLE "billing_charge" ADD COLUMN "amount" integer DEFAULT 0 NOT NULL;';
+    expect(generado(larga)).toContain(
+      [
+        '    await db.execute(',
+        '      sql.raw(',
+        `        \`${larga}\`,`,
+        '      ),',
+        '    );',
+      ].join('\n'),
+    );
+
+    // Y ninguna línea se pasa, salvo el literal mismo, que prettier no parte.
+    for (const query of ['DROP TABLE "x";', larga]) {
+      const lineas = generado(query)
+        .split('\n')
+        .filter((linea) => !linea.includes('ALTER TABLE'));
+      for (const linea of lineas) {
+        expect(linea.length).toBeLessThanOrEqual(80);
+      }
+    }
+  });
+
+  it('sin vuelta atrás no escribe un down() vacío', () => {
+    // Un `down()` vacío afirma que esto se deshace no haciendo nada, que es una
+    // cosa distinta de "la vuelta no está escrita". `Migration.down` es opcional
+    // justamente para poder decir la diferencia — y de paso no deja un
+    // parámetro sin usar en un archivo que tiene que pasar el lint del que lo
+    // recibe.
+    const { files, hints } = generateMigration({
+      target: 'users/x',
+      diff: { up: ['DROP TABLE "x";'], down: [] },
+      snapshot: emptySnapshot(),
+      now: 1,
+    });
+
+    expect(files[0].content).not.toContain('down(');
+    expect(hints.join(' ')).toMatch(/It has no down\(\)/);
   });
 
   it('no rompe el literal cuando el SQL trae backticks', () => {
@@ -219,6 +340,94 @@ describe('deriva contra la base viva', () => {
     );
 
     expect(await liveDrift(db, [users])).toEqual([]);
+  });
+});
+
+/**
+ * El círculo completo: lo que el diff escribe, corriendo de verdad.
+ *
+ * Todo lo de arriba compara descripciones de un esquema. Esto contesta la otra
+ * pregunta, la que ninguna cantidad de tipos contesta: ¿el SQL que Drizzle Kit
+ * produce se aplica a un Postgres?
+ */
+describe('el SQL generado corre', () => {
+  let db: Database;
+
+  beforeAll(async () => {
+    db = await createTestDb();
+  });
+
+  beforeEach(async () => {
+    await resetSchema(db);
+  });
+
+  afterAll(closeTestDb);
+
+  /** Una migración que corre lo que el diff escribió, como el archivo generado. */
+  const migracion = (nombre: string, up: string[]): Function => {
+    const clase = class {
+      public async up(tx: Transaction): Promise<void> {
+        for (const query of up) await tx.execute(sql.raw(query));
+      }
+    };
+    Object.defineProperty(clase, 'name', { value: nombre });
+    return clase;
+  };
+
+  it('crea la tabla, y después le agrega la columna', async () => {
+    const migrator = new ModuleMigrator(db);
+
+    // Primera migración: desde cero.
+    const inicial = await diffSnapshots(emptySnapshot(), moduleSnapshot(users));
+    await migrator.run([
+      {
+        id: 'users',
+        migrations: [migracion('CreateUsers1000', inicial.up)],
+      } as unknown as ResolvedModule,
+    ]);
+
+    expect(await tableNames(db)).toContain('gen_users');
+
+    // Segunda: incremental, contra el snapshot de la primera.
+    const antes = moduleSnapshot(users);
+    const conNota = pgTable('gen_users', {
+      id: serial('id').primaryKey(),
+      name: text('name').notNull(),
+      note: text('note'),
+    });
+    const segunda = await diffSnapshots(
+      antes,
+      moduleSnapshot(modulo('users', [conNota]), antes),
+    );
+
+    await migrator.run([
+      {
+        id: 'users',
+        migrations: [
+          migracion('CreateUsers1000', inicial.up),
+          migracion('AddNote2000', segunda.up),
+        ],
+      } as unknown as ResolvedModule,
+    ]);
+
+    // La columna está, y la primera migración NO volvió a correr: si lo hubiera
+    // hecho, el create table habría fallado y esto sería un throw.
+    const columnas = await query<{ column_name: string }>(
+      db,
+      `select column_name from information_schema.columns
+        where table_name = 'gen_users' order by column_name`,
+    );
+    expect(columnas.map((c) => c.column_name)).toEqual(['id', 'name', 'note']);
+  });
+
+  it('el down deshace lo que el up hizo', async () => {
+    const diff = await diffSnapshots(emptySnapshot(), moduleSnapshot(users));
+
+    for (const q of diff.up) await db.execute(sql.raw(q));
+    expect(await tableNames(db)).toContain('gen_users');
+
+    for (const q of diff.down) await db.execute(sql.raw(q));
+    expect(await tableNames(db)).not.toContain('gen_users');
   });
 });
 

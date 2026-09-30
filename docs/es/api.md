@@ -38,8 +38,10 @@ Con las primeras cuatro secciones ya podés construir algo.
 | `connect` | `() => Promise<void>` | Abre la conexión sin montar nada, para un comando que sólo toca la base. |
 | `migrate` | `(options?: { dryRun?: boolean }) => Promise<AppliedMigration[]>` | Corre todas las migraciones pendientes, por módulo, en orden de dependencias. `dryRun` contesta qué correría. |
 | `migrationStatus` | `() => Promise<ModuleMigrationStatus[]>` | Qué declara cada módulo y qué de eso ya corrió. |
-| `pendingSchema` | `() => Promise<SchemaDiff>` | El SQL que le falta a la base para coincidir con las entidades. Sobre esto se construye `migration:generate`. |
-| `tableOwners` | `() => Map<string, string>` | Qué módulo es dueño de cada tabla, leído de las entidades que cada uno declara. |
+| `pendingSchema` | `(moduleId, previous?) => Promise<SchemaDiff>` | El SQL que un módulo necesita para pasar de `previous` a lo que dice su código. No necesita base de datos. Sobre esto se construye `migration:generate`. |
+| `snapshotOf` | `(moduleId, previous?) => SchemaSnapshot` | Lo que describen las tablas de ese módulo ahora, para guardar al lado de la migración. |
+| `schemaDrift` | `() => Promise<string[]>` | Lo que le falta a la base VIVA para coincidir con todos los módulos. La pregunta que el snapshot no contesta. |
+| `tableOwners` | `() => Map<string, string>` | Qué módulo es dueño de cada tabla, leído de las tablas que cada uno declara. |
 | `permissions` | `() => RegisteredPermission[]` | Todas las claves que declaran los módulos instalados, con su módulo. El catálogo que dibuja una pantalla de roles. |
 | `getApp` | `() => Express` | La aplicación de Express, para todo lo que liteb no envuelve. |
 | `use` | `(middleware) => void` | Agrega middleware a esa aplicación. |
@@ -70,7 +72,7 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `previous` | `() => void \| Promise<void>` | Corre antes de `main`, en la misma instancia. |
 | `body` `params` `query` | `B` `P` `Q` | La entrada validada. `null` salvo que un esquema `@Body` / `@Params` / `@Query` diga otra cosa. |
 | `auth` | `Auth` | Quién pregunta y qué puede hacer. |
-| `db` | `DataSource` | La conexión, inyectada. |
+| `db` | `Database` | La conexión, inyectada. |
 | `container` | `Container` | Los contratos que proveen otros módulos. |
 | `events` | `EventBus` | Para `emit`. |
 | `file` / `files` | `UploadedFile` / `UploadedFile[]` o un mapa | Las subidas multipart. |
@@ -115,7 +117,7 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `ModuleHook` | `(ctx: ModuleContext) => void \| Promise<void>` | `onInstall`, `onEnable`, `onDisable`, `onUninstall`. |
 | `ModuleContext` | interface | `{ db }` — lo que recibe un gancho. |
 | `ModulePattern` | `string \| string[]` | El valor de un campo de glob. |
-| `ModuleEntity` | `Function \| EntitySchema` | Una entidad, como las tipa TypeORM. |
+| `ModuleTable` | `PgTable \| PgEnum \| PgSequence \| PgView \| ...` | Algo que el módulo pone en el esquema. Un enum va en esta lista: sin él, una tabla con columna de enum genera DDL que referencia un tipo que nada crea. |
 | `ModuleMigrations` | `Function[] \| Record<string, unknown>` | Una lista de clases de migración, o un import de namespace de ellas. |
 | `ModuleDefinitionError` | clase | La lanza `defineModule` cuando el manifiesto está mal. Al importar, antes de que arranque nada. |
 

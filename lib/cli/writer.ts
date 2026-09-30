@@ -28,8 +28,8 @@ export function apply(target: Plan, options: WriteOptions): WriteResult {
   const absolute = (file: string) => path.resolve(options.root, file);
 
   if (!options.force) {
-    const existing = target.files.filter((file) =>
-      fs.existsSync(absolute(file.path)),
+    const existing = target.files.filter(
+      (file) => !file.replaces && fs.existsSync(absolute(file.path)),
     );
     if (existing.length > 0) {
       throw new CliError(
@@ -41,14 +41,19 @@ export function apply(target: Plan, options: WriteOptions): WriteResult {
   }
 
   const created: string[] = [];
+  const replaced: string[] = [];
   for (const file of target.files) {
     const full = absolute(file.path);
+    // Reported as updated, not created: the author is being told what happened,
+    // and "created" about a file that was already there is a small lie that
+    // matters the day they go looking for what changed.
+    const already = file.replaces && fs.existsSync(full);
     fs.mkdirSync(path.dirname(full), { recursive: true });
     fs.writeFileSync(full, file.content, 'utf8');
-    created.push(file.path);
+    (already ? replaced : created).push(file.path);
   }
 
-  const edited: string[] = [];
+  const edited: string[] = [...replaced];
   const hints = [...target.hints];
   for (const edit of target.edits) {
     const full = absolute(edit.path);

@@ -154,8 +154,6 @@ export class BillingServiceProvider
   extends Provider
   implements BillingService
 {
-  private readonly charges = this.db.getRepository(Charge);
-
   async issueCharge(input: IssueChargeInput) {
     // ...
   }
@@ -261,8 +259,14 @@ campo funcione:
 
 ```typescript
 export class BillingServiceProvider extends Provider {
-  // Esto corre antes del cuerpo del constructor, y `this.db` ya está.
-  private readonly charges = this.db.getRepository(Charge);
+  // Esto corre antes del cuerpo del constructor, y `this.db` ya está. Acá se
+  // nota para qué sirve: la consulta se PREPARA una sola vez, cuando se
+  // construye la clase, y cada llamada reusa el plan.
+  private readonly pendientes = this.db
+    .select()
+    .from(charges)
+    .where(isNull(charges.paidAt))
+    .prepare('cargos_pendientes');
 }
 ```
 

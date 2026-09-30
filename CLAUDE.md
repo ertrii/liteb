@@ -219,15 +219,18 @@ Packaging and licensing stay OUT of liteb: MIT framework, product problem.
 | `events.ts` | Event bus: `event()`, `EventBus`, listeners |
 | `slots.ts` | Extension points: `slot()`, filled via `contributes` |
 | `permissions.ts` | Registry of what the modules declare |
-| `collect-entities.ts` | Union of every module's entities |
+| `collect-tables.ts` | Union of every module's tables, as one schema |
 
 Decisions that are easy to undo by accident, so do not:
 
-- **Disabled modules still contribute entities.** Leaving them out would drop
-  their tables from TypeORM's view and make re-enabling a gamble. Disabling
-  decides what *runs*, never whether data is reachable.
-- **Migrations order by module first**, by timestamp only *within* a module.
-  TypeORM's runner sorts globally, so an older module would migrate before the
+- **Disabled modules still contribute tables.** Leaving them out would drop
+  them from the schema and make re-enabling a gamble. Disabling decides what
+  *runs*, never whether data is reachable.
+- **An ENUM is collected like a table.** A table with an enum column emits DDL
+  that references the type, so a schema without the enum generates a migration
+  that fails when it runs. Measured, not assumed.
+- **Migrations order by module first**, by timestamp only *within* a module. An
+  ORM's runner sorts globally, so an older module would migrate before the
   dependency it needs. Stamps compare as **numbers** (`"9000"` sorts after
   `"10000"` as text).
 - **A new module installs disabled** unless `core: true`.
@@ -311,7 +314,7 @@ read `this.auth`.
   the wire, so `headersSent` is what stops the catch from writing a JSON error
   into the middle of a file the client is still downloading.
 - `csv(rows)` and `view(tpl, data)` take `object`, not `Record<string, unknown>`:
-  a TypeORM entity is a class and has no index signature, so the stricter type
+  a row may come back as a class with no index signature, so the stricter type
   forced a cast at every call site. There is a test for it.
 - Endpoints that relied on `@Template` to stay out of the OpenAPI spec now say
   `@ApiHidden()`.
@@ -360,10 +363,16 @@ keep their names: there "Api" means OpenAPI, not the base class.
 `test/helpers/test-db.ts` runs **real Postgres in-process** via PGlite — no
 Docker. Dialect differences SQLite would hide behave as in production.
 
-`typeorm-pglite` keeps one PGlite instance per process, so isolation comes from
-dropping and recreating the `public` schema. Create the database **once per
+`drizzle-orm/pglite` takes a PGlite instance directly, and the helper keeps ONE
+per test file — jest gives each file its own module registry. Isolation comes
+from dropping and recreating the `public` schema. Create the database **once per
 file** (`beforeAll`) and reset between cases (`beforeEach`): that took the
 migrator suite from 28s to 3s.
+
+**Never assert on a `pgTable`.** A failing `expect` that holds one crashes
+jest-worker with "Converting circular structure to JSON", and the crash HIDES the
+real failures: the run reports the suite as "failed to run" while claiming every
+test passed. Assert on `getTableName(table)`.
 
 Jest runs with `--experimental-vm-modules` (PGlite uses dynamic imports). Import
 globals from `@jest/globals` — there is no `@types/jest`. ts-jest only, never
@@ -373,7 +382,7 @@ babel-jest: it breaks `emitDecoratorMetadata`.
 only caught by running jest.
 
 Pure rules are exported and tested without a database: `reconcileModules`,
-`orderMigrations`, `resolveModules`, `toEndpointReaders`, `collectModuleEntities`.
+`orderMigrations`, `resolveModules`, `toEndpointReaders`, `collectModuleTables`.
 Keep that split — the decision is the part worth testing.
 
 ## Build and release
@@ -382,8 +391,10 @@ Keep that split — the decision is the part worth testing.
   tsc infers `lib/` as root and `main` fails to resolve) and `incremental: false`
   (a stale `.tsbuildinfo` with a cleared `dist/` made tsc emit nothing).
 - `removeComments: false` → comments ship. Hence the English rule.
-- Peer deps, not bundled: `typeorm`, `express`,
+- Peer deps, not bundled: `drizzle-orm`, `express`,
   `class-validator`, `typescript`. `reflect-metadata` and `semver` are direct.
+  `drizzle-kit` is an OPTIONAL peer, required lazily: it pulls in esbuild and tsx
+  and only `migration:generate` needs it.
 - Not published yet. To test in a consumer: `npm run build && npm pack`, then
   install the `.tgz`. A tarball is closer to what npm installs than `npm link`,
   which resolves through symlinks and hides a bad `files` entry.

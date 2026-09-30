@@ -4,7 +4,7 @@ Backend framework for Node whose unit is the **installable module**: a folder
 that declares its own routes, entities, migrations, permissions and contracts,
 and can be turned off without touching the rest of the application.
 
-Express + TypeORM + class-validator underneath, decorators on top.
+Express + Drizzle + class-validator underneath, decorators on top.
 
 > **2.0.0-alpha.1** — alpha: the API will still move. The stable `1.x` line
 > lives on the [`v1`](https://github.com/ertrii/liteb/tree/v1) branch.
@@ -26,7 +26,7 @@ Into a project you already have:
 
 ```bash
 npm i liteb@alpha
-npm i typeorm express class-validator reflect-metadata pg
+npm i drizzle-orm express class-validator reflect-metadata pg
 ```
 
 ## The application
@@ -72,7 +72,7 @@ No paths, because a module keeps the standard layout and liteb finds it from
 ```
 billing/
 ├── module.ts
-├── entities/*.entity.ts        migrations/*.ts
+├── tables/*.table.ts           migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts   listeners/*.listener.ts
 ├── contracts/*.contract.ts     providers/*.provider.ts
 │   events/*.event.ts           slots/*.slot.ts
@@ -89,13 +89,14 @@ from `node_modules` and from bytecode.
 @HttpPost()
 @Body(CreateChargeDto)          // validated before main() runs
 export default class CreateChargeApi extends Endpoint<null, CreateChargeDto> {
-  private readonly charges = this.db.getRepository(Charge);
-
   public async main(): Promise<DataJson> {
     this.auth.assert('billing.charge');            // 401 anonymous, 403 not allowed
     const who = await this.get(UserDirectory).nameOf(this.auth.actor.userId);
 
-    const charge = await this.charges.save({ ...this.body, by: who });
+    const [charge] = await this.db
+      .insert(charges)
+      .values({ ...this.body, by: who })
+      .returning();
     await this.emit(ChargeCreated, { chargeId: charge.id });
 
     this.httpStatus = HttpStatus.CREATED;
@@ -140,7 +141,7 @@ They are not interchangeable, and the types refuse to mix them.
 npx liteb init [name]                        # a project that runs
 npx liteb module billing              # manifest, first endpoint, migrations index
 npx liteb endpoint billing/issue --method post
-npx liteb entity billing/charge       # registered in the manifest
+npx liteb table billing/charge        # found by its folder
 npx liteb migration billing/create-charges
 npx liteb contract billing/service
 npx liteb provider billing/service
