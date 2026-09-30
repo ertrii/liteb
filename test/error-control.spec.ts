@@ -89,14 +89,32 @@ describe('ErrorControl', () => {
     });
   });
 
-  it('un Error nativo cae en 500 conservando su mensaje', () => {
+  it('un Error nativo cae en 500 y su mensaje NO sale al cliente', () => {
     const control = new ErrorControl(new Error('algo explotó'));
 
     expect(control.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(control.toJson()).toMatchObject({
-      detail: 'algo explotó',
+      detail: 'Internal server error.',
       code: ErrorIdentifier.INTERNAL,
     });
+  });
+
+  it('el mensaje del driver no se filtra: ni la consulta ni los parámetros', () => {
+    // Medido, no supuesto: esto es literalmente lo que un 500 imprimió en un
+    // navegador. El mensaje de un driver trae la sentencia Y sus parámetros
+    // ligados, y nadie lo escribió para que lo lea un cliente.
+    const control = new ErrorControl(
+      new Error(
+        'Failed query: select "id", "password" from "demo_users" ' +
+          'where "username" = $1\nparams: owner',
+      ),
+    );
+
+    const body = JSON.stringify(control.toJson());
+
+    expect(body).not.toContain('select');
+    expect(body).not.toContain('demo_users');
+    expect(body).not.toContain('params');
   });
 
   it('un error desconocido usa el mensaje por defecto, coherente con el 500', () => {
@@ -153,8 +171,11 @@ describe('las clases de error son Errors de verdad', () => {
     const control = new ErrorControl(new Error('se rompió algo'));
 
     expect(control.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+    // El `code` es lo que separa esta rama de la del objeto suelto, que
+    // contesta 403 con CUSTOM. El mensaje ya no sirve para distinguirlas
+    // porque un Error inesperado no manda el suyo.
     expect(control.toJson().code).toBe(ErrorIdentifier.INTERNAL);
-    expect(control.toJson().detail).toBe('se rompió algo');
+    expect(control.toJson().detail).toBe('Internal server error.');
   });
 
   it('un objeto suelto lanzado sigue cayendo en su propia rama', () => {

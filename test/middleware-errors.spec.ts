@@ -49,7 +49,10 @@ describe('un middleware que lanza', () => {
       type: '/problems/internal',
       title: 'Internal server error',
       status: 500,
-      detail: 'Not allowed by CORS',
+      // NO 'Not allowed by CORS': el mensaje de un Error inesperado no sale.
+      // Acá viene de `cors`, y el de al lado viene de un driver con la
+      // consulta y sus parámetros adentro.
+      detail: 'Internal server error.',
       code: 'internal',
       errors: {},
       // El mismo id que se fue en la cabecera y con el que se escribió cada
@@ -79,7 +82,9 @@ describe('un middleware que lanza', () => {
     const res = await request(server).get('/api/lo-que-sea');
 
     expect(res.status).toBe(500);
-    expect(res.body.detail).toBe('explotó');
+    expect(res.body.detail).toBe('Internal server error.');
+    // Y el mensaje real no aparece por ninguna parte del cuerpo.
+    expect(res.text).not.toContain('explotó');
   });
 
   it('si ya salieron bytes, no escribe un JSON en el medio', async () => {

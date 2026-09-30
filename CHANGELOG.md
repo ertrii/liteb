@@ -192,6 +192,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A 500 no longer echoes the thrown error's message.** [BREAKING]
+
+  An unexpected `Error` kept the 500 and put its `message` in the response's
+  `detail`. Measured in a browser: a failing query printed the whole statement,
+  the column list and its **bound parameters** onto the page. Nobody writes a
+  driver's message for a client to read, and the next one along carries a hash
+  or somebody's data.
+
+  `detail` is now `Internal server error.` for that branch. Nothing is lost:
+  the message and its stack already go to the error log, and the body carries
+  `requestId`, so the response and the log entry are still one grep apart.
+
+  Every error liteb *defines* is unaffected — `NotFoundError`, `CustomerError`,
+  `AuthError`, `ForbiddenError`, `CustomError` and `SchemaError` were all
+  written to be read, and still say what they say.
+
 - **`liteb init` leaves the project under git, with the scaffold committed.** It
   runs `git init` on branch `main` and commits after `npm install`, so the
   lockfile is in that first commit.

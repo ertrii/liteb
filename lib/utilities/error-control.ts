@@ -66,8 +66,15 @@ export default class ErrorControl {
     } else if (this.error instanceof Error) {
       // Unexpected: whatever it is, it is a bug, so it keeps the 500 default
       // and goes to the error log with its stack.
+      //
+      // And its message does NOT go to the client. Nobody wrote it for a
+      // reader: a driver puts the failing statement and its BOUND PARAMETERS
+      // in there, which is how a 500 came to print a password hash into a
+      // browser. The message is already in the log with its stack, and the
+      // body carries `requestId`, so the two are still one grep apart — the
+      // only thing not sending it costs is convenience for whoever should not
+      // have been reading it.
       Logger.error(this.error);
-      this.message = this.error.message;
     } else if (typeof this.error === 'object' && this.error !== null) {
       // A thrown plain object. It used to be answered verbatim, which meant
       // one endpoint could reply in a shape no client had a parser for. It

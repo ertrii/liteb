@@ -3,7 +3,8 @@
    declares them empty so it is not the one choosing their shape. */
 import { Request } from 'express';
 import type { Database } from '../modules/database';
-import { AuthError, ForbiddenError } from '../utilities/errors';
+import { AuthError, CustomError, ForbiddenError } from '../utilities/errors';
+import { HttpStatus } from '../interfaces/http-status';
 import type { Contract } from '../modules/container';
 import { GRANT_ALL, PermissionRegistry } from '../modules/permissions';
 
@@ -230,16 +231,23 @@ export class Auth {
   /**
    * Refuses a key no module declares.
    *
-   * It throws a plain `Error` (500) rather than a 403 ON PURPOSE: a key that
-   * exists nowhere is a mistake in the code, and answering 403 would send
-   * whoever debugs it to look at roles and grants instead of at the typo.
+   * It answers 500 rather than 403 ON PURPOSE: a key that exists nowhere is a
+   * mistake in the code, and answering 403 would send whoever debugs it to
+   * look at roles and grants instead of at the typo.
+   *
+   * It is a `CustomError` and not a plain `Error` because an unexpected
+   * `Error`'s message is no longer sent to the client — a foreign message was
+   * never written for one to read. This message WAS: it names the key, and
+   * offers the nearest spelling. Muting it would defeat the whole reason this
+   * check runs before the 401.
    */
   private assertDeclared(permission: string): void {
     if (!this.registry || this.registry.has(permission)) return;
 
     const near = this.registry.suggest(permission);
     const hint = near.length > 0 ? ` Did you mean: ${near.join(', ')}?` : '';
-    throw new Error(
+    throw new CustomError(
+      HttpStatus.INTERNAL_SERVER_ERROR,
       `Unknown permission "${permission}": no installed module declares it. Add it to that module's "permissions" in defineModule().${hint}`,
     );
   }
