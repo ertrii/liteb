@@ -1,22 +1,23 @@
-# CLAUDE.md
+# AGENTS.md
 
-Guidance for Claude Code when working in this repository.
+Guidance for coding agents working in this repository. It covers **liteb only**;
+nothing here is about whatever consumes it.
 
 ## Which line am I on?
 
 This repo ships **two lines**, and they are not compatible. Check the branch
 before anything else:
 
-| Branch | Version | What it is | Who consumes it |
-| --- | --- | --- | --- |
-| `main` | `2.0.0-alpha.x` | Module framework. Published under the `alpha` dist-tag. | Wisnee v3 (not built yet) |
-| `v1` | `1.0.0-rc.1` | Routing framework. **Frozen — fixes only.** | `wisnet-server` (Wisnee v2) |
+| Branch | Version | What it is |
+| --- | --- | --- |
+| `main` | `2.0.0-alpha.x` | Module framework. Published under the `alpha` dist-tag. |
+| `v1` | `1.0.0-rc.1` | Routing framework. **Frozen — fixes only.** |
 
 `git branch --show-current` settles it. A quick tell: if `lib/modules/` exists
 you are on 2.0.
 
-**Do not port features from `main` to `v1`.** `v1` exists so a product already in
-production is not dragged along by a major rewrite.
+**Do not port features from `main` to `v1`.** `v1` exists so an application
+already in production is not dragged along by a major rewrite.
 
 ## What this repo is
 

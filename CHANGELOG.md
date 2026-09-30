@@ -82,7 +82,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it. A deploy that runs migrations someone else generated must not install a
   build toolchain to do it.
 
-  What this gives up is written down in `CLAUDE.md`, including the two measured
+  What this gives up is written down in `AGENTS.md`, including the two measured
   surprises: the relational query api (`db.query.users.findMany()`) cannot work
   when the schema is only known at runtime, and Drizzle's `hasDataLoss` reported
   `false` for dropping a column that had data.
