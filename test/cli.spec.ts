@@ -679,6 +679,19 @@ describe('un módulo generado y puesto a andar', () => {
     expect(endpoint).not.toContain('// this.auth.assert(');
   });
 
+  it('el endpoint generado no lleva ni un comentario', () => {
+    // Un generador que explica su propia salida deja la explicación en cada
+    // archivo que escribió, y el segundo ya se lee como ruido. El porqué vive
+    // en la documentación; el archivo generado es el código que ibas a
+    // escribir vos.
+    const endpoint = read(
+      `${modulesDir}/inventory/endpoints/inventory.endpoint.ts`,
+    );
+
+    expect(endpoint).not.toContain('//');
+    expect(endpoint).not.toContain('/*');
+  });
+
   it('las claves se declaran en UN lugar: el manifiesto', () => {
     // El punto de partida: la clave escrita una vez, donde el módulo se
     // declara. No hay un permissions.ts por módulo que mantener al lado.

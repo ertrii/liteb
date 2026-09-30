@@ -107,6 +107,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A generated endpoint carries no comments.** The permission line came with
+  one above it, and a generator that explains its own output leaves that
+  explanation in every file it ever wrote — by the second one it reads as noise.
+  The reasoning stays in the docs; the generated file is the code you were going
+  to write.
+
 - **A scaffolded project could not use the session it was told to use.** The
   generated resolver reads `request.session?.userId` and a login writes
   `this.request.session.userId`, and neither compiled: `express-session` was in

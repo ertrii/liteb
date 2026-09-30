@@ -190,10 +190,14 @@ export default defineModule({
  * still open.
  *
  * `--public` leaves it out, for the handful that are meant to be.
+ *
+ * No comment above it. A generator that explains its own output leaves the
+ * explanation in every file it ever wrote, and the second one already reads as
+ * noise — the reasoning belongs here and in the docs, not in the application.
  */
 function permissionBlock(permission: { key: string } | null): string {
   if (!permission) return '';
-  return `    // Everything this endpoint needs the caller to be allowed to do.\n    this.auth.assert('${permission.key}');\n\n`;
+  return `    this.auth.assert('${permission.key}');\n\n`;
 }
 
 /**
