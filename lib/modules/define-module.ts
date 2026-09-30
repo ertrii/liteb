@@ -1,9 +1,17 @@
 import semver from 'semver';
-import { EntitySchema, getMetadataArgsStorage } from 'typeorm';
+import { is } from 'drizzle-orm';
+import {
+  isPgEnum,
+  isPgMaterializedView,
+  isPgSchema,
+  isPgSequence,
+  isPgView,
+  PgTable,
+} from 'drizzle-orm/pg-core';
 import {
   MODULE_LAYOUT,
   ModuleDefinitionError,
-  ModuleEntity,
+  ModuleTable,
   ModuleGlobField,
   ModuleManifest,
   ModuleMigrations,
@@ -33,7 +41,7 @@ const toArray = (pattern: ModulePattern | undefined): string[] => {
 
 /**
  * Migrations arrive either as an array or as the namespace object from
- * `import * as migrations`. Both are flattened to the array TypeORM wants.
+ * `import * as migrations`. Both are flattened to one ordered array.
  */
 const toMigrations = (migrations: ModuleMigrations | undefined): Function[] => {
   if (migrations === undefined) return [];
@@ -48,7 +56,7 @@ const toMigrations = (migrations: ModuleMigrations | undefined): Function[] => {
 /**
  * Tells a glob from the thing itself.
  *
- * `entities` and `migrations` take either, and an array of strings is the only
+ * `tables` and `migrations` take either, and an array of strings is the only
  * ambiguous case. An EMPTY array is not a glob: it is an author saying this
  * module has none, which is exactly what stops the default from applying.
  */
@@ -83,17 +91,25 @@ const globsFor = (
   return { patterns: [MODULE_LAYOUT[field]], implicit: true };
 };
 
-/** A decorated entity class or an `EntitySchema`, told apart from a helper. */
-const isEntity = (value: unknown): value is ModuleEntity => {
-  if (value instanceof EntitySchema) return true;
-  if (typeof value !== 'function') return false;
-  // TypeORM's decorators register here the moment the file is required, which
-  // has just happened. An enum, a DTO or a plain class exported from the same
-  // folder is not in this list.
-  return getMetadataArgsStorage().tables.some(
-    (table) => table.target === value,
-  );
-};
+/**
+ * Whether an export belongs in the database schema.
+ *
+ * Six kinds, not one. A `pgTable` is the obvious case, but an ENUM has to be
+ * collected too: a table with an enum column emits DDL that REFERENCES the
+ * type, so a schema without the enum generates a migration that fails when it
+ * runs. Views, sequences and schemas are here for the same reason.
+ *
+ * Everything else exported from the same folder — a TypeScript type, a row
+ * type, a helper, a DTO — is ignored, which is what lets a table file also
+ * export the things that go with it.
+ */
+const isTable = (value: unknown): value is ModuleTable =>
+  is(value, PgTable) ||
+  isPgEnum(value) ||
+  isPgSequence(value) ||
+  isPgView(value) ||
+  isPgMaterializedView(value) ||
+  isPgSchema(value);
 
 /**
  * A migration class.
@@ -110,10 +126,10 @@ const isMigration = (value: unknown): value is Function =>
  * Loads what a glob points at, and says so when it points at nothing.
  *
  * The warning is only for a glob the AUTHOR wrote: a default finding nothing
- * means the module has no entities, which is an ordinary module.
+ * means the module owns no tables, which is an ordinary module.
  */
 const loadFromGlobs = <T>(
-  field: 'entities' | 'migrations',
+  field: 'tables' | 'migrations',
   globs: Globs,
   dir: string | null,
   id: string,
@@ -122,8 +138,8 @@ const loadFromGlobs = <T>(
   if (globs.patterns.length === 0) return [];
 
   const { files, exported } = readExportsSync(globs.patterns, dir);
-  // A namespace index re-exporting the same classes is common and harmless:
-  // the same class found twice is one class.
+  // A namespace index re-exporting the same things is common and harmless: the
+  // same table found twice is one table.
   const found = [...new Set(exported.filter(keep))];
 
   if (found.length === 0 && !globs.implicit) {
@@ -135,7 +151,7 @@ const loadFromGlobs = <T>(
         : `Module "${id}": "${field}" matched ${
             files.length
           } file(s), none of which exports a${
-            field === 'entities' ? 'n entity' : ' migration'
+            field === 'tables' ? ' table' : ' migration'
           }.`,
     );
   }
@@ -209,7 +225,7 @@ const validatePermissions = (
  * confusing startup error.
  *
  * Paths are the exception: with `dir`, the standard layout
- * ({@link MODULE_LAYOUT}) is where entities, migrations, endpoints, tasks and
+ * ({@link MODULE_LAYOUT}) is where tables, migrations, endpoints, tasks and
  * listeners are found. A manifest names one of those fields only to put it
  * somewhere else, so what is left is what is particular to the module.
  *
@@ -326,34 +342,34 @@ export function defineModule<
     return resolved;
   };
 
-  const declaredEntities = manifest.entities;
-  const entityGlobs = isGlob(declaredEntities) ? declaredEntities : undefined;
-  let entities: ModuleEntity[];
-  if (declaredEntities === undefined || entityGlobs !== undefined) {
-    entities = loadFromGlobs(
-      'entities',
-      globs('entities', entityGlobs),
+  const declaredTables = manifest.tables;
+  const tableGlobs = isGlob(declaredTables) ? declaredTables : undefined;
+  let tables: ModuleTable[];
+  if (declaredTables === undefined || tableGlobs !== undefined) {
+    tables = loadFromGlobs(
+      'tables',
+      globs('tables', tableGlobs),
       dir,
       id,
-      isEntity,
+      isTable,
     );
   } else {
     // Not a glob, so it is the list itself — `isGlob` already ruled out the
     // string forms.
-    const listed = declaredEntities as ModuleEntity[];
+    const listed = declaredTables as ModuleTable[];
     if (!Array.isArray(listed)) {
-      fail(`Module "${id}": "entities" must be an array, or a glob.`, id);
+      fail(`Module "${id}": "tables" must be an array, or a glob.`, id);
     }
     if (listed.some((entry) => typeof entry === 'string')) {
       fail(
-        `Module "${id}": "entities" mixes globs with classes. It is one or the other.`,
+        `Module "${id}": "tables" mixes globs with tables. It is one or the other.`,
         id,
       );
     }
     if (new Set(listed).size !== listed.length) {
-      fail(`Module "${id}": the same entity is listed twice.`, id);
+      fail(`Module "${id}": the same table is listed twice.`, id);
     }
-    entities = listed;
+    tables = listed;
   }
 
   const declaredMigrations = manifest.migrations;
@@ -384,7 +400,7 @@ export function defineModule<
     engine: manifest.engine ?? null,
     requires,
     dir,
-    entities,
+    tables,
     migrations,
     routes: routes.patterns,
     routines: routines.patterns,

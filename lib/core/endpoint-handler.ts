@@ -10,7 +10,7 @@ import EndpointReader from './endpoint-reader';
 import schemaValidator from '../services/schema-validator';
 import { HttpStatus } from '../interfaces/http-status';
 import { ErrorIdentifier } from '../interfaces/type-error';
-import { DataSource } from 'typeorm';
+import { Database } from '../modules/database';
 import ErrorControl from '../utilities/error-control';
 import type { Container, Contract } from '../modules/container';
 import { Auth, AuthContext, AuthResolver } from './auth';
@@ -21,7 +21,7 @@ import { Output } from '../outputs/output';
 export default class EndpointHandler {
   constructor(
     private endpointReader: EndpointReader,
-    private dbSource: DataSource,
+    private dbSource: Database,
     private container?: Container,
     private authResolver?: AuthResolver,
     private eventBus?: EventBus,
@@ -29,7 +29,7 @@ export default class EndpointHandler {
   ) {}
 
   /**
-   * Built once and reused: the DataSource and the container are stable for the
+   * Built once and reused: the connection and the container are stable for the
    * whole life of this handler, only the request changes.
    */
   private context: AuthContext | null = null;

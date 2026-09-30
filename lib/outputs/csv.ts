@@ -81,7 +81,7 @@ export function escapeCsvCell(text: string, delimiter: string): string {
  */
 export function csv(
   // `object` and not `Record<string, unknown>`: what gets exported is almost
-  // always the result of a repository query, and a TypeORM entity is a class,
+  // always the result of a query, and a row may come back as a class,
   // which has no index signature. Demanding one would mean casting at every
   // call site.
   rows: readonly object[],

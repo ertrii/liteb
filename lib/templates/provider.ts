@@ -1,4 +1,4 @@
-import type { DataSource } from 'typeorm';
+import type { Database } from '../modules/database';
 import type { Container, Contract } from '../modules/container';
 import type { Slot } from '../modules/slots';
 import type { EventBus, EventToken } from '../modules/events';
@@ -35,8 +35,8 @@ import type { EventBus, EventToken } from '../modules/events';
  * }
  */
 export abstract class Provider {
-  /** The running DataSource, injected before the instance is built. */
-  public db: DataSource;
+  /** The open connection, injected before the instance is built. */
+  public db: Database;
 
   /** Container of the application this provider belongs to. */
   public container?: Container;

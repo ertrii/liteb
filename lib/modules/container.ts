@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { Database } from './database';
 import type { Provider } from '../templates/provider';
 import type { EventBus } from './events';
 import type { Slot } from './slots';
@@ -71,7 +71,7 @@ export class Container {
   private resolvingSlots = new Set<string>();
   private events?: EventBus;
 
-  constructor(private readonly db: DataSource) {}
+  constructor(private readonly db: Database) {}
 
   /**
    * Registers what a module provides.

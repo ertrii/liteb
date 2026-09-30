@@ -1,4 +1,4 @@
-import type { DataSource } from 'typeorm';
+import type { Database } from './database';
 import { Logger } from '../utilities/logger';
 import type { Listener } from '../templates/listener';
 import type { Container } from './container';
@@ -58,7 +58,7 @@ export class EventBus {
 
   private container?: Container;
 
-  constructor(private readonly db: DataSource) {}
+  constructor(private readonly db: Database) {}
 
   /**
    * Hands the bus the application's container, so listeners can resolve

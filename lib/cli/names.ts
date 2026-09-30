@@ -78,7 +78,7 @@ export function parseTarget(raw: string, what: string): Target {
   return { module: toKebab(parts[0]), name: toKebab(parts[1]) };
 }
 
-/** A timestamp prefix, the same shape TypeORM's own migrations use. */
+/** A timestamp prefix: milliseconds, which is what orders a migration. */
 export function timestamp(): number {
   return Date.now();
 }

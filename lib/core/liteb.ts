@@ -1,4 +1,4 @@
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { sql } from 'drizzle-orm';
 import { NextFunction, Request, Response } from 'express';
 import cron from 'node-cron';
 import swaggerUi from 'swagger-ui-express';
@@ -26,7 +26,6 @@ import {
   loadModuleListeners,
   loadModuleRoutines,
 } from '../modules/module-loader';
-import { collectModuleEntities } from '../modules/collect-entities';
 import { buildContainer } from '../modules/build-container';
 import { Container } from '../modules/container';
 import { EventBus } from '../modules/events';
@@ -38,7 +37,21 @@ import { AuthResolver } from './auth';
 import { buildCors, CorsConfig } from './cors';
 import { buildHealth, HealthConfig } from './health';
 import { buildRequestId, RequestIdConfig } from './request-id';
-import { SchemaDiff, schemaDiff, tableOwners } from '../modules/schema-diff';
+import {
+  diffSnapshots,
+  emptySnapshot,
+  liveDrift,
+  moduleSnapshot,
+  SchemaDiff,
+  SchemaSnapshot,
+  tableOwners,
+} from '../modules/schema-diff';
+import { Database, DatabaseOptions } from '../modules/database';
+import {
+  closeClient,
+  isDatabase,
+  openDatabase,
+} from '../modules/open-database';
 
 /** One module's migrations, and which of them already ran. */
 export interface ModuleMigrationStatus {
@@ -51,10 +64,13 @@ export interface ModuleMigrationStatus {
 /** What {@link Liteb.create} takes. */
 export interface LitebOptions {
   /**
-   * Connection options, or a DataSource the application already owns. With
-   * options, liteb adds the modules' entities before building it.
+   * How to reach the database, or a connection the application already owns.
+   *
+   * With options liteb opens the pool itself and builds the schema from the
+   * modules. With an instance, the connection and its schema are the caller's
+   * business — liteb has nothing to add to one it did not build.
    */
-  db: DataSourceOptions | DataSource;
+  db: DatabaseOptions | Database;
 
   /**
    * Manifests built with `defineModule()`. Required, and the ONLY way to mount
@@ -227,29 +243,33 @@ export default class Liteb extends Server {
    * Private on purpose: {@link Liteb.create} is the only way in.
    *
    * A hand-built instance could only ever be an application with no modules —
-   * and therefore no routes and no routines — or one whose DataSource never
-   * learned about its modules' entities, which fails later, at the first query.
+   * and therefore no routes and no routines — or one whose connection never
+   * learned about its modules' tables, which fails later, at the first query.
    *
-   * @param dbSource TypeORM DataSource instance for database access.
+   * @param dbSource The open connection every endpoint, routine and provider
+   * is handed.
+   * @param ownsConnection Whether liteb opened it, and may therefore close it.
    */
-  private constructor(private dbSource: DataSource) {
+  private constructor(
+    private dbSource: Database,
+    private readonly ownsConnection: boolean,
+  ) {
     super();
   }
 
   /**
    * Builds an application from its modules, owning the DataSource.
    *
-   * This is the inversion modules require. TypeORM needs the full entity list
-   * when the DataSource is *constructed*, and that list is the union of what
-   * every module contributes — which the application cannot assemble by hand
+   * This is the inversion modules require. The schema is the union of what
+   * every module contributes, which the application cannot assemble by hand
    * without knowing each module's internals. So liteb builds it.
    *
-   * Entities come from every module present in the code, enabled or not:
+   * Tables come from every module present in the code, enabled or not:
    * disabling a module decides what runs, never whether its data is reachable.
    *
-   * A DataSource can still be passed instead of connection options, for an
-   * application that already owns one. Its entities are then its own business —
-   * liteb has nothing to add to a connection it did not build.
+   * A connection can still be passed instead of options, for an application
+   * that already owns one. Its schema is then its own business, and liteb does
+   * not close what it did not open.
    *
    * @example
    * const app = await Liteb.create({
@@ -262,18 +282,19 @@ export default class Liteb extends Server {
   public static create = async (options: LitebOptions): Promise<Liteb> => {
     const modules = options.modules;
 
-    const dataSource =
-      options.db instanceof DataSource
-        ? options.db
-        : new DataSource({
-            ...options.db,
-            entities: [
-              ...((options.db.entities ?? []) as unknown[]),
-              ...collectModuleEntities(modules),
-            ],
-          } as DataSourceOptions);
+    // Two branches instead of a cast: the narrowing is what says which of the
+    // two shapes `db` was, and it is also the answer to who closes it.
+    let database: Database;
+    let ownsConnection: boolean;
+    if (isDatabase(options.db)) {
+      database = options.db;
+      ownsConnection = false;
+    } else {
+      database = openDatabase(options.db, modules);
+      ownsConnection = true;
+    }
 
-    const app = new Liteb(dataSource);
+    const app = new Liteb(database, ownsConnection);
 
     // Before anything else, so a failure during boot is still visible through
     // it. Always, not only when `logs` is passed: the files are the default,
@@ -440,7 +461,11 @@ export default class Liteb extends Server {
    * driver error surfacing from there reads like a framework crash.
    */
   public connect = async (): Promise<void> => {
-    if (!this.dbSource.isInitialized) await this.dbSource.initialize();
+    // A pool connects lazily, so "is it initialized" has no answer worth
+    // having: the first real query is when a wrong host or password shows up.
+    // Asking for one here is what keeps that error at the point where the
+    // caller asked to connect, instead of inside their first request.
+    await this.dbSource.execute(sql`select 1`);
   };
 
   /**
@@ -478,34 +503,74 @@ export default class Liteb extends Server {
   };
 
   /**
-   * What the database is missing to match the entities, as SQL.
+   * What ONE module's schema needs to go from `previous` to what its code says.
    *
-   * TypeORM already knows how to answer this: its schema builder reads the
-   * live schema, compares it against the entity metadata and emits the
-   * statements that close the gap. This is that answer, and nothing is run —
-   * where those statements end up is a decision, and it belongs to whoever
-   * asked.
+   * Per module, and against a snapshot rather than against the live database.
+   * That is what makes it answerable with nothing running: generating a
+   * migration is a question about two descriptions of a schema, and needing a
+   * database to ask it meant you could not write one on a plane.
+   *
+   * Per module is also what removes a decision that used to be guesswork. A
+   * whole-schema diff has to be attributed — which module does this table
+   * belong to? — and the answer decided where the migration was filed, which
+   * decides what order it runs in. Comparing one module's tables against one
+   * module's snapshot has nothing to attribute.
    *
    * @example
    * const app = await createApp();
-   * const { up, down } = await app.pendingSchema();
-   * await app.close();
+   * const { up, down } = await app.pendingSchema('billing', stored);
    */
-  public pendingSchema = async (): Promise<SchemaDiff> => {
+  public pendingSchema = async (
+    moduleId: string,
+    previous: SchemaSnapshot = emptySnapshot(),
+  ): Promise<SchemaDiff> =>
+    diffSnapshots(previous, moduleSnapshot(this.moduleOrFail(moduleId)));
+
+  /**
+   * What one module's tables describe right now, to store beside the migration
+   * generated from it.
+   *
+   * `previous` chains them: every snapshot records the id of the one before it,
+   * which is what makes a history out of a pile of files.
+   */
+  public snapshotOf = (
+    moduleId: string,
+    previous?: SchemaSnapshot,
+  ): SchemaSnapshot => moduleSnapshot(this.moduleOrFail(moduleId), previous);
+
+  /**
+   * What the LIVE database is missing to match every module's tables.
+   *
+   * The other question, and the one snapshots cannot answer: has the schema
+   * drifted from the code? A migration applied by hand, a column dropped in a
+   * console, a snapshot nobody committed all show up here and nowhere else.
+   *
+   * Reads the schema and changes nothing.
+   */
+  public schemaDrift = async (): Promise<string[]> => {
     await this.connect();
-    return schemaDiff(this.dbSource);
+    return liveDrift(this.dbSource, this.modules);
+  };
+
+  private moduleOrFail = (moduleId: string): ResolvedModule => {
+    const found = this.modules.find((mod) => mod.id === moduleId);
+    if (!found) {
+      throw new Error(
+        `No module "${moduleId}" in this application. It has: ${
+          this.modules.map((mod) => mod.id).join(', ') || 'none'
+        }.`,
+      );
+    }
+    return found;
   };
 
   /**
-   * Which module owns each table, from the entities each one declares.
+   * Which module owns each table, from the tables each one declares.
    *
-   * What makes a whole-database diff filable: TypeORM sees one schema and has
-   * no idea modules exist, so the mapping has to come from here.
-   *
-   * Needs the connection open — `pendingSchema()` opens it.
+   * What makes a whole-database diff filable: the schema is one namespace and
+   * has no idea modules exist, so the mapping has to come from here.
    */
-  public tableOwners = (): Map<string, string> =>
-    tableOwners(this.dbSource, this.modules);
+  public tableOwners = (): Map<string, string> => tableOwners(this.modules);
 
   /**
    * What each module declares and what of it already ran.
@@ -609,12 +674,7 @@ export default class Liteb extends Server {
     // restarts it, instead of staying alive with no server.
     Logger.info('Loading database...');
     try {
-      // A caller may hand over a DataSource it already connected (an app
-      // embedding liteb, a test suite reusing one). Initializing twice throws,
-      // so adopt the live connection instead of fighting it.
-      if (!this.dbSource.isInitialized) {
-        await this.dbSource.initialize();
-      }
+      await this.connect();
     } catch (error) {
       Logger.error('Fatal: could not connect to the database', error);
       this.started = false;
@@ -839,9 +899,9 @@ export default class Liteb extends Server {
       Logger.error('Error closing HTTP server', error);
     }
 
-    if (database) {
+    if (database && this.ownsConnection) {
       try {
-        if (this.dbSource.isInitialized) await this.dbSource.destroy();
+        await closeClient(this.dbSource.$client);
       } catch (error) {
         Logger.error('Error closing database connection', error);
       }

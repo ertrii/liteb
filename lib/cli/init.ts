@@ -43,16 +43,17 @@ export function createProject(options: InitOptions): Plan {
   },
   "dependencies": {
     "class-validator": "^0.14.0",
+    "drizzle-orm": "^0.45.3",
     "express": "^4.18.2",
     "express-session": "^1.18.1",
     "liteb": "${options.litebVersion}",
     "pg": "^8.11.2",
-    "reflect-metadata": "^0.1.13",
-    "typeorm": "^0.3.17"
+    "reflect-metadata": "^0.1.13"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/express": "^4.17.21",
+    "drizzle-kit": "^0.31.11",
     "@types/express-session": "^1.18.0",
     "@types/node": "^24.0.0",
     "eslint": "^10.11.0",
@@ -90,11 +91,11 @@ export function createProject(options: InitOptions): Plan {
     // tsconfig-paths. Change this and change the dev script with it.
     "paths": { "@/*": ["./${modulesDir}/*"] },
     "strict": true,
-    // TypeORM entities and validated DTOs declare fields the constructor never
-    // assigns: the ORM fills them. With this on, every one of them is an error.
+    // Validated DTOs declare fields the constructor never assigns: the
+    // validator fills them. With this on, every one of them is an error.
     "strictPropertyInitialization": false,
     // What makes the decorators work. Removing either one turns every route
-    // and every entity into a silent no-op.
+    // into a silent no-op.
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
@@ -124,15 +125,11 @@ import session from './config/session';
 export async function createApp() {
   const app = await Liteb.create({
     db: {
-      type: 'postgres',
       host: ConfigService.get('DB_HOST'),
       port: +ConfigService.get('DB_PORT'),
-      username: ConfigService.get('DB_USERNAME'),
+      user: ConfigService.get('DB_USERNAME'),
       password: ConfigService.get('DB_PASSWORD'),
       database: ConfigService.get('DB_NAME'),
-      // Off on purpose: every table comes from a module's own migration,
-      // which is what an installation does.
-      synchronize: false,
     },
 
     // \`liteb module <name>\` registers it here.
@@ -551,7 +548,7 @@ let warned = false;
  *
  * \`db\` and \`get\` come in for exactly that: permissions are usually a query,
  * and \`get\` reaches a module's contract when this file must not import that
- * module's entities.
+ * module's tables.
  *
  * Declare what an actor IS at the same time. liteb leaves it empty on purpose
  * — a user id, a tenant, an API key issued to an extension are all valid, and

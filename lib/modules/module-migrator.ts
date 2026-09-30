@@ -1,5 +1,24 @@
-import { DataSource, MigrationInterface, Table } from 'typeorm';
+import { sql } from 'drizzle-orm';
+import { Database, rows, tableExists, Transaction } from './database';
 import { ResolvedModule } from './module-manifest';
+
+/**
+ * What a migration is.
+ *
+ * Liteb's own interface, and not the ORM's. It used to be TypeORM's
+ * `MigrationInterface`, which made every application's migrations depend on a
+ * type from a package they might swap — for a shape liteb already decides: a
+ * class whose name ends in a timestamp, with an `up`, run inside a transaction
+ * liteb owns. Nothing in it comes from the driver.
+ *
+ * `down` is optional because liteb never runs it: there is no `migrate:revert`.
+ * It is declared so what `liteb migration:generate` writes has somewhere to put
+ * the undo it already computed, for whoever needs it by hand.
+ */
+export interface Migration {
+  up(db: Transaction): Promise<void>;
+  down?(db: Transaction): Promise<void>;
+}
 
 /** A migration that ran, as the installation records it. */
 export interface AppliedMigration {
@@ -23,7 +42,7 @@ const TIMESTAMP_PATTERN = /(\d+)$/;
 
 /**
  * Orders a module's migrations by the timestamp at the end of their class name,
- * the convention TypeORM already uses.
+ * the convention every tool in this space already uses.
  *
  * A migration without a timestamp is an error rather than a guess. Declaration
  * order is not a contract: `import * as migrations` hands over an object whose
@@ -73,48 +92,34 @@ export function orderMigrations(
 /**
  * Runs each module's migrations, in the order the modules were resolved.
  *
- * TypeORM's own runner cannot do this: it sorts every migration of the
- * DataSource by timestamp, globally. A module written last year would then
- * migrate before the dependency it needs, because its timestamp is older.
- * Ordering by module first, and by timestamp only inside a module, is what
- * makes a dependency's tables exist before the dependent touches them.
+ * An ORM's own runner cannot do this: it sorts every migration it knows about
+ * by timestamp, globally. A module written last year would then migrate before
+ * the dependency it needs, because its timestamp is older. Ordering by module
+ * first, and by timestamp only inside a module, is what makes a dependency's
+ * tables exist before the dependent touches them.
  *
  * One transaction per migration, so a failure leaves the ones before it applied
  * and recorded instead of rolling back an entire deploy's worth of schema.
  */
 export class ModuleMigrator {
-  constructor(private readonly db: DataSource) {}
+  constructor(private readonly db: Database) {}
 
   /**
    * Creates `_module_migrations`. Like `_modules`, it cannot come from a
    * migration — it is the ledger those migrations are recorded in.
    */
   async ensureTable(): Promise<void> {
-    const runner = this.db.createQueryRunner();
-    try {
-      if (await runner.hasTable('_module_migrations')) return;
-
-      await runner.createTable(
-        new Table({
-          name: '_module_migrations',
-          columns: [
-            { name: 'module', type: 'varchar', length: '100', isPrimary: true },
-            { name: 'name', type: 'varchar', length: '255', isPrimary: true },
-            {
-              name: 'ranAt',
-              type:
-                this.db.options.type === 'postgres'
-                  ? 'timestamp with time zone'
-                  : 'datetime',
-              default: 'now()',
-            },
-          ],
-        }),
-        true,
-      );
-    } finally {
-      await runner.release();
-    }
+    // `"ranAt"` stays quoted and camelCased: an installation that already has
+    // this table got it under that name, and renaming a column liteb never
+    // reads would be churn with a migration attached.
+    await this.db.execute(sql`
+      create table if not exists _module_migrations (
+        module varchar(100) not null,
+        name varchar(255) not null,
+        "ranAt" timestamp with time zone not null default now(),
+        primary key (module, name)
+      )
+    `);
   }
 
   /**
@@ -125,17 +130,13 @@ export class ModuleMigrator {
    * (a status command, a dry run) leave no trace.
    */
   async applied(): Promise<Set<string>> {
-    const runner = this.db.createQueryRunner();
-    try {
-      if (!(await runner.hasTable('_module_migrations'))) return new Set();
-    } finally {
-      await runner.release();
-    }
+    if (!(await tableExists(this.db, '_module_migrations'))) return new Set();
 
-    const rows: AppliedMigration[] = await this.db.query(
-      'select module, name from _module_migrations',
+    const found = await rows<AppliedMigration>(
+      this.db,
+      sql`select module, name from _module_migrations`,
     );
-    return new Set(rows.map((row) => `${row.module}:${row.name}`));
+    return new Set(found.map((row) => `${row.module}:${row.name}`));
   }
 
   /** Migrations declared but not yet applied, in the order they would run. */
@@ -177,7 +178,7 @@ export class ModuleMigrator {
   }
 
   private async apply(moduleId: string, migration: Function): Promise<void> {
-    const instance = new (migration as new () => MigrationInterface)();
+    const instance = new (migration as new () => Migration)();
 
     if (typeof instance.up !== 'function') {
       throw new ModuleMigrationError(
@@ -187,21 +188,21 @@ export class ModuleMigrator {
       );
     }
 
-    const runner = this.db.createQueryRunner();
-    await runner.connect();
-    await runner.startTransaction();
-
     try {
-      await instance.up(runner);
-      // Recorded in the same transaction: a migration that ran without leaving
-      // its row would run again on the next boot, over data it already changed.
-      await runner.query(
-        'insert into _module_migrations (module, name) values ($1, $2)',
-        [moduleId, migration.name],
-      );
-      await runner.commitTransaction();
+      // Drizzle rolls the transaction back when the callback throws, so the
+      // failure path is the ordinary one: no runner to release, and nothing
+      // left half-applied to clean up here.
+      await this.db.transaction(async (tx) => {
+        await instance.up(tx);
+        // Recorded in the same transaction: a migration that ran without
+        // leaving its row would run again on the next boot, over data it
+        // already changed.
+        await tx.execute(sql`
+          insert into _module_migrations (module, name)
+          values (${moduleId}, ${migration.name})
+        `);
+      });
     } catch (error) {
-      await runner.rollbackTransaction();
       throw new ModuleMigrationError(
         `Module "${moduleId}": migration "${migration.name}" failed: ${
           (error as Error).message
@@ -209,8 +210,6 @@ export class ModuleMigrator {
         moduleId,
         migration.name,
       );
-    } finally {
-      await runner.release();
     }
   }
 }

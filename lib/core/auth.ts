@@ -2,7 +2,7 @@
    this file: the application fills these by declaration merging, and liteb
    declares them empty so it is not the one choosing their shape. */
 import { Request } from 'express';
-import type { DataSource } from 'typeorm';
+import type { Database } from '../modules/database';
 import { AuthError, ForbiddenError } from '../utilities/errors';
 import type { Contract } from '../modules/container';
 import { GRANT_ALL, PermissionRegistry } from '../modules/permissions';
@@ -97,8 +97,8 @@ export interface AuthResult {
  * them go stale.
  */
 export interface AuthContext {
-  /** The running DataSource, with every module's entities registered. */
-  db: DataSource;
+  /** The open connection, with every module's tables in its schema. */
+  db: Database;
 
   /**
    * Resolves a contract a module provides, so the policy for who may do what

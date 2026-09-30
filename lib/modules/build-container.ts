@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { Database } from './database';
 import { Container, ContractError } from './container';
 import { loadModuleProviders } from './module-loader';
 import { ResolvedModule } from './module-manifest';
@@ -17,7 +17,7 @@ import { ResolvedModule } from './module-manifest';
  */
 export async function buildContainer(
   modules: ResolvedModule[],
-  db: DataSource,
+  db: Database,
 ): Promise<Container> {
   const container = new Container(db);
 

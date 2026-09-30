@@ -1,16 +1,34 @@
-import type { DataSource, EntitySchema } from 'typeorm';
+import type {
+  PgEnum,
+  PgMaterializedView,
+  PgSchema,
+  PgSequence,
+  PgTable,
+  PgView,
+} from 'drizzle-orm/pg-core';
+import type { Database } from './database';
 import type { Contract } from './container';
 
 /**
- * A database entity contributed by a module: a decorated class or a TypeORM
- * `EntitySchema`.
+ * Something a module puts in the database schema.
  *
- * It matches what TypeORM's `entities` option accepts, minus the string glob —
- * a module declares its own entities, it does not go looking for them. Keeping
- * it wider (`object`) made `collectModuleEntities()` unassignable to a
- * DataSource the application builds itself, which is a supported path.
+ * Usually a `pgTable`. An ENUM has to be in this list too, and that is not a
+ * detail: a table with an enum column generates
+ * `"status" "order_status" NOT NULL` referencing a type that nothing creates,
+ * so leaving the enum out produces a migration that fails when it runs. Views,
+ * sequences and schemas are here for the same reason — whatever the generator
+ * has to see to emit correct DDL.
+ *
+ * A module declares its own; it does not go looking for others'. The glob in
+ * `tables/` is a convenience for finding the module's own.
  */
-export type ModuleEntity = Function | EntitySchema<any>;
+export type ModuleTable =
+  | PgTable
+  | PgEnum<[string, ...string[]]>
+  | PgSequence
+  | PgView
+  | PgMaterializedView
+  | PgSchema;
 
 /**
  * Migrations contributed by a module. Either an array of migration classes or
@@ -24,7 +42,7 @@ export type ModulePattern = string | string[];
 
 /** The fields a module describes with globs. */
 export type ModuleGlobField =
-  'entities' | 'migrations' | 'routes' | 'routines' | 'listeners' | 'providers';
+  'tables' | 'migrations' | 'routes' | 'routines' | 'listeners' | 'providers';
 
 /**
  * Where liteb looks when the manifest says nothing.
@@ -42,7 +60,7 @@ export type ModuleGlobField =
  * rather than scanning a folder it was never pointed at.
  */
 export const MODULE_LAYOUT: Readonly<Record<ModuleGlobField, string>> = {
-  entities: './entities/*.entity.ts',
+  tables: './tables/*.table.ts',
   migrations: './migrations/*.ts',
   routes: './endpoints/*.endpoint.ts',
   routines: './routines/*.routine.ts',
@@ -107,8 +125,8 @@ export type PermissionKeysOf<P> = P extends readonly (infer E)[]
 
 /** What a lifecycle hook receives. */
 export interface ModuleContext {
-  /** The running DataSource, with every enabled module's entities registered. */
-  db: DataSource;
+  /** The open connection, the same one every endpoint and routine gets. */
+  db: Database;
 }
 
 export type ModuleHook = (ctx: ModuleContext) => void | Promise<void>;
@@ -152,7 +170,7 @@ export interface ModuleManifest<
    * ({@link MODULE_LAYOUT}) and any glob the manifest declares. Without it
    * there is nothing to resolve against — paths would land on whatever the
    * process's working directory happens to be — so liteb looks for nothing at
-   * all, and a module with no `dir` has to list its entities by hand.
+   * all, and a module with no `dir` has to list its tables by hand.
    *
    * Explicit because inferring it from the call stack is fragile and silent
    * when wrong.
@@ -160,17 +178,17 @@ export interface ModuleManifest<
   dir?: string;
 
   /**
-   * The classes, or a glob that finds them. Defaults to
-   * `./entities/*.entity.ts`.
+   * The tables, or a glob that finds them. Defaults to
+   * `./tables/*.table.ts`.
    *
    * A glob is read when the manifest is — the same moment an `import` at the
-   * top of this file would have been — so the DataSource still gets the full
-   * list before it is built. Only decorated entities and `EntitySchema`s are
-   * kept: an enum or a helper living in the same folder is ignored.
+   * top of this file would have been — so the whole schema is known before the
+   * connection is built. Only what belongs in a schema is kept: a type, a
+   * helper or a DTO living in the same folder is ignored.
    *
-   * An explicit `[]` means the module has no entities, and no default applies.
+   * An explicit `[]` means the module owns no tables, and no default applies.
    */
-  entities?: ModuleEntity[] | ModulePattern;
+  tables?: ModuleTable[] | ModulePattern;
 
   /**
    * The migration classes, the namespace object from `import * as migrations`,
@@ -243,7 +261,7 @@ export interface ResolvedModule<K extends string = string> {
   engine: string | null;
   requires: string[];
   dir: string | null;
-  entities: ModuleEntity[];
+  tables: ModuleTable[];
   migrations: Function[];
   routes: string[];
   routines: string[];

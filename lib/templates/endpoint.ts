@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { DataSource } from 'typeorm';
+import { Database } from '../modules/database';
 import { HttpStatus } from '../interfaces/http-status';
 import type { UploadedFile } from '../interfaces/uploaded-file';
 import { Auth } from '../core/auth';
@@ -33,7 +33,7 @@ export abstract class Endpoint<
     | UploadedFile[];
   public request: Request<P, any, B, Q>;
   public response: Response;
-  public db: DataSource;
+  public db: Database;
   public httpStatus: HttpStatus = HttpStatus.OK;
 
   /**

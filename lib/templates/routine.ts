@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { Database } from '../modules/database';
 import type { Container, Contract } from '../modules/container';
 import type { Slot } from '../modules/slots';
 import type { EventBus, EventToken } from '../modules/events';
@@ -27,7 +27,7 @@ import type { EventBus, EventToken } from '../modules/events';
  * }
  */
 export abstract class Routine {
-  public db: DataSource;
+  public db: Database;
 
   /** Container of the application this routine belongs to, injected like `db`. */
   public container?: Container;

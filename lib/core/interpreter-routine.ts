@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { Database } from '../modules/database';
 import { CRON, CronMetadata } from '../decorators/cron.decorator';
 import cron from 'node-cron';
 import { Routine } from '../templates/routine';
@@ -26,7 +26,7 @@ export default class InterpreterRoutine {
 
   constructor(
     private RoutineClass: new () => Routine,
-    private dbSource: DataSource,
+    private dbSource: Database,
     private container?: Container,
     private eventBus?: EventBus,
   ) {

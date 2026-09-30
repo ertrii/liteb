@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
-import type { DataSource } from 'typeorm';
+import { sql } from 'drizzle-orm';
+import type { Database } from '../modules/database';
 
 /**
  * Is this application able to serve?
@@ -85,7 +86,7 @@ export interface HealthReport {
 }
 
 export interface HealthSources {
-  db: () => DataSource;
+  db: () => Database;
   /** The APPLICATION's version, not liteb's. */
   version?: string;
   /** True once an ordered shutdown has begun. */
@@ -100,10 +101,12 @@ export interface HealthSources {
  * check that reads the flag reports `pass` through an outage, which is the one
  * moment it exists for.
  */
-async function databaseAnswers(db: DataSource): Promise<boolean> {
+async function databaseAnswers(db: Database): Promise<boolean> {
   try {
-    if (!db.isInitialized) return false;
-    await db.query('select 1');
+    // One statement, and no "is it initialized" shortcut: a pool reports itself
+    // open while every connection in it is broken, and a probe that trusts a
+    // flag over a round trip answers healthy right through an outage.
+    await db.execute(sql`select 1`);
     return true;
   } catch {
     return false;

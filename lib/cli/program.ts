@@ -6,7 +6,7 @@ import { runBuild } from './build';
 import { createProject, GitResult, initGit, install } from './init';
 import {
   createEndpoint,
-  createEntity,
+  createTable,
   createListener,
   createMigration,
   createModule,
@@ -14,9 +14,12 @@ import {
   createRoutine,
   createToken,
 } from './generators';
-import { generateMigration } from './migration-generator';
-import { CliError } from './names';
+import { generateMigration, snapshotPath } from './migration-generator';
+import { CliError, parseTarget } from './names';
 import { Plan } from './plan';
+import type Liteb from '../core/liteb';
+import { emptySnapshot } from '../modules/schema-diff';
+import type { SchemaSnapshot } from '../modules/schema-diff';
 import { apply } from './writer';
 
 /**
@@ -61,6 +64,44 @@ function report(target: Plan, flags: CommonFlags): void {
     console.log('');
     result.hints.forEach((hint) => console.log(`  next     ${hint}`));
   }
+}
+
+/**
+ * The snapshot a module last recorded, or the empty one.
+ *
+ * A module with no snapshot has never generated a migration, so its first diff
+ * is against nothing — which is exactly what an empty snapshot says. A file that
+ * is there but unreadable is an error, though: silently treating corruption as
+ * "no history" would generate a migration that recreates every table.
+ */
+function readSnapshot(modulesDir: string, moduleId: string): SchemaSnapshot {
+  const file = path.join(process.cwd(), snapshotPath(modulesDir, moduleId));
+  if (!fs.existsSync(file)) return emptySnapshot();
+
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8')) as SchemaSnapshot;
+  } catch (error) {
+    throw new CliError(
+      `${snapshotPath(modulesDir, moduleId)} is not readable JSON: ${
+        (error as Error).message
+      }\\nFix it, or delete it to start the history over.`,
+    );
+  }
+}
+
+/** What the live database is missing, for `--check`. */
+async function reportDrift(app: Liteb): Promise<void> {
+  const drift = await app.schemaDrift();
+
+  console.log('');
+  if (drift.length === 0) {
+    console.log('  checked   the live database matches the code.');
+    return;
+  }
+  console.log(
+    `  checked   the live database is missing ${drift.length} statement(s):`,
+  );
+  drift.forEach((query) => console.log(`            ${query}`));
 }
 
 /** What happened with git, in the one line that follows the created files. */
@@ -266,16 +307,16 @@ export function buildProgram(): Command {
 
   common(
     program
-      .command('entity <module/name>')
-      .description('A TypeORM entity, found by its folder')
-      .option('--table <name>', 'table name'),
+      .command('table <module/name>')
+      .description('A table, found by its folder')
+      .option('--name <name>', 'the table name in SQL'),
   ).action((target, flags) => {
     report(
-      createEntity({
+      createTable({
         target,
         modulesDir: flags.dir,
         from: flags.from,
-        table: flags.table,
+        table: flags.name,
       }),
       flags,
     );
@@ -294,36 +335,34 @@ export function buildProgram(): Command {
 
   program
     .command('migration:generate <module/name>')
-    .description("The SQL that makes the database match this module's entities")
+    .description(
+      "The SQL that takes this module's schema to what its code says",
+    )
     .option('--entry <file>', 'file exporting createApp()')
     .option('--dir <path>', 'where modules live', 'src/modules')
     .option('--print', 'show the SQL and write nothing')
+    .option('--check', 'also report what the live database is missing')
     .option('--force', 'overwrite a file that already exists')
     .action(async (target: string, flags) => {
       const app = await loadApp({ root: process.cwd(), entry: flags.entry });
       try {
-        await connect(app);
+        const { module: moduleId } = parseTarget(target, 'migration');
+        // No connection. The comparison is between what the module's tables say
+        // and what its last snapshot said, and neither of those is in a
+        // database — which is what makes writing a migration something you can
+        // do with nothing running.
+        const previous = readSnapshot(flags.dir, moduleId);
+        const diff = await app.pendingSchema(moduleId, previous);
 
-        // Before the diff, not after. A pending migration is a change the
-        // database has not seen yet, so the diff would describe it a second
-        // time — and running both is the same DDL twice.
-        const pending = await app.migrate({ dryRun: true });
-        if (pending.length > 0) {
-          throw new CliError(
-            `${pending.length} migration(s) have not run yet, so the diff would repeat what they already do.
-` + `Run them first: liteb migrate`,
-          );
-        }
-
-        const diff = await app.pendingSchema();
         if (flags.print) {
           if (diff.up.length === 0) {
             console.log(
-              'Nothing to generate: the database already matches the entities.',
+              `Nothing to generate: "${moduleId}" has no changes since its last migration.`,
             );
-            return;
+          } else {
+            diff.up.forEach((query) => console.log(`  ${query}`));
           }
-          diff.up.forEach((query) => console.log(`  ${query}`));
+          if (flags.check) await reportDrift(app);
           return;
         }
 
@@ -331,11 +370,13 @@ export function buildProgram(): Command {
           generateMigration({
             target,
             diff,
-            owners: app.tableOwners(),
+            snapshot: app.snapshotOf(moduleId, previous),
             modulesDir: flags.dir,
           }),
           flags,
         );
+
+        if (flags.check) await reportDrift(app);
       } finally {
         await app.close();
       }

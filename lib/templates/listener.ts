@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { Database } from '../modules/database';
 import type { Container, Contract } from '../modules/container';
 import type { Slot } from '../modules/slots';
 
@@ -20,7 +20,7 @@ import type { Slot } from '../modules/slots';
  * }
  */
 export abstract class Listener<P = unknown> {
-  public db: DataSource;
+  public db: Database;
 
   /** Container of the application this listener belongs to. */
   public container?: Container;

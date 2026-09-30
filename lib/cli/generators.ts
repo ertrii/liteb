@@ -588,35 +588,52 @@ ${body}
   );
 }
 
-export interface EntityOptions extends CommonOptions {
+export interface TableOptions extends CommonOptions {
   target: string;
+  /** The name in SQL. Defaults to `<module>_<name>`, both snake_cased. */
   table?: string;
 }
 
-export function createEntity(options: EntityOptions): Plan {
-  const target = parseTarget(options.target, 'entity');
+/**
+ * A table, and the two row types that go with it.
+ *
+ * The prefix is not decoration: every module's tables share one namespace, and
+ * `billing_charge` is what keeps two modules from both wanting `charge`. It is
+ * also what makes a database readable by module at a glance.
+ *
+ * `$inferSelect` and `$inferInsert` are written out because they are what the
+ * rest of the module passes around — a function taking a row wants the type,
+ * and deriving it at each call site is how two of them end up disagreeing.
+ */
+export function createTable(options: TableOptions): Plan {
+  const target = parseTarget(options.target, 'table');
   const dir = moduleDir(options, target.module);
-  const className = toPascal(target.name);
+  const rowType = toPascal(target.name);
+  const constName = toCamel(target.name);
   const table =
     options.table ?? `${toSnake(target.module)}_${toSnake(target.name)}`;
 
-  const content = `import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+  const content = `${importLine(
+    ['pgTable', 'serial', 'text'],
+    'drizzle-orm/pg-core',
+  )}
 
-@Entity('${table}')
-export class ${className} {
-  @PrimaryGeneratedColumn()
-  id: number;
+export const ${constName} = pgTable('${table}', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+});
 
-  @Column()
-  name: string;
-}
+export type ${rowType} = typeof ${constName}.$inferSelect;
+export type New${rowType} = typeof ${constName}.$inferInsert;
 `;
 
   return plan(
-    [{ path: `${dir}/entities/${target.name}.entity.ts`, content }],
+    [{ path: `${dir}/tables/${target.name}.table.ts`, content }],
     [],
     [
-      `The table is not created by declaring it: add a migration — liteb migration ${target.module}/create-${target.name}.`,
+      `The table is not created by declaring it: generate the migration — liteb migration:generate ${target.module}/create-${target.name}.`,
+      `Read it: this.db.select().from(${constName}), typed from the table without passing a schema anywhere.`,
+      'An ENUM has to be EXPORTED from a file under tables/, not only used by a column: a schema without it generates DDL that references a type nothing creates.',
     ],
   );
 }
@@ -633,24 +650,30 @@ export function createMigration(options: MigrationOptions): Plan {
   const stamp = options.now ?? timestamp();
   const className = `${toPascal(target.name)}${stamp}`;
   const file = `${stamp}-${target.name}`;
+  const from = relativeFrom(options.from, 3);
 
-  const content = `import { MigrationInterface, QueryRunner } from 'typeorm';
+  const content = `import { sql } from 'drizzle-orm';
+import type { Migration, Transaction } from '${from}';
 
-export class ${className} implements MigrationInterface {
-  public async up(runner: QueryRunner): Promise<void> {
-    await runner.query(\`
-      -- what this migration creates
-    \`);
+export class ${className} implements Migration {
+  public async up(db: Transaction): Promise<void> {
+    await db.execute(
+      sql.raw(\`
+        -- what this migration creates
+      \`),
+    );
 
     throw new Error(
       '${className} has no SQL yet: write it, or delete the file.',
     );
   }
 
-  public async down(runner: QueryRunner): Promise<void> {
-    await runner.query(\`
-      -- how to undo it
-    \`);
+  public async down(db: Transaction): Promise<void> {
+    await db.execute(
+      sql.raw(\`
+        -- how to undo it
+      \`),
+    );
   }
 }
 `;
@@ -661,7 +684,7 @@ export class ${className} implements MigrationInterface {
     [
       'Migrations run per module, before any route is mounted. Inside a module the trailing timestamp is the order — nothing lists them, and liteb refuses a migration class without one.',
       'It THROWS until you write its SQL, and deleting that line is the last step. An empty migration SUCCEEDS — a query that is only a comment runs fine — so it would be recorded as applied, `liteb migrate` would keep answering "nothing to migrate", and the SQL written afterwards would never run.',
-      `Or let TypeORM write it from your entities: liteb migration:generate ${target.module}/${target.name}`,
+      `Or let it be written from your tables: liteb migration:generate ${target.module}/${target.name}`,
     ],
   );
 }
@@ -674,7 +697,7 @@ export const GENERATORS = {
   token: createToken,
   provider: createProvider,
   listener: createListener,
-  entity: createEntity,
+  table: createTable,
   migration: createMigration,
 } as const;
 

@@ -52,7 +52,7 @@ export {
   ModuleMigrationError,
   orderMigrations,
 } from './modules/module-migrator';
-export type { AppliedMigration } from './modules/module-migrator';
+export type { AppliedMigration, Migration } from './modules/module-migrator';
 export {
   loadModules,
   loadModuleEndpoints,
@@ -62,7 +62,13 @@ export {
   resolveModulePattern,
 } from './modules/module-loader';
 export type { LoadedModule, LoadedListener } from './modules/module-loader';
-export { collectModuleEntities } from './modules/collect-entities';
+export { collectModuleTables } from './modules/collect-tables';
+export type {
+  Database,
+  DatabaseOptions,
+  Transaction,
+} from './modules/database';
+export { rows, tableExists } from './modules/database';
 export { Container, ContractError } from './modules/container';
 export { token } from './modules/token';
 export type { TokenKind } from './modules/token';
@@ -92,7 +98,7 @@ export type {
   PermissionKeysOf,
   ModuleContext,
   ModuleHook,
-  ModuleEntity,
+  ModuleTable,
   ModuleMigrations,
   ModulePattern,
   ModuleGlobField,
@@ -102,8 +108,14 @@ export { cacheAuth } from './core/auth-cache';
 export type { AuthCacheOptions, CachedAuthResolver } from './core/auth-cache';
 export { CorsConfigError } from './core/cors';
 export type { CorsConfig } from './core/cors';
-export { schemaDiff, tableOwners } from './modules/schema-diff';
-export type { SchemaDiff } from './modules/schema-diff';
+export {
+  diffSnapshots,
+  emptySnapshot,
+  liveDrift,
+  moduleSnapshot,
+  tableOwners,
+} from './modules/schema-diff';
+export type { SchemaDiff, SchemaSnapshot } from './modules/schema-diff';
 export { buildHealth } from './core/health';
 export { buildRequestId, currentRequestId } from './core/request-id';
 export type { RequestIdConfig } from './core/request-id';
