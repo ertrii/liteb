@@ -89,9 +89,28 @@ function readSnapshot(modulesDir: string, moduleId: string): SchemaSnapshot {
   }
 }
 
+/**
+ * Runs something without letting it write to stdout.
+ *
+ * `drizzle-kit`'s `pushSchema` prints a spinner — "Pulling schema from
+ * database..." — straight to stdout, and this CLI's output is a report with a
+ * fixed shape. Doing it HERE and not inside `schemaDrift()` is the point: the
+ * library muzzles nothing, so a script that calls it keeps whatever drizzle-kit
+ * wants to show. The CLI owns its own output and only there.
+ */
+async function quietly<T>(work: () => Promise<T>): Promise<T> {
+  const write = process.stdout.write;
+  process.stdout.write = (() => true) as typeof write;
+  try {
+    return await work();
+  } finally {
+    process.stdout.write = write;
+  }
+}
+
 /** What the live database is missing, for `--check`. */
 async function reportDrift(app: Liteb): Promise<void> {
-  const drift = await app.schemaDrift();
+  const drift = await quietly(() => app.schemaDrift());
 
   console.log('');
   if (drift.length === 0) {

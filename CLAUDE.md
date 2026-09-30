@@ -474,7 +474,9 @@ What it costs:
 
 7. **`drizzle-kit` pulls in `esbuild` and `tsx`**, and only
    `migration:generate` needs it, so it goes in as an optional peer. It also
-   writes a spinner straight to stdout, which the CLI has to silence.
+   writes a spinner straight to stdout — measured: four lines, even with no TTY.
+   The CLI silences it in `quietly()`, and `liveDrift()` does NOT: a library that
+   muzzles another one's output is a surprise, and only the CLI owns its output.
 
 8. **Drizzle v1 is still a release candidate** (`1.0.0-rc.5`). Pinning the stable
    `drizzle-orm@0.45` and `drizzle-kit@0.31` means a second, smaller migration
