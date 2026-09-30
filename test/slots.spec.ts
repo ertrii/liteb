@@ -1,17 +1,17 @@
 import 'reflect-metadata';
 import path from 'path';
 import { describe, expect, it } from '@jest/globals';
-import type { DataSource } from 'typeorm';
 import {
   buildContainer,
   Container,
-  token,
+  Database,
   defineModule,
   Provider,
+  token,
 } from '../lib';
 import { PaymentMethod, PaymentMethods } from './fixtures/pagos/shared';
 
-const fakeDb = {} as DataSource;
+const fakeDb = {} as Database;
 const pagos = (nombre: string) =>
   path.join(__dirname, 'fixtures/pagos', nombre);
 

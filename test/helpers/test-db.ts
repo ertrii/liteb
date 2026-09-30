@@ -1,62 +1,82 @@
-import { DataSource, DataSourceOptions } from 'typeorm';
-import { PGliteDriver } from 'typeorm-pglite';
+import { PGlite } from '@electric-sql/pglite';
+import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/pglite';
+import type { Database } from '../../lib';
 
 /**
  * A real Postgres for tests, running inside the process: PGlite, no Docker and
  * no server. Dialect differences that SQLite would hide — schemas, timestamptz,
- * DDL in transactions — behave the way they will in production.
+ * enums, DDL in transactions — behave the way they will in production.
  *
- * `typeorm-pglite` keeps ONE PGlite instance per process, so separate
- * DataSources share the same database. Isolation comes from dropping and
- * recreating the public schema on every call, which is cheap here and does not
- * depend on the package's internals.
+ * ONE PGlite per test file. Jest gives each file its own module registry, so
+ * this module-level client is created once per file and shared by every
+ * `createTestDb()` in it: booting PGlite costs a couple of seconds and dropping
+ * the schema costs milliseconds.
  */
-let current: DataSource | null = null;
+let client: PGlite | null = null;
+let current: Database | null = null;
 
+/**
+ * @param schema What the connection knows about, normally
+ * `collectModuleTables([...])`. Empty is fine: liteb's own bookkeeping is
+ * plain SQL, and a query built from a table object carries the table with it.
+ */
 export async function createTestDb(
-  entities: DataSourceOptions['entities'] = [],
-): Promise<DataSource> {
-  await closeTestDb();
+  schema: Record<string, unknown> = {},
+): Promise<Database> {
+  client ??= new PGlite();
 
-  const db = new DataSource({
-    type: 'postgres',
-    driver: new PGliteDriver().driver,
-    database: 'liteb_test',
-    entities,
-    synchronize: false,
-    logging: false,
-  });
-
-  await db.initialize();
-  await db.query('drop schema if exists public cascade');
-  await db.query('create schema public');
+  const db = drizzle(client, { schema });
+  await resetSchema(db);
 
   current = db;
   return db;
 }
 
 export async function closeTestDb(): Promise<void> {
-  if (current?.isInitialized) await current.destroy();
+  if (client) await client.close();
+  client = null;
   current = null;
+}
+
+/** The connection the file is using, for a helper that does not receive it. */
+export function testDb(): Database {
+  if (!current) throw new Error('createTestDb() has not run in this file.');
+  return current;
 }
 
 /**
  * Empties the database without tearing down the connection.
  *
- * Booting PGlite and initializing a DataSource costs a couple of seconds;
- * dropping the schema costs milliseconds. Create the database once per test
- * file and reset between cases — same isolation, a fraction of the time.
+ * Create the database once per test file and reset between cases — same
+ * isolation, a fraction of the time.
  */
-export async function resetSchema(db: DataSource): Promise<void> {
-  await db.query('drop schema if exists public cascade');
-  await db.query('create schema public');
+export async function resetSchema(db: Database): Promise<void> {
+  await db.execute(sql`drop schema if exists public cascade`);
+  await db.execute(sql`create schema public`);
+}
+
+/**
+ * Raw SQL, for a test that is checking the database and not the query builder.
+ *
+ * `sql.raw` because the text is written in the test, not composed from input:
+ * this is where a suite asserts what a migration left behind, and building that
+ * assertion through the builder would test the builder.
+ */
+export async function query<T = Record<string, unknown>>(
+  db: Database,
+  text: string,
+): Promise<T[]> {
+  const result = (await db.execute(sql.raw(text))) as { rows: T[] };
+  return result.rows;
 }
 
 /** Table names in the public schema, for asserting what a migration created. */
-export async function tableNames(db: DataSource): Promise<string[]> {
-  const rows: Array<{ table_name: string }> = await db.query(
-    `select table_name from information_schema.tables
-      where table_schema = 'public' order by table_name`,
-  );
-  return rows.map((row) => row.table_name);
+export async function tableNames(db: Database): Promise<string[]> {
+  const result = (await db.execute(sql`
+    select table_name from information_schema.tables
+      where table_schema = 'public' order by table_name
+  `)) as { rows: Array<{ table_name: string }> };
+
+  return result.rows.map((row) => row.table_name);
 }

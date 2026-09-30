@@ -1,3 +1,5 @@
+import type { Transaction } from '../lib';
+import { sql } from 'drizzle-orm';
 import {
   afterAll,
   beforeAll,
@@ -6,7 +8,6 @@ import {
   expect,
   it,
 } from '@jest/globals';
-import { DataSource, QueryRunner } from 'typeorm';
 import { defineModule } from '../lib/modules/define-module';
 import {
   ModuleMigrationError,
@@ -19,6 +20,7 @@ import {
   resetSchema,
   tableNames,
 } from './helpers/test-db';
+import type { Database } from '../lib';
 
 /* ------------------------------------------------------------------ *
  * Orden: regla pura, sin base de datos.
@@ -87,35 +89,37 @@ describe('orderMigrations', () => {
  * ------------------------------------------------------------------ */
 
 class CrearClientes1000 {
-  async up(runner: QueryRunner) {
-    await runner.query('create table clientes (id int primary key)');
+  async up(db: Transaction) {
+    await db.execute(sql.raw('create table clientes (id int primary key)'));
   }
 }
 
 class AgregarNombre2000 {
-  async up(runner: QueryRunner) {
-    await runner.query('alter table clientes add column nombre text');
+  async up(db: Transaction) {
+    await db.execute(sql.raw('alter table clientes add column nombre text'));
   }
 }
 
 /** Depende de que la tabla del módulo "identity" ya exista. */
 class CrearCargos500 {
-  async up(runner: QueryRunner) {
-    await runner.query(
-      'create table cargos (id int primary key, cliente int references clientes(id))',
+  async up(db: Transaction) {
+    await db.execute(
+      sql.raw(
+        'create table cargos (id int primary key, cliente int references clientes(id))',
+      ),
     );
   }
 }
 
 class Rompe9000 {
-  async up(runner: QueryRunner) {
-    await runner.query('create table a_medias (id int)');
-    await runner.query('esto no es sql');
+  async up(db: Transaction) {
+    await db.execute(sql.raw('create table a_medias (id int)'));
+    await db.execute(sql.raw('esto no es sql'));
   }
 }
 
 describe('ModuleMigrator', () => {
-  let db: DataSource;
+  let db: Database;
   let migrator: ModuleMigrator;
 
   beforeAll(async () => {

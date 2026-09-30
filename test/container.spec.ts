@@ -1,14 +1,14 @@
 import path from 'path';
 import { describe, expect, it } from '@jest/globals';
-import { DataSource } from 'typeorm';
 import { Container, ContractError } from '../lib/modules/container';
 import { Provider } from '../lib/templates/provider';
 import { Clock, Greeter } from './fixtures/proveedores/shared';
 import { buildContainer } from '../lib/modules/build-container';
 import { defineModule } from '../lib/modules/define-module';
+import type { Database } from '../lib';
 
 /** El contenedor solo pasa el DataSource al construir: alcanza con un doble. */
-const fakeDb = {} as DataSource;
+const fakeDb = {} as Database;
 
 /**
  * Los tokens salen del módulo de prueba: `demo.clock` y `demo.greeter` viven
@@ -175,7 +175,7 @@ describe('Container', () => {
         return 'x';
       }
     }
-    const otraDb = { otra: true } as unknown as DataSource;
+    const otraDb = { otra: true } as unknown as Database;
 
     const primera = new Container(fakeDb);
     primera.register('a', Clock, Compartida);
@@ -185,7 +185,7 @@ describe('Container', () => {
     segunda.register('a', Clock, Compartida);
     segunda.get(Clock);
 
-    expect((instancia as unknown as Provider & { db: DataSource }).db).toBe(
+    expect((instancia as unknown as Provider & { db: Database }).db).toBe(
       fakeDb,
     );
   });

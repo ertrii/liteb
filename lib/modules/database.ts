@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
-import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import type { PgDatabase } from 'drizzle-orm/pg-core';
 
 /**
  * How to reach the database, when liteb is the one connecting.
@@ -33,14 +33,21 @@ export interface DatabaseOptions {
  * behind it, which is how you would start a SECOND connection and step outside
  * the transaction you were given.
  */
-export type Transaction = PgDatabase<PgQueryResultHKT>;
+/* The three type arguments are the driver's result kind and the SCHEMA, and
+   liteb is agnostic about all three on purpose. Naming the schema would mean a
+   connection built with tables is a different type from one built without, and
+   liteb would accept only one of them. `any` here costs nothing that matters:
+   the schema generic only types the relational api (`db.query.users`), which
+   liteb cannot offer anyway, while `db.select().from(table)` takes its types
+   from the TABLE and stays exact. Measured, not assumed. */
+export type Transaction = PgDatabase<any, any, any>;
 
 /**
  * The database, as everything in liteb sees it.
  *
- * `PgDatabase<PgQueryResultHKT>` on purpose, and not `NodePgDatabase`: the
- * driver-specific types differ only in what `execute()` hands back, and naming
- * one of them here would mean the framework only ran on that driver. The suite
+ * Driver-agnostic on purpose, and not `NodePgDatabase`: the driver-specific
+ * types differ only in what `execute()` hands back, and naming one of them here
+ * would mean the framework only ran on that driver. The suite
  * runs on PGlite and an application runs on `pg`; both are this type, and a
  * caller may hand over an instance built over anything else Drizzle supports.
  *

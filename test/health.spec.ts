@@ -8,8 +8,7 @@ import {
   it,
 } from '@jest/globals';
 import request from 'supertest';
-import type { DataSource } from 'typeorm';
-import { buildHealth, Liteb } from '../lib';
+import { buildHealth, Database, Liteb } from '../lib';
 import type { HealthConfig } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
@@ -20,7 +19,7 @@ import { cualquiera } from './helpers/auth';
  * pregunta si el proceso existe — eso ya lo sabe — sino si PUEDE atender.
  */
 describe('/health', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
 
   /**
@@ -85,7 +84,7 @@ describe('/health', () => {
   it('si la base no contesta es 503, no 500', async () => {
     // 503 es "ahora no puedo", que es lo que un balanceador sabe reintentar.
     const server = await build();
-    await db.destroy();
+    await closeTestDb();
 
     const res = await request(server).get('/health');
 
@@ -96,10 +95,10 @@ describe('/health', () => {
     db = await createTestDb();
   });
 
-  it('mira de verdad, no el flag: isInitialized miente tras una caída', async () => {
+  it('mira de verdad, no el flag: un pool se dice abierto tras una caída', async () => {
     const server = await build();
     // El pool recuerda que se conectó; sólo se entera cuando alguien pregunta.
-    await db.destroy();
+    await closeTestDb();
 
     expect((await request(server).get('/health')).status).toBe(503);
 

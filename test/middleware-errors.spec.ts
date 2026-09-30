@@ -1,8 +1,7 @@
 import 'reflect-metadata';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import type { DataSource } from 'typeorm';
-import { Liteb, NotFoundError } from '../lib';
+import { Database, Liteb, NotFoundError } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
 
@@ -16,7 +15,7 @@ import { cualquiera } from './helpers/auth';
  * realidad le faltaba esto.
  */
 describe('un middleware que lanza', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
 
   const build = async (middleware: Parameters<Liteb['use']>[0]) => {

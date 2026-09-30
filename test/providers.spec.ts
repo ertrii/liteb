@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import path from 'path';
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import type { DataSource } from 'typeorm';
 import { buildContainer } from '../lib/modules/build-container';
 import { defineModule } from '../lib/modules/define-module';
 import { ContractError } from '../lib/modules/container';
@@ -9,6 +8,7 @@ import { token } from '../lib/modules/token';
 import { Provider } from '../lib/templates/provider';
 import { Provides } from '../lib/decorators/provides.decorator';
 import { Badges, built, Greeter } from './fixtures/proveedores/shared';
+import type { Database } from '../lib';
 
 /**
  * La implementación de un contrato es una CLASE en `providers/`, y el token
@@ -21,7 +21,7 @@ import { Badges, built, Greeter } from './fixtures/proveedores/shared';
  */
 
 /** El contenedor sólo pasa el DataSource al construir: alcanza con un doble. */
-const fakeDb = { marca: 'la de verdad' } as unknown as DataSource;
+const fakeDb = { marca: 'la de verdad' } as unknown as Database;
 
 const demo = defineModule({
   id: 'demo',

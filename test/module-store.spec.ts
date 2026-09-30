@@ -6,7 +6,6 @@ import {
   expect,
   it,
 } from '@jest/globals';
-import { DataSource } from 'typeorm';
 import { defineModule } from '../lib/modules/define-module';
 import { ModuleStore } from '../lib/modules/module-store';
 import type { ModuleManifest } from '../lib/modules/module-manifest';
@@ -16,12 +15,13 @@ import {
   resetSchema,
   tableNames,
 } from './helpers/test-db';
+import type { Database } from '../lib';
 
 const mod = (id: string, extra: Partial<ModuleManifest> = {}) =>
   defineModule({ id, version: '1.0.0', ...extra });
 
 describe('ModuleStore', () => {
-  let db: DataSource;
+  let db: Database;
   let store: ModuleStore;
 
   beforeAll(async () => {

@@ -1,3 +1,4 @@
+import { integer, pgTable } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from '@jest/globals';
 import { defineModule } from '../lib/modules/define-module';
 import { ModuleDefinitionError } from '../lib/modules/module-manifest';
@@ -14,7 +15,7 @@ describe('defineModule — identidad', () => {
     expect(mod.core).toBe(false);
     expect(mod.engine).toBeNull();
     expect(mod.requires).toEqual([]);
-    expect(mod.entities).toEqual([]);
+    expect(mod.tables).toEqual([]);
     expect(mod.migrations).toEqual([]);
     expect(mod.routes).toEqual([]);
     expect(mod.permissions).toEqual([]);
@@ -204,18 +205,18 @@ describe('defineModule — permisos', () => {
 });
 
 describe('defineModule — aportes', () => {
-  class Charge {}
-  class Invoice {}
+  const cargos = pgTable('cargos', { id: integer('id').primaryKey() });
+  const facturas = pgTable('facturas', { id: integer('id').primaryKey() });
 
-  it('rechaza la misma entidad dos veces', () => {
-    expect(() => defineModule({ ...base, entities: [Charge, Charge] })).toThrow(
-      /the same entity is listed twice/,
+  it('rechaza la misma tabla dos veces', () => {
+    expect(() => defineModule({ ...base, tables: [cargos, cargos] })).toThrow(
+      /the same table is listed twice/,
     );
   });
 
-  it('conserva las entidades declaradas', () => {
+  it('conserva las tablas declaradas', () => {
     expect(
-      defineModule({ ...base, entities: [Charge, Invoice] }).entities,
+      defineModule({ ...base, tables: [cargos, facturas] }).tables,
     ).toHaveLength(2);
   });
 

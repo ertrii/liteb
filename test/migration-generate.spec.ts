@@ -7,147 +7,155 @@ import {
   expect,
   it,
 } from '@jest/globals';
-import {
-  Column,
-  DataSource,
-  Entity,
-  MigrationInterface,
-  PrimaryGeneratedColumn,
-  QueryRunner,
-} from 'typeorm';
+import { sql } from 'drizzle-orm';
+import { integer, pgTable, serial, text } from 'drizzle-orm/pg-core';
 import { ModuleMigrator } from '../lib/modules/module-migrator';
 import {
-  schemaDiff,
+  diffSnapshots,
+  emptySnapshot,
+  liveDrift,
+  moduleSnapshot,
   tableOwners,
-  tablesMentioned,
 } from '../lib/modules/schema-diff';
-import { generateMigration } from '../lib/cli/migration-generator';
+import {
+  generateMigration,
+  snapshotPath,
+} from '../lib/cli/migration-generator';
 import { createMigration } from '../lib/cli/generators';
 import type { ResolvedModule } from '../lib/modules/module-manifest';
-import { closeTestDb, createTestDb, resetSchema } from './helpers/test-db';
+import {
+  closeTestDb,
+  createTestDb,
+  query,
+  resetSchema,
+} from './helpers/test-db';
+import type { Database, Migration, Transaction } from '../lib';
 
-@Entity('gen_users')
-class UserEntity {
-  @PrimaryGeneratedColumn()
-  id!: number;
+const usuarios = pgTable('gen_users', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+});
 
-  @Column()
-  name!: string;
-}
+const facturas = pgTable('gen_invoices', {
+  id: serial('id').primaryKey(),
+  total: text('total').notNull(),
+  // A OTRO módulo: la constraint es de quien la declara.
+  userId: integer('user_id')
+    .notNull()
+    .references(() => usuarios.id),
+});
 
-@Entity('gen_invoices')
-class InvoiceEntity {
-  @PrimaryGeneratedColumn()
-  id!: number;
+const modulo = (id: string, tables: unknown[]): ResolvedModule =>
+  ({ id, tables }) as unknown as ResolvedModule;
 
-  @Column()
-  total!: string;
-}
+const users = modulo('users', [usuarios]);
+const billing = modulo('billing', [facturas]);
 
 /**
- * El reparto de trabajo: TypeORM lee el esquema vivo, calcula qué le falta a
- * las entidades y escribe el SQL —eso lo hace mejor que cualquier cosa a mano
- * y es la parte que TIENE que estar bien—. Lo que no puede es decidir dónde va
- * la migración, porque para él los módulos no existen. Esa parte es de liteb.
+ * El reparto de trabajo: Drizzle Kit compara dos descripciones de un esquema y
+ * escribe el SQL —eso lo hace mejor que cualquier cosa a mano y es la parte que
+ * TIENE que estar bien—. Lo que liteb decide es QUÉ se compara, y eso es por
+ * módulo: sus tablas contra su propio snapshot.
+ *
+ * Ninguna de estas pruebas necesita base de datos, y eso es el punto: escribir
+ * una migración dejó de requerir un Postgres andando.
  */
 describe('migration:generate', () => {
-  let db: DataSource;
-
-  beforeAll(async () => {
-    db = await createTestDb([UserEntity, InvoiceEntity]);
-  });
-
-  beforeEach(async () => {
-    await resetSchema(db);
-  });
-
-  afterAll(closeTestDb);
-
-  const modulos = [
-    { id: 'users', entities: [UserEntity] },
-    { id: 'billing', entities: [InvoiceEntity] },
-  ] as unknown as ResolvedModule[];
-
-  it('pregunta a TypeORM qué falta, y no cambia nada', async () => {
-    const diff = await schemaDiff(db);
+  it('desde cero: crea la tabla, y el down la borra', async () => {
+    const diff = await diffSnapshots(emptySnapshot(), moduleSnapshot(users));
 
     expect(diff.up.join('\n')).toMatch(/create table[\s\S]*gen_users/i);
-    // Preguntar no es aplicar: la tabla sigue sin existir.
-    const existe = await db.query(
-      "select to_regclass('public.gen_users') as t",
-    );
-    expect(existe[0].t).toBeNull();
+    expect(diff.down.join('\n')).toMatch(/drop table[\s\S]*gen_users/i);
   });
 
-  it('con la base al día, no hay nada que generar', async () => {
-    await db.synchronize();
+  it('con el snapshot al día, no hay nada que generar', async () => {
+    const snap = moduleSnapshot(users);
 
-    expect((await schemaDiff(db)).up).toEqual([]);
+    expect((await diffSnapshots(snap, snap)).up).toEqual([]);
   });
 
-  it('sabe de qué módulo es cada tabla, que es lo que TypeORM no puede saber', () => {
-    expect(tableOwners(db, modulos)).toEqual(
-      new Map([
-        ['gen_users', 'users'],
-        ['gen_invoices', 'billing'],
-      ]),
-    );
-  });
+  it('incremental: una columna nueva es un ALTER, no un CREATE', async () => {
+    const antes = moduleSnapshot(modulo('users', [usuarios]));
 
-  it('escribe una migración que liteb sabe correr', async () => {
-    const diff = await schemaDiff(db);
-
-    const [archivo] = generateMigration({
-      target: 'users/create-users',
-      diff,
-      owners: tableOwners(db, modulos),
-      now: 1789779741336,
-    }).files;
-
-    expect(archivo.path).toBe(
-      'src/modules/users/migrations/1789779741336-create-users.ts',
-    );
-    // El sello al final del nombre es lo que ordena dentro del módulo; sin él
-    // liteb rechaza la clase.
-    expect(archivo.content).toContain(
-      'export class CreateUsers1789779741336 implements MigrationInterface',
-    );
-    expect(archivo.content).toMatch(/async up\(runner: QueryRunner\)/);
-    expect(archivo.content).toMatch(/async down\(runner: QueryRunner\)/);
-    expect(archivo.content).toMatch(/gen_users/);
-  });
-
-  it('se niega cuando nada de lo que cambió es de ese módulo', async () => {
-    // Una migración en el módulo equivocado corre en el orden equivocado
-    // —después de quien la necesitaba, o nunca si ese módulo está apagado— y
-    // eso se descubre en producción, sobre datos que ya existen.
-    const diff = { up: ['CREATE TABLE "gen_invoices" ()'], down: [] };
-
-    expect(() =>
-      generateMigration({
-        target: 'users/lo-que-sea',
-        diff,
-        owners: tableOwners(db, modulos),
-      }),
-    ).toThrow(/Nothing here belongs to "users"[\s\S]*billing: gen_invoices/);
-  });
-
-  it('avisa cuando toca tablas de otro módulo, sin decidir por vos', async () => {
-    const diff = {
-      up: [
-        'CREATE TABLE "gen_users" ()',
-        'ALTER TABLE "gen_invoices" ADD x int',
-      ],
-      down: [],
-    };
-
-    const { hints } = generateMigration({
-      target: 'users/mixta',
-      diff,
-      owners: tableOwners(db, modulos),
+    const conNota = pgTable('gen_users', {
+      id: serial('id').primaryKey(),
+      name: text('name').notNull(),
+      note: text('note'),
     });
 
-    expect(hints.join(' ')).toMatch(/gen_invoices \(billing\)/);
+    const diff = await diffSnapshots(
+      antes,
+      moduleSnapshot(modulo('users', [conNota]), antes),
+    );
+
+    expect(diff.up).toHaveLength(1);
+    expect(diff.up[0]).toMatch(/alter table "gen_users" add column "note"/i);
+  });
+
+  it('el diff de un módulo trae SÓLO sus tablas', async () => {
+    // Esto es lo que reemplazó a adivinar de quién era cada tabla: comparar las
+    // tablas de un módulo contra el snapshot de ese módulo no tiene nada que
+    // atribuir. Antes, un diff de todo el esquema había que repartirlo.
+    const diff = await diffSnapshots(emptySnapshot(), moduleSnapshot(users));
+
+    expect(diff.up.join('\n')).not.toMatch(/create table[^;]*gen_invoices/i);
+  });
+
+  it('una FK a otro módulo queda en el módulo que la declara', async () => {
+    // Y nombra la tabla del otro. Corre bien porque liteb migra en orden de
+    // dependencias: para cuando esto se aplica, gen_users ya existe.
+    const diff = await diffSnapshots(emptySnapshot(), moduleSnapshot(billing));
+
+    expect(diff.up.join('\n')).toMatch(
+      /add constraint[\s\S]*references "public"\."gen_users"/i,
+    );
+  });
+
+  it('escribe una migración que liteb sabe correr, y su snapshot', async () => {
+    const diff = await diffSnapshots(emptySnapshot(), moduleSnapshot(users));
+
+    const { files } = generateMigration({
+      target: 'users/create-users',
+      diff,
+      snapshot: moduleSnapshot(users),
+      now: 1789779741336,
+    });
+
+    expect(files.map((file) => file.path)).toEqual([
+      'src/modules/users/migrations/1789779741336-create-users.ts',
+      'src/modules/users/migrations/meta/snapshot.json',
+    ]);
+
+    const [migracion, snapshot] = files;
+    // El sello al final del nombre es lo que ordena dentro del módulo; sin él
+    // liteb rechaza la clase.
+    expect(migracion.content).toContain(
+      'export class CreateUsers1789779741336 implements Migration',
+    );
+    expect(migracion.content).toMatch(/async up\(db: Transaction\)/);
+    expect(migracion.content).toMatch(/async down\(db: Transaction\)/);
+    expect(migracion.content).toMatch(/gen_users/);
+
+    // El snapshot es lo que comparará el siguiente generate. Sin él, el próximo
+    // se escribiría contra un esquema vacío y volvería a crear todo.
+    expect(JSON.parse(snapshot.content)).toMatchObject({
+      dialect: 'postgresql',
+    });
+  });
+
+  it('el camino del snapshot es uno solo, y lo dice el módulo', () => {
+    expect(snapshotPath('src/modules', 'users')).toBe(
+      'src/modules/users/migrations/meta/snapshot.json',
+    );
+  });
+
+  it('se niega cuando no hay cambios, en vez de escribir una vacía', async () => {
+    const snap = moduleSnapshot(users);
+    const diff = await diffSnapshots(snap, snap);
+
+    expect(() =>
+      generateMigration({ target: 'users/nada', diff, snapshot: snap }),
+    ).toThrow(/Nothing to generate: "users" has no changes/);
   });
 
   it('no rompe el literal cuando el SQL trae backticks', () => {
@@ -156,7 +164,7 @@ describe('migration:generate', () => {
     const [archivo] = generateMigration({
       target: 'users/raro',
       diff,
-      owners: new Map([['gen_users', 'users']]),
+      snapshot: emptySnapshot(),
       now: 1,
     }).files;
 
@@ -164,13 +172,53 @@ describe('migration:generate', () => {
     expect(archivo.content).toContain('\\${x}');
   });
 
-  it('reconoce las tablas que conoce, venga el SQL como venga', () => {
-    expect(
-      tablesMentioned(
-        ['ALTER TABLE `gen_users` ADD x', 'create table [gen_invoices] ()'],
-        ['gen_users', 'gen_invoices', 'otra'],
+  it('sabe de qué módulo es cada tabla, sin conexión ni metadata', () => {
+    expect(tableOwners([users, billing])).toEqual(
+      new Map([
+        ['gen_users', 'users'],
+        ['gen_invoices', 'billing'],
+      ]),
+    );
+  });
+});
+
+/**
+ * La otra pregunta, la que el snapshot no puede contestar: ¿se separó la base
+ * viva de lo que dice el código?
+ */
+describe('deriva contra la base viva', () => {
+  let db: Database;
+
+  beforeAll(async () => {
+    db = await createTestDb();
+  });
+
+  beforeEach(async () => {
+    await resetSchema(db);
+  });
+
+  afterAll(closeTestDb);
+
+  it('dice qué le falta a la base, y no la toca', async () => {
+    const falta = await liveDrift(db, [users]);
+
+    expect(falta.join('\n')).toMatch(/create table[\s\S]*gen_users/i);
+    // Preguntar no es aplicar: la tabla sigue sin existir.
+    const existe = await query<{ t: string | null }>(
+      db,
+      "select to_regclass('public.gen_users') as t",
+    );
+    expect(existe[0].t).toBeNull();
+  });
+
+  it('con la base al día no reporta nada', async () => {
+    await db.execute(
+      sql.raw(
+        'create table gen_users (id serial primary key, name text not null)',
       ),
-    ).toEqual(['gen_users', 'gen_invoices']);
+    );
+
+    expect(await liveDrift(db, [users])).toEqual([]);
   });
 });
 
@@ -183,7 +231,7 @@ describe('migration:generate', () => {
  * contestando "nothing to migrate" sobre una tabla que jamás se creó.
  */
 describe('una migración sin escribir', () => {
-  let db: DataSource;
+  let db: Database;
 
   beforeAll(async () => {
     db = await createTestDb();
@@ -210,11 +258,13 @@ describe('una migración sin escribir', () => {
   });
 
   it('y al negarse no deja rastro: vuelve a estar pendiente', async () => {
-    class CreateUsers1000 implements MigrationInterface {
-      public async up(runner: QueryRunner): Promise<void> {
-        await runner.query(`
+    class CreateUsers1000 implements Migration {
+      public async up(db: Transaction): Promise<void> {
+        await db.execute(
+          sql.raw(`
           -- what this migration creates
-        `);
+        `),
+        );
         throw new Error(
           'CreateUsers1000 has no SQL yet: write it, or delete the file.',
         );
@@ -237,11 +287,13 @@ describe('una migración sin escribir', () => {
   it('sin el freno, una vacía queda anotada y ya no vuelve a correr', async () => {
     // Este es el comportamiento que hacía falta atajar, escrito como prueba
     // para que se vea por qué el andamiaje lanza.
-    class Vacia1000 implements MigrationInterface {
-      public async up(runner: QueryRunner): Promise<void> {
-        await runner.query(`
+    class Vacia1000 implements Migration {
+      public async up(db: Transaction): Promise<void> {
+        await db.execute(
+          sql.raw(`
           -- what this migration creates
-        `);
+        `),
+        );
       }
       public async down(): Promise<void> {}
     }

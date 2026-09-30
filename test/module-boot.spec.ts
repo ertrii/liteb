@@ -1,19 +1,21 @@
+import type { Transaction } from '../lib';
+import { sql } from 'drizzle-orm';
 import path from 'path';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { DataSource, QueryRunner } from 'typeorm';
 import Liteb from '../lib/core/liteb';
 import { defineModule } from '../lib/modules/define-module';
 import { ModuleStore } from '../lib/modules/module-store';
 import { ModuleMigrator } from '../lib/modules/module-migrator';
 import { closeTestDb, createTestDb, tableNames } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
+import type { Database } from '../lib';
 
 const billingDir = path.join(__dirname, 'fixtures/modules/billing');
 
 class CrearCargos1000 {
-  async up(runner: QueryRunner) {
-    await runner.query('create table cargos_demo (id int primary key)');
+  async up(db: Transaction) {
+    await db.execute(sql.raw('create table cargos_demo (id int primary key)'));
   }
 }
 
@@ -49,7 +51,7 @@ const site = () =>
   });
 
 describe('un grupo con su propio basePath', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
 
   afterEach(async () => {
@@ -93,7 +95,7 @@ describe('un grupo con su propio basePath', () => {
 });
 
 describe('arranque con módulos', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
 
   const boot = async (modules: ReturnType<typeof billing>[]) => {

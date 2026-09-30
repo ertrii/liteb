@@ -1,10 +1,17 @@
+import type { Transaction } from '../lib';
+import { sql } from 'drizzle-orm';
 import path from 'path';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { DataSource, QueryRunner } from 'typeorm';
 import Liteb from '../lib/core/liteb';
 import { defineModule } from '../lib/modules/define-module';
-import { closeTestDb, createTestDb, tableNames } from './helpers/test-db';
+import {
+  closeTestDb,
+  createTestDb,
+  query,
+  tableNames,
+} from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
+import type { Database } from '../lib';
 
 /**
  * Migrar sin levantar el servidor.
@@ -18,14 +25,14 @@ import { cualquiera } from './helpers/auth';
 const dir = path.join(__dirname, 'fixtures/modules/billing');
 
 class CrearCargos1000 {
-  async up(runner: QueryRunner) {
-    await runner.query('create table cargos_demo (id int primary key)');
+  async up(db: Transaction) {
+    await db.execute(sql.raw('create table cargos_demo (id int primary key)'));
   }
 }
 
 class CrearNotas2000 {
-  async up(runner: QueryRunner) {
-    await runner.query('create table notas_demo (id int primary key)');
+  async up(db: Transaction) {
+    await db.execute(sql.raw('create table notas_demo (id int primary key)'));
   }
 }
 
@@ -59,7 +66,7 @@ const sinMigraciones = () =>
   });
 
 describe('app.migrate()', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
 
   const build = async (modules: ReturnType<typeof billing>[]) => {
@@ -114,25 +121,25 @@ describe('app.migrate()', () => {
     expect(pending).toEqual([{ module: 'billing', name: 'CrearCargos1000' }]);
     expect(await tableNames(db)).not.toContain('cargos_demo');
     // Tampoco registró el módulo: un ensayo no instala nada.
-    const registrados = await db.query('select id from _modules');
+    const registrados = await query(db, 'select id from _modules');
     expect(registrados).toEqual([]);
   });
 
-  it('abre la conexión si nadie la abrió', async () => {
+  it('migra sin que nadie haya arrancado ni conectado antes', async () => {
     // Es la diferencia con start(): un comando que sólo migra no debería tener
-    // que inicializar la conexión por su cuenta.
+    // que preparar la conexión por su cuenta. Acá no se llama a connect() ni a
+    // start() en ningún momento.
     db = await createTestDb();
-    await db.destroy();
     const application = await build([billing()]);
 
     await application.migrate();
 
-    expect(db.isInitialized).toBe(true);
+    expect(await tableNames(db)).toContain('cargos_demo');
   });
 });
 
 describe('app.migrationStatus()', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
 
   afterEach(async () => {

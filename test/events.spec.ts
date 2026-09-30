@@ -1,22 +1,22 @@
 import 'reflect-metadata';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
-import type { DataSource } from 'typeorm';
 import request from 'supertest';
 import {
+  Database,
   defineModule,
-  token,
   EventBus,
-  Liteb,
   Listener,
+  Liteb,
   ModuleStore,
   On,
+  token,
 } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { visto } from './fixtures/events/shared';
 import { cualquiera } from './helpers/auth';
 
-const fakeDb = {} as DataSource;
+const fakeDb = {} as Database;
 
 describe('EventBus (sin servidor)', () => {
   interface Hecho {
@@ -102,7 +102,7 @@ describe('EventBus (sin servidor)', () => {
 });
 
 describe('eventos entre módulos', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb | undefined;
 
   const emisor = () =>

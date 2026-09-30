@@ -2,8 +2,7 @@ import 'reflect-metadata';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import type { DataSource } from 'typeorm';
-import { currentRequestId, defineModule, Liteb } from '../lib';
+import { currentRequestId, Database, defineModule, Liteb } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
 
@@ -16,7 +15,7 @@ import { cualquiera } from './helpers/auth';
  * tiene en la mano exactamente la cadena con la que se escribió todo.
  */
 describe('x-request-id', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
 
   const site = defineModule({

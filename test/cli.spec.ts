@@ -1,14 +1,15 @@
 import 'reflect-metadata';
 import { execFileSync } from 'child_process';
+import { getTableName } from 'drizzle-orm';
+import type { PgTable } from 'drizzle-orm/pg-core';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import type { DataSource } from 'typeorm';
 import {
   createEndpoint,
-  createEntity,
+  createTable,
   createListener,
   createMigration,
   createModule,
@@ -23,11 +24,12 @@ import { parseTarget, toKebab, toPascal } from '../lib/cli/names';
 import {
   AuthResolver,
   buildContainer,
-  collectModuleEntities,
+  collectModuleTables,
+  Database,
   Liteb,
   ResolvedModule,
 } from '../lib';
-import { closeTestDb, createTestDb } from './helpers/test-db';
+import { closeTestDb, createTestDb, query } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
 
 /**
@@ -90,8 +92,8 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
       applyEdit('export default {}', {
         path: 'x',
         arrayEntry: {
-          field: 'entities',
-          value: 'Product',
+          field: 'tables',
+          value: 'productos',
           importLine: 'import x',
         },
       }),
@@ -100,19 +102,19 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
 
   it('agrega al arreglo y trae su import', () => {
     const source =
-      "import { defineModule } from 'liteb';\n\nexport default defineModule({\n  entities: [],\n});\n";
+      "import { defineModule } from 'liteb';\n\nexport default defineModule({\n  tables: [],\n});\n";
     const after = applyEdit(source, {
       path: 'x',
       arrayEntry: {
-        field: 'entities',
-        value: 'Product',
-        importLine: "import { Product } from './entities/product.entity';",
+        field: 'tables',
+        value: 'productos',
+        importLine: "import { productos } from './tables/product.table';",
       },
     });
 
-    expect(after).toContain('entities: [Product]');
+    expect(after).toContain('tables: [productos]');
     expect(after).toContain(
-      "import { Product } from './entities/product.entity';",
+      "import { productos } from './tables/product.table';",
     );
   });
 
@@ -447,7 +449,7 @@ describe('liteb init', () => {
     expect(parsed.dependencies.liteb).toBe(litebVersion);
     // Son peer dependencies de liteb: sin ellas no arranca nada.
     expect(Object.keys(parsed.dependencies)).toEqual(
-      expect.arrayContaining(['typeorm', 'express', 'class-validator']),
+      expect.arrayContaining(['drizzle-orm', 'express', 'class-validator']),
     );
     expect(parsed.scripts.build).toBe('liteb build');
   });
@@ -621,7 +623,7 @@ describe('liteb init deja el proyecto en git', () => {
 });
 
 describe('un módulo generado y puesto a andar', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
   const server = () => app.getApp();
 
@@ -686,7 +688,7 @@ describe('un módulo generado y puesto a andar', () => {
       }),
     );
     scaffold(
-      createEntity({ target: 'inventory/item', modulesDir, from: 'liteb' }),
+      createTable({ target: 'inventory/item', modulesDir, from: 'liteb' }),
     );
     scaffold(
       createEndpoint({
@@ -757,7 +759,7 @@ describe('un módulo generado y puesto a andar', () => {
     const manifest = path.join(workspace, modulesDir, 'inventory/module.ts');
     inventory = require(manifest).default as ResolvedModule;
 
-    db = await createTestDb(collectModuleEntities([inventory]));
+    db = await createTestDb(collectModuleTables([inventory]));
     app = await Liteb.create({
       db,
       modules: [inventory],
@@ -948,20 +950,23 @@ describe('un módulo generado y puesto a andar', () => {
     }
   });
 
-  it('la entidad la encuentra la carpeta: el manifiesto no la lista', () => {
-    // Escribir la clase es todo lo que hay que hacer. Que el manifiesto no la
-    // nombre no es un olvido: `./entities/*.entity.ts` es donde liteb mira.
+  it('la tabla la encuentra la carpeta: el manifiesto no la lista', () => {
+    // Escribir la tabla es todo lo que hay que hacer. Que el manifiesto no la
+    // nombre no es un olvido: `./tables/*.table.ts` es donde liteb mira.
     const manifest = read(`${modulesDir}/inventory/module.ts`);
 
-    expect(manifest).not.toContain('entities:');
-    expect(manifest).not.toContain('item.entity');
+    expect(manifest).not.toContain('tables:');
+    expect(manifest).not.toContain('item.table');
+    // El nombre SQL, con el prefijo del módulo: es lo que evita que dos módulos
+    // quieran la misma tabla.
     expect(
-      inventory.entities.map((entity) => (entity as Function).name),
-    ).toEqual(['Item']);
+      inventory.tables.map((table) => getTableName(table as PgTable)),
+    ).toEqual(['inventory_item']);
   });
 
   it('la migración corrió y quedó anotada en el registro del módulo', async () => {
-    const rows = await db.query(
+    const rows = await query(
+      db,
       'select module, name from _module_migrations order by name',
     );
 

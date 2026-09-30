@@ -1,13 +1,12 @@
 import 'reflect-metadata';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
-import type { DataSource } from 'typeorm';
 import request from 'supertest';
-import { AuthResolver, collectModuleEntities, Liteb } from '../lib';
+import { AuthResolver, collectModuleTables, Database, Liteb } from '../lib';
 import identity from '../src/modules/identity/module';
 import catalog from '../src/modules/catalog/module';
 import reports from '../src/modules/reports/module';
-import { closeTestDb, createTestDb } from './helpers/test-db';
+import { closeTestDb, createTestDb, query } from './helpers/test-db';
 
 /**
  * Runs the demo app under `src/` end to end.
@@ -34,7 +33,7 @@ const headerAuth: AuthResolver = (req) => {
 const STAFF = ['catalog.products.view', 'catalog.products.manage'];
 
 describe('la app de ejemplo (src/)', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
   const server = () => app.getApp();
 
@@ -42,9 +41,7 @@ describe('la app de ejemplo (src/)', () => {
     // Las entidades se pasan a mano A PROPÓSITO: `create()` solo las agrega
     // cuando recibe OPCIONES de conexión. Si le das un DataSource ya
     // construido, sus entidades son asunto tuyo — como aquí.
-    db = await createTestDb(
-      collectModuleEntities([identity, catalog, reports]),
-    );
+    db = await createTestDb(collectModuleTables([identity, catalog, reports]));
     app = await Liteb.create({
       db,
       modules: [identity, catalog, reports],
@@ -72,10 +69,12 @@ describe('la app de ejemplo (src/)', () => {
   });
 
   it('las migraciones de cada módulo crearon sus tablas y sembraron datos', async () => {
-    const users = await db.query(
+    const users = await query(
+      db,
       'select username, role from demo_users order by id',
     );
-    const products = await db.query(
+    const products = await query(
+      db,
       'select name from demo_products order by id',
     );
 
@@ -186,14 +185,15 @@ describe('la app de ejemplo (src/)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ id: 1, stock: 22 });
 
-    const moves = await db.query(
-      'select "productId", quantity, "userId" from demo_stock_moves',
+    const moves = await query(
+      db,
+      'select product_id, quantity, user_id from demo_stock_moves',
     );
-    expect(moves).toEqual([{ productId: 1, quantity: 10, userId: 2 }]);
+    expect(moves).toEqual([{ product_id: 1, quantity: 10, user_id: 2 }]);
   });
 
   it('si la transacción falla, no deja media escritura', async () => {
-    const antes = await db.query('select count(*) as n from demo_stock_moves');
+    const antes = await query(db, 'select count(*) as n from demo_stock_moves');
 
     const res = await request(server())
       .post('/api/products/9999/restock')
@@ -202,7 +202,8 @@ describe('la app de ejemplo (src/)', () => {
       .send({ quantity: 10 });
 
     expect(res.status).toBe(404);
-    const despues = await db.query(
+    const despues = await query(
+      db,
       'select count(*) as n from demo_stock_moves',
     );
     expect(despues).toEqual(antes);

@@ -14,7 +14,7 @@ import type { AuthContext } from '../lib';
 import type { Request } from 'express';
 import { ErrorIdentifier } from '../lib/interfaces/type-error';
 import { testAuthResolver } from './fixtures/auth/actor';
-import { closeTestDb, createTestDb } from './helpers/test-db';
+import { closeTestDb, createTestDb, query } from './helpers/test-db';
 import { Grants } from './fixtures/grants/tokens/grants.token';
 
 /**
@@ -253,18 +253,19 @@ describe('el resolutor recibe db y contratos', () => {
 
   beforeAll(async () => {
     const db = await createTestDb();
-    await db.query(
+    await query(
+      db,
       'create table permisos_demo (user_id int primary key, perms varchar)',
     );
-    await db.query("insert into permisos_demo values (7, 'secretos.ver')");
-    await db.query("insert into permisos_demo values (8, 'otra.cosa')");
+    await query(db, "insert into permisos_demo values (7, 'secretos.ver')");
+    await query(db, "insert into permisos_demo values (8, 'otra.cosa')");
 
     liteb = await Liteb.create({
       db,
       modules: [grantsModule, fixtures],
       version: '2.0.0-dev.0',
       auth: async (request, ctx) => {
-        visto.db = ctx.db.isInitialized;
+        visto.db = typeof ctx.db.execute === 'function';
         const raw = request.headers['x-user'];
         if (!raw) return null;
 

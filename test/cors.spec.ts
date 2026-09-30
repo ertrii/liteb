@@ -1,8 +1,7 @@
 import 'reflect-metadata';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import type { DataSource } from 'typeorm';
-import { CorsConfig, CorsConfigError, Liteb } from '../lib';
+import { CorsConfig, CorsConfigError, Database, Liteb } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
 
@@ -15,7 +14,7 @@ import { cualquiera } from './helpers/auth';
  * credenciales. Un navegador la rechaza, así que liteb la rechaza al arrancar.
  */
 describe('CORS', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb;
 
   const build = async (cors: CorsConfig) => {

@@ -1,24 +1,30 @@
 import path from 'path';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { DataSource, QueryRunner } from 'typeorm';
-import { PGliteDriver } from 'typeorm-pglite';
+import { sql } from 'drizzle-orm';
+import { integer, pgTable } from 'drizzle-orm/pg-core';
 import Liteb from '../lib/core/liteb';
 import { defineModule } from '../lib/modules/define-module';
-import { collectModuleEntities } from '../lib/modules/collect-entities';
+import { collectModuleTables } from '../lib/modules/collect-tables';
+import { openDatabase } from '../lib/modules/open-database';
 import { ModuleDefinitionError } from '../lib/modules/module-manifest';
-import { Product } from './fixtures/modules/catalog/product.entity';
+import { productos } from './fixtures/modules/catalog/product.table';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
+import type { Database, Transaction } from '../lib';
 
 const catalogDir = path.join(__dirname, 'fixtures/modules/catalog');
 
 class CrearProductos1000 {
-  async up(runner: QueryRunner) {
-    await runner.query(
-      'create table productos_demo (id int primary key, nombre varchar)',
+  async up(db: Transaction) {
+    await db.execute(
+      sql.raw(
+        'create table productos_demo (id int primary key, nombre varchar)',
+      ),
     );
-    await runner.query("insert into productos_demo values (1, 'Antena')");
+    await db.execute(
+      sql.raw("insert into productos_demo values (1, 'Antena')"),
+    );
   }
 }
 
@@ -28,20 +34,24 @@ const catalog = () =>
     version: '1.0.0',
     core: true,
     dir: catalogDir,
-    entities: [Product],
+    tables: [productos],
     migrations: [CrearProductos1000],
     routes: './controllers/*.controller.ts',
   });
 
-describe('collectModuleEntities', () => {
-  class Charge {}
-  class Invoice {}
+describe('collectModuleTables', () => {
+  const cargos = pgTable('cargos', { id: integer('id').primaryKey() });
+  const facturas = pgTable('facturas', { id: integer('id').primaryKey() });
 
-  it('junta las entidades de todos los módulos', () => {
-    const a = defineModule({ id: 'a', version: '1.0.0', entities: [Charge] });
-    const b = defineModule({ id: 'b', version: '1.0.0', entities: [Invoice] });
+  /** Lo que importa es QUÉ tablas junta; las claves no son SQL. */
+  const juntadas = (...mods: ReturnType<typeof defineModule>[]) =>
+    Object.values(collectModuleTables(mods));
 
-    expect(collectModuleEntities([a, b])).toEqual([Charge, Invoice]);
+  it('junta las tablas de todos los módulos', () => {
+    const a = defineModule({ id: 'a', version: '1.0.0', tables: [cargos] });
+    const b = defineModule({ id: 'b', version: '1.0.0', tables: [facturas] });
+
+    expect(juntadas(a, b)).toEqual([cargos, facturas]);
   });
 
   it('incluye las de un módulo que podría estar apagado', () => {
@@ -49,29 +59,30 @@ describe('collectModuleEntities', () => {
     const encendido = defineModule({
       id: 'a',
       version: '1.0.0',
-      entities: [Charge],
+      tables: [cargos],
     });
     const apagado = defineModule({
       id: 'b',
       version: '1.0.0',
-      entities: [Invoice],
+      tables: [facturas],
     });
 
-    expect(collectModuleEntities([encendido, apagado])).toHaveLength(2);
+    expect(juntadas(encendido, apagado)).toHaveLength(2);
   });
 
-  it('rechaza la misma entidad declarada por dos módulos', () => {
-    const a = defineModule({ id: 'a', version: '1.0.0', entities: [Charge] });
-    const b = defineModule({ id: 'b', version: '1.0.0', entities: [Charge] });
+  it('rechaza la misma tabla declarada por dos módulos', () => {
+    const a = defineModule({ id: 'a', version: '1.0.0', tables: [cargos] });
+    const b = defineModule({ id: 'b', version: '1.0.0', tables: [cargos] });
 
-    expect(() => collectModuleEntities([a, b])).toThrow(ModuleDefinitionError);
-    expect(() => collectModuleEntities([a, b])).toThrow(
-      /declared by both "a" and "b"/,
+    expect(() => collectModuleTables([a, b])).toThrow(ModuleDefinitionError);
+    // Y el mensaje nombra la tabla, que es lo único que ayuda a encontrarla.
+    expect(() => collectModuleTables([a, b])).toThrow(
+      /"cargos" is declared by both "a" and "b"/,
     );
   });
 
   it('sin módulos devuelve vacío', () => {
-    expect(collectModuleEntities([])).toEqual([]);
+    expect(juntadas()).toEqual([]);
   });
 });
 
@@ -79,26 +90,23 @@ describe('Liteb.create', () => {
   let app: Liteb | undefined;
 
   afterEach(async () => {
-    await app?.close({ database: false }).catch(() => undefined);
+    await app?.close().catch(() => undefined);
     app = undefined;
     await closeTestDb();
   });
 
-  it('registra las entidades del módulo en el DataSource', async () => {
+  it('la tabla del módulo se consulta desde el endpoint', async () => {
+    const db = await createTestDb(collectModuleTables([catalog()]));
+
     app = await Liteb.create({
       auth: cualquiera,
-      db: {
-        type: 'postgres',
-        driver: new PGliteDriver().driver,
-        database: 'liteb_test',
-        synchronize: false,
-      } as never,
+      db,
       modules: [catalog()],
       version: '2.0.0-dev.0',
     });
 
-    // El endpoint usa this.db.getRepository(Product): sin la entidad
-    // registrada, esto respondería 500.
+    // El endpoint hace this.db.select().from(productos): si la conexión que
+    // liteb reparte no es la que migró, esto es 500.
     await app.start(0);
     const res = await request(app.getApp()).get('/api/catalogo/productos');
 
@@ -106,8 +114,19 @@ describe('Liteb.create', () => {
     expect(res.body.productos).toEqual([{ id: 1, nombre: 'Antena' }]);
   });
 
-  it('acepta un DataSource ya construido', async () => {
-    const db: DataSource = await createTestDb();
+  it('con opciones abre la conexión, y no la toca hasta que se usa', () => {
+    // El pool se construye sin conectarse: por eso `Liteb.create` no es donde
+    // se descubre que el host está mal, y por eso `connect()` existe.
+    const db = openDatabase({ host: 'no-existe.invalid', database: 'x' }, [
+      catalog(),
+    ]);
+
+    expect(typeof db.execute).toBe('function');
+    expect(db.$client).toBeDefined();
+  });
+
+  it('acepta una conexión ya construida, y no la cierra', async () => {
+    const db: Database = await createTestDb();
 
     app = await Liteb.create({
       auth: cualquiera,
@@ -116,18 +135,22 @@ describe('Liteb.create', () => {
       version: '2.0.0-dev.0',
     });
     await app.start(0);
+    await app.close();
+    app = undefined;
 
-    expect(app.getApp()).toBeDefined();
+    // Sigue viva: liteb no cierra lo que no abrió. Antes había que pedirlo con
+    // close({ database: false }), que era una bandera para una regla.
+    expect(await db.execute(sql`select 1 as ok`)).toBeDefined();
   });
 
-  it('falla al crear si dos módulos declaran la misma entidad', async () => {
-    const a = defineModule({ id: 'a', version: '1.0.0', entities: [Product] });
-    const b = defineModule({ id: 'b', version: '1.0.0', entities: [Product] });
+  it('falla al crear si dos módulos declaran la misma tabla', async () => {
+    const a = defineModule({ id: 'a', version: '1.0.0', tables: [productos] });
+    const b = defineModule({ id: 'b', version: '1.0.0', tables: [productos] });
 
     await expect(
       Liteb.create({
         auth: cualquiera,
-        db: { type: 'postgres', database: 'x' } as never,
+        db: { host: 'localhost', database: 'x' },
         modules: [a, b],
       }),
     ).rejects.toThrow(/belongs to exactly one module/);

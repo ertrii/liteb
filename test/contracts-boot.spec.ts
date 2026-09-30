@@ -1,13 +1,13 @@
 import path from 'path';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { DataSource } from 'typeorm';
 import Liteb from '../lib/core/liteb';
 import { defineModule } from '../lib/modules/define-module';
 import { ModuleStore } from '../lib/modules/module-store';
 import { BillingService } from './fixtures/modules/contracts';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
+import type { Database } from '../lib';
 
 const salesDir = path.join(__dirname, 'fixtures/modules/sales');
 const billingDir = path.join(__dirname, 'fixtures/modules/billing');
@@ -34,7 +34,7 @@ const sales = () =>
   });
 
 describe('contratos entre módulos', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb | undefined;
 
   afterEach(async () => {

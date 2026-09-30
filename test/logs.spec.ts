@@ -10,8 +10,7 @@ import {
   expect,
   it,
 } from '@jest/globals';
-import type { DataSource } from 'typeorm';
-import { defineModule, Liteb, Logger } from '../lib';
+import { Database, defineModule, Liteb, Logger } from '../lib';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
 
@@ -25,7 +24,7 @@ import { cualquiera } from './helpers/auth';
  * vistazo ahí y de ninguna otra manera.
  */
 describe('archivos de log', () => {
-  let db: DataSource;
+  let db: Database;
   let app: Liteb | undefined;
   let dir: string;
 

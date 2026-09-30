@@ -1,9 +1,8 @@
 import 'reflect-metadata';
 import { describe, expect, it } from '@jest/globals';
-import type { DataSource } from 'typeorm';
-import { Container, EventBus, token } from '../lib';
+import { Container, Database, EventBus, token } from '../lib';
 
-const fakeDb = {} as DataSource;
+const fakeDb = {} as Database;
 
 /**
  * `token()` reemplazó a `contract()`, `slot()` y `event()`.

@@ -1,3 +1,6 @@
+import { getTableName } from 'drizzle-orm';
+import type { PgTable } from 'drizzle-orm/pg-core';
+import { integer, pgTable } from 'drizzle-orm/pg-core';
 import 'reflect-metadata';
 import path from 'path';
 import { describe, expect, it } from '@jest/globals';
@@ -26,12 +29,15 @@ import {
 const dir = path.join(__dirname, 'fixtures/layout');
 const base = { id: 'layout', version: '1.0.0' };
 const names = (values: unknown[]) => values.map((v) => (v as Function).name);
+/** El nombre SQL, que es lo que una tabla tiene en vez de `.name`. */
+const tableNamesOf = (values: unknown[]) =>
+  values.map((v) => getTableName(v as PgTable));
 
 describe('disposición estándar', () => {
   it('sin declarar nada, encuentra las seis carpetas', () => {
     const mod = defineModule({ ...base, dir });
 
-    expect(names(mod.entities)).toEqual(['Thing']);
+    expect(tableNamesOf(mod.tables)).toEqual(['layout_things']);
     expect(names(mod.migrations).sort()).toEqual([
       'AddName1700000100000',
       'CreateThings1700000000000',
@@ -61,12 +67,12 @@ describe('disposición estándar', () => {
     expect(providers[0].target.id).toBe('layout.things');
   });
 
-  it('en la carpeta de entidades, lo que no es entidad se ignora', () => {
-    // El archivo exporta además un enum, una constante y una clase pelada.
-    // Pasárselos a TypeORM sería un error confuso mucho más tarde.
+  it('en la carpeta de tablas, lo que no es tabla se ignora', () => {
+    // El archivo exporta además un enum de TypeScript, una constante y una
+    // clase pelada. Pasárselos al esquema sería un error confuso mucho después.
     const mod = defineModule({ ...base, dir });
 
-    expect(mod.entities).toHaveLength(1);
+    expect(mod.tables).toHaveLength(1);
   });
 
   it('una migración vista dos veces sigue siendo una', () => {
@@ -81,7 +87,7 @@ describe('disposición estándar', () => {
     const mod = defineModule({ ...base, dir });
 
     expect(mod.implicit).toEqual([
-      'entities',
+      'tables',
       'migrations',
       'routes',
       'routines',
@@ -102,7 +108,7 @@ describe('cuando el módulo está en otro lado', () => {
     expect(mod.implicit).not.toContain('routes');
     // Las otras cuatro siguen saliendo de la disposición estándar.
     expect(mod.implicit).toEqual([
-      'entities',
+      'tables',
       'migrations',
       'routines',
       'listeners',
@@ -121,19 +127,19 @@ describe('cuando el módulo está en otro lado', () => {
     expect(await loadModuleEndpoints(mod)).toHaveLength(1);
   });
 
-  it('las entidades se pueden seguir listando a mano', () => {
-    class Manual {}
+  it('las tablas se pueden seguir listando a mano', () => {
+    const manual = pgTable('manual', { id: integer('id').primaryKey() });
 
-    const mod = defineModule({ ...base, dir, entities: [Manual] });
+    const mod = defineModule({ ...base, dir, tables: [manual] });
 
-    expect(mod.entities).toEqual([Manual]);
-    expect(mod.implicit).not.toContain('entities');
+    expect(mod.tables).toEqual([manual]);
+    expect(mod.implicit).not.toContain('tables');
   });
 
   it('un arreglo vacío es un módulo que dice no tener: no aplica el default', () => {
-    const mod = defineModule({ ...base, dir, entities: [] });
+    const mod = defineModule({ ...base, dir, tables: [] });
 
-    expect(mod.entities).toEqual([]);
+    expect(mod.tables).toEqual([]);
   });
 
   it('sin dir no hay convención: no hay contra qué resolver', () => {
@@ -141,7 +147,7 @@ describe('cuando el módulo está en otro lado', () => {
     // es cualquier cosa. Mejor no buscar nada que buscar en el lugar de otro.
     const mod = defineModule(base);
 
-    expect(mod.entities).toEqual([]);
+    expect(mod.tables).toEqual([]);
     expect(mod.migrations).toEqual([]);
     expect(mod.routes).toEqual([]);
     expect(mod.implicit).toEqual([]);
@@ -154,7 +160,7 @@ describe('cuando el módulo está en otro lado', () => {
       defineModule({
         ...base,
         dir,
-        entities: [Manual, './entities/*.entity.ts'] as never,
+        tables: [Manual, './entities/*.entity.ts'] as never,
       }),
     ).toThrow(ModuleDefinitionError);
   });
