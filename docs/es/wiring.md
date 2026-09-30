@@ -632,22 +632,31 @@ ellas.
 ## 8. Qué se ve al arrancar
 
 ```
-[INFO] Contracts registered: billing.service, identity.directory
-[INFO] Extension points filled: catalog.product-badges
-[INFO] Events with listeners: catalog.product.restocked
+[INFO] Modules: identity, catalog (2 of 3)
+[INFO] Wiring: 2 contracts, 1 extension point, 1 event, 5 permissions
+[INFO] Serving on :5050 - 11 routes, 1 routine, docs at /docs (1.4s)
 ```
 
-Las tres líneas se omiten si están vacías, y el silencio es informativo:
+**Cada parte vacía se omite**, y el silencio es informativo:
 
 | No aparece | Significa |
 | --- | --- |
-| `Contracts registered` | ningún módulo encendido tiene un `Provider` con `@Provides` |
-| `Extension points filled` | nadie aportó a ningún slot — no que no haya slots |
-| `Events with listeners` | nadie escucha nada; los `emit()` vuelven enseguida |
+| `contracts` | ningún módulo encendido tiene un `Provider` con `@Provides` |
+| `extension points` | nadie aportó a ningún slot — no que no haya slots |
+| `events` | nadie escucha nada; los `emit()` vuelven enseguida |
 
-`Extension points filled` lista los slots **que alguien llenó**, no los que se
+`extension points` cuenta los slots **que alguien llenó**, no los que se
 declararon: un slot abierto y vacío no aparece en ningún lado, porque un token es
 sólo una constante y liteb no tiene cómo enumerarlos.
+
+Son cuentas y no nombres a propósito. El caso en que el nombre importa —
+un módulo que declara `consumes` de un contrato que nadie provee — **no llega a
+esta línea**: `buildContainer()` corta el arranque con un error que nombra el
+contrato y el módulo. Esto es el resumen, no el diagnóstico.
+
+Y `routes` en cero es la falla que solía parecer un arranque sano: un glob que
+no encontró nada, la aplicación contestando 404 a todo, y el log diciendo
+`Done!`.
 
 ## 9. Apagar un módulo
 

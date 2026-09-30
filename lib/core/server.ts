@@ -126,14 +126,19 @@ export default class Server {
 
   /**
    * Starts the server listening on the given port.
-   * @param port Port the HTTP server will listen on.
-   * @returns Promise that resolves once the server has started successfully.
+   *
+   * It resolves with the port the server is ACTUALLY on, which is not always
+   * the one asked for: port 0 means "any free one", and reporting the 0 back
+   * is how a test's log ends up naming a port nothing is listening on.
+   *
+   * @param port Port the HTTP server will listen on, or 0 for any free one.
+   * @returns Promise resolving to the bound port.
    */
-  protected listen = (port: number) => {
-    return new Promise<void>((resolve) => {
+  protected listen = (port: number): Promise<number> => {
+    return new Promise<number>((resolve) => {
       this.server = this.app.listen(port, () => {
-        Logger.info(`Server running on port ${port}`);
-        resolve();
+        const address = this.server?.address();
+        resolve(typeof address === 'object' && address ? address.port : port);
       });
     });
   };

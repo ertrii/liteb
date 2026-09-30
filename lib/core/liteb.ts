@@ -168,6 +168,13 @@ export interface DocsConfig {
 }
 
 /**
+ * `3 routes`, `1 route`, and '' for none — so a summary line can drop the
+ * parts that have nothing to say instead of printing `0 events`.
+ */
+const count = (total: number, noun: string): string =>
+  total === 0 ? '' : `${total} ${noun}${total === 1 ? '' : 's'}`;
+
+/**
  * This framework allows you to configure API and routine patterns based on
  * modules, resolving their routes and dynamically loading what they declare.
  */
@@ -610,15 +617,6 @@ export default class Liteb extends Server {
     // Built before anything is mounted: a module consuming a contract nobody
     // provides must stop the boot, not the first request that needs it.
     this.container = await buildContainer(active, this.dbSource);
-    const contracts = this.container.ids();
-    if (contracts.length > 0) {
-      Logger.info(`Contracts registered: ${contracts.join(', ')}`);
-    }
-
-    const slots = this.container.slotIds();
-    if (slots.length > 0) {
-      Logger.info(`Extension points filled: ${slots.join(', ')}`);
-    }
 
     // The bus and the container reference each other: an implementation may
     // emit, a listener may resolve a contract. Wired here, in the open.
@@ -634,17 +632,10 @@ export default class Liteb extends Server {
         this.events.register(token, ListenerClass, mod.id);
       }
     }
-    const events = this.events.ids();
-    if (events.length > 0) {
-      Logger.info(`Events with listeners: ${events.join(', ')}`);
-    }
 
     // From every module PRESENT, enabled or not — like entities. Turning a
     // module off must not change what a permission key means.
     this.permissionRegistry = PermissionRegistry.from(this.modules);
-    if (this.permissionRegistry.size() > 0) {
-      Logger.info(`Permissions declared: ${this.permissionRegistry.size()}`);
-    }
 
     this.loadedModules = await loadModules(active);
 
@@ -654,9 +645,23 @@ export default class Liteb extends Server {
     for (const mod of active) {
       this.moduleRoutines.push(...(await loadModuleRoutines(mod)));
     }
+    // Two lines, not six. What each wiring kind is CALLED belongs to the map
+    // in `router.log` and to `app.permissions()`; a boot that went well only
+    // has to say what got wired and how much of it, and a boot that did not
+    // says so by the number being zero.
     Logger.info(
-      `Modules enabled: ${active.map((mod) => mod.id).join(', ') || 'none'}`,
+      `Modules: ${active.map((mod) => mod.id).join(', ') || 'none'}` +
+        ` (${active.length} of ${this.modules.length})`,
     );
+
+    const wiring = [
+      count(this.container.ids().length, 'contract'),
+      count(this.container.slotIds().length, 'extension point'),
+      count(this.events.ids().length, 'event'),
+      count(this.permissionRegistry.size(), 'permission'),
+    ].filter(Boolean);
+
+    if (wiring.length > 0) Logger.info(`Wiring: ${wiring.join(', ')}`);
   };
 
   /**
@@ -668,11 +673,11 @@ export default class Liteb extends Server {
   public start = async (port: number) => {
     if (this.started) return;
     this.started = true;
+    const startedAt = Date.now();
 
     // Initialize the database. If it fails it is a FATAL error: rethrow so the
     // process exits with a non-zero code and the orchestrator (Docker/PM2)
     // restarts it, instead of staying alive with no server.
-    Logger.info('Loading database...');
     try {
       await this.connect();
     } catch (error) {
@@ -688,7 +693,6 @@ export default class Liteb extends Server {
         'This application declares no modules: it will serve nothing but what you mounted by hand.',
       );
     } else {
-      Logger.info('Loading modules...');
       try {
         await this.bootModules();
       } catch (error) {
@@ -701,12 +705,10 @@ export default class Liteb extends Server {
     }
 
     if (this.templatesAsync.length > 0) {
-      Logger.info('Reading templates...');
       const templates = await Promise.all(this.templatesAsync);
       this.app.set('views', templates.flat());
     }
 
-    Logger.info('Reading API and creating routes...');
     // Every route belongs to a module. Grouping by module keeps each one's
     // routers, OpenAPI spec and logging together, and lets a disabled module
     // contribute nothing at all.
@@ -737,7 +739,6 @@ export default class Liteb extends Server {
         res.json(spec);
       });
       this.app.use(docsPath, swaggerUi.serve, swaggerUi.setup(spec));
-      Logger.info(`Swagger UI at ${docsPath} (spec: ${jsonPath})`);
     }
 
     // Create routes and attach handlers, once per group.
@@ -788,11 +789,9 @@ export default class Liteb extends Server {
     this.registerErrorHandler();
 
     // Start the HTTP server
-    Logger.info('Loading server...');
-    await this.listen(port);
+    const boundPort = await this.listen(port);
 
     if (this.moduleRoutines.length > 0) {
-      Logger.info('Starting module routines...');
       this.moduleRoutines.forEach((RoutineClass) => {
         const interpreter = new InterpreterRoutine(
           RoutineClass,
@@ -809,7 +808,21 @@ export default class Liteb extends Server {
     }
 
     this.registerShutdownHooks();
-    Logger.info('Done!');
+
+    // The one line somebody actually waits for. `order` is how many routes
+    // mounted: ZERO here is the failure that used to look like a healthy boot,
+    // where a glob matched nothing and the application served 404 to
+    // everything while saying `Done!`.
+    const serving = [
+      count(order, 'route'),
+      count(this.scheduled.length, 'routine'),
+      this.swaggerConfig ? `docs at ${this.swaggerConfig.path}` : '',
+    ].filter(Boolean);
+
+    Logger.info(
+      `Serving on :${boundPort} - ${serving.join(', ')}` +
+        ` (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`,
+    );
   };
 
   /**

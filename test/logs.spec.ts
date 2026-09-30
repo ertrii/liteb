@@ -128,8 +128,8 @@ describe('archivos de log', () => {
 
     const neutral = fs.readFileSync(path.join(dir, 'app.log'), 'utf8');
     const info = fs.readFileSync(path.join(dir, 'info.log'), 'utf8');
-    expect(neutral).toContain('Done!');
-    expect(info).toContain('Done!');
+    expect(neutral).toContain('Serving on :');
+    expect(info).toContain('Serving on :');
     // El mapa es un mapa, no una cronología: cincuenta líneas de arranque
     // delante de lo primero que importa.
     expect(neutral).not.toContain('the first match answers');

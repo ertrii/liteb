@@ -55,11 +55,14 @@ const app = await Liteb.create({
 - **Se monta antes que los routers de los módulos**, así que un módulo que sirva
   un prefijo parecido no lo puede tapar.
 
-Al arrancar queda dicho en el log, con las dos URLs:
+Al arrancar queda dicho en la línea de resumen del log:
 
 ```
-[INFO] Swagger UI at /docs (spec: /docs.json)
+[INFO] Serving on :5050 - 11 routes, docs at /docs (1.4s)
 ```
+
+La especificación cruda se sirve al lado, en `/docs.json` — el mismo camino con
+`.json`.
 
 > Encendido publica **la forma completa de tu API** a cualquiera que encuentre
 > la URL: rutas, cuerpos, campos obligatorios y enums. Ver

@@ -190,6 +190,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already writes one and `src/index.ts` already passes it, so a scaffolded
   project needs no change.
 
+- **The boot log is three lines, not fourteen.** [BREAKING]
+
+  ```
+  Modules: identity, catalog, reports (3 of 3)
+  Wiring: 2 contracts, 1 extension point, 1 event, 5 permissions
+  Serving on :5050 - 11 routes, 1 routine, docs at /docs (1.4s)
+  ```
+
+  Gone: `Loading database...`, `Loading modules...`, `Reading templates...`,
+  `Reading API and creating routes...`, `Loading server...`,
+  `Starting module routines...` and `Done!`. Seven lines that said where the
+  boot was, on a boot that got to the end anyway.
+
+  The named wiring lines (`Contracts registered`, `Extension points filled`,
+  `Events with listeners`, `Permissions declared`) are counts on one line now.
+  The case where the NAME matters — a module consuming a contract nobody
+  provides — never reached them: it stops the boot with an error naming both.
+
+  Each part is dropped when it is zero, except `routes`, because **zero routes**
+  is the failure that used to read as a healthy boot: a glob matched nothing,
+  the application answered 404 to everything, and the log said `Done!`.
+
+  `Serving on :<port>` reports the port the server is actually **bound** to.
+  Asking for port 0 means "any free one", and the old line echoed the 0 back.
+
 ### Fixed
 
 - **A 500 no longer echoes the thrown error's message.** [BREAKING]
