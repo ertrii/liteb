@@ -1,4 +1,4 @@
-import { slot } from '../../../../lib';
+import { token } from '../../../../lib';
 
 /**
  * An open extension point: catalog does not know which badges will exist, so
@@ -15,4 +15,7 @@ export interface ProductBadge {
   for(product: { id: number; stock: number }): string | null;
 }
 
-export const ProductBadges = slot<ProductBadge>('catalog.product-badges');
+export const ProductBadges = token<ProductBadge>(
+  'catalog.product-badges',
+  'slot',
+);

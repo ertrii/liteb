@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 import type { DataSource } from 'typeorm';
 import { buildContainer } from '../lib/modules/build-container';
 import { defineModule } from '../lib/modules/define-module';
-import { contract, ContractError } from '../lib/modules/container';
-import { slot } from '../lib/modules/slots';
+import { ContractError } from '../lib/modules/container';
+import { token } from '../lib/modules/token';
 import { Provider } from '../lib/templates/provider';
-import { Contributes, Provides } from '../lib/decorators/provides.decorator';
+import { Provides } from '../lib/decorators/provides.decorator';
 import { Badges, built, Greeter } from './fixtures/proveedores/shared';
 
 /**
@@ -69,7 +69,7 @@ describe('proveedores por carpeta', () => {
     expect(built.clock).toBe(1);
   });
 
-  it('@Contributes llena la ranura de otro módulo', async () => {
+  it('@Provides llena la ranura de otro módulo', async () => {
     const container = await buildContainer([demo], fakeDb);
 
     expect(container.all(Badges).map((badge) => badge.id)).toEqual(['loud']);
@@ -83,25 +83,38 @@ describe('proveedores por carpeta', () => {
   });
 });
 
-describe('los decoradores no dejan cruzar los conceptos', () => {
-  it('@Provides rechaza una ranura', () => {
-    const Ranura = slot<{ id: string }>('demo.ranura');
+describe('@Provides toma los dos tokens que se proveen, y ningún otro', () => {
+  it('acepta un contrato y acepta una ranura: el token dice cuál es', () => {
+    const Contrato = token<{ id: string }>('demo.contrato', 'contract');
+    const Ranura = token<{ id: string }>('demo.ranura', 'slot');
 
     expect(() => {
-      @Provides(Ranura as never)
-      class Mal extends Provider {}
-      return Mal;
-    }).toThrow(/@Provides\(\) takes a contract, and got a slot/);
+      @Provides(Contrato)
+      class Uno extends Provider {}
+
+      @Provides(Ranura)
+      class Otro extends Provider {}
+
+      return [Uno, Otro];
+    }).not.toThrow();
   });
 
-  it('@Contributes rechaza un contrato', () => {
-    const Contrato = contract<{ id: string }>('demo.contrato');
+  it('rechaza un evento, y dice qué se hace con uno', () => {
+    const Aviso = token<{ id: string }>('demo.aviso', 'event');
 
     expect(() => {
-      @Contributes(Contrato as never)
+      @Provides(Aviso as never)
       class Mal extends Provider {}
       return Mal;
-    }).toThrow(/@Contributes\(\) takes a slot, and got a contract/);
+    }).toThrow(/and got an event/);
+  });
+
+  it('rechaza lo que no es un token', () => {
+    expect(() => {
+      @Provides({ id: 'demo.mano' } as never)
+      class Mal extends Provider {}
+      return Mal;
+    }).toThrow(/something that is not a token/);
   });
 });
 

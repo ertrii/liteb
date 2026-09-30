@@ -59,7 +59,7 @@ Four base classes. A file exporting one is found by the folder it is in — see
 | `Endpoint<B, P, Q>` | class | One HTTP endpoint. Generics are the validated body, params and query. |
 | `Routine` | class | Scheduled work. `@Cron` decides when. |
 | `Listener<P>` | class | Handles one event. `@On` says which. |
-| `Provider` | class | Answers a contract or fills a slot. `@Provides` / `@Contributes`. |
+| `Provider` | class | Answers a contract or fills a slot. Marked with `@Provides`. |
 | `DataJson` | `Record<string, any> \| Response \| Output \| null` | What an endpoint's `main()` may return. |
 | `UploadedFile` | interface | One file off a multipart request. liteb's own type, not a global. |
 
@@ -97,7 +97,6 @@ way.
 | `Cron` | `(expression: string, options?: ScheduleOptions) => ClassDecorator` | When a routine runs. |
 | `On` | `<T>(token: EventToken<T>) => ClassDecorator` | Which event a listener handles. |
 | `Provides` | `<T>(token: Contract<T>) => ClassDecorator` | The contract a provider answers. |
-| `Contributes` | `<T>(target: Slot<T>) => ClassDecorator` | The slot a provider contributes to. |
 | `ApiTag` `ApiSummary` `ApiDescription` `ApiResponse` `ApiHidden` | class decorators | What `/docs` says about this endpoint, or that it says nothing. |
 | `MiddlewareFn` | `(req, res, next) => void` | What `@Use` takes. |
 | `GroupOptions` | interface | What `@Group` takes besides the name. |
@@ -150,15 +149,14 @@ way.
 
 | Name | Type | What it is |
 | --- | --- | --- |
-| `contract` | `<T>(id: string) => Contract<T>` | A token for a capability one module needs and another answers. |
-| `Contract<T>` | interface | That token. Carries `T` at the type level only. |
+| `token` | `<T>(id, kind) => Contract<T> \| Slot<T> \| EventToken<T>` | Declares the one thing two modules share. The kind you pass decides which type comes back. |
+| `TokenKind` | `'contract' \| 'slot' \| 'event'` | How many may answer, which is the only thing the three differ in. It lives on the token and nowhere else. |
+| `Contract<T>` | interface | A capability with exactly one provider: `token(id, 'contract')`. |
+| `Slot<T>` | interface | An extension point filled by however many modules are installed: `token(id, 'slot')`. `container.all()` answers an array, and empty is a normal answer. |
+| `EventToken<T>` | interface | Something that happened, typed by its payload: `token(id, 'event')`. |
 | `Container` | class | Resolves them: `.get(contract)`, `.all(slot)`, `.has()`, `.providerOf()`, `.ids()`. Reachable as `this.container`. |
 | `ContractError` | class | Nobody provides that contract, or two modules do. |
-| `event` | `<T>(id: string) => EventToken<T>` | A token for something that happened. |
-| `EventToken<T>` | interface | That token, typed by its payload. |
-| `EventBus` | class | `.emit(token, payload)`, plus `.ids()` and `.countFor()` for what is listening. |
-| `slot` | `<T>(id: string) => Slot<T>` | A token many modules may contribute to, where a contract takes exactly one. |
-| `Slot<T>` | interface | That token. `container.all(slot)` answers an array; empty is a normal answer. |
+| `EventBus` | class | `.emit(token, payload)`, plus `.ids()` and `.countFor()` to see what is listening. |
 
 ---
 

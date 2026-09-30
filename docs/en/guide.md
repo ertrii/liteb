@@ -246,12 +246,15 @@ module off removes its routes and stops its routines **without touching its data
 
 ```typescript
 // modules/billing/module.ts
-import { contract, defineModule } from 'liteb';
+import { defineModule, token } from 'liteb';
 
 export interface BillingService {
   issueCharge(input: IssueChargeInput): Promise<Charge>;
 }
-export const BillingService = contract<BillingService>('billing.service');
+export const BillingService = token<BillingService>(
+  'billing.service',
+  'contract',
+);
 
 export default defineModule({
   id: 'billing',
@@ -576,7 +579,10 @@ A contract is deliberately split in two, and they live in different folders.
 export interface BillingService {
   issueCharge(input: IssueChargeInput): Promise<Charge>;
 }
-export const BillingService = contract<BillingService>('billing.service');
+export const BillingService = token<BillingService>(
+  'billing.service',
+  'contract',
+);
 ```
 
 ```typescript
@@ -626,12 +632,15 @@ export interface ProductBadge {
   id: string;
   for(product: { id: number; stock: number }): string | null;
 }
-export const ProductBadges = slot<ProductBadge>('catalog.product-badges');
+export const ProductBadges = token<ProductBadge>(
+  'catalog.product-badges',
+  'slot',
+);
 ```
 
 ```typescript
 // any module fills it, without catalog changing — providers/low-stock-badge.provider.ts
-@Contributes(ProductBadges)
+@Provides(ProductBadges)
 export class LowStockBadge extends Provider implements ProductBadge {
   readonly id = 'low-stock';
   for(product) { return product.stock < 10 ? 'Low stock' : null; }
@@ -648,10 +657,10 @@ depend on: `catalog` knows nothing about who fills it, while a contributor
 imports its token. Backwards, core would depend on its own extensions and none
 of them could be removed.
 
-- A contribution is a `Provider` like any other — same folder, same injection —
-  and `@Contributes` takes a slot where `@Provides` takes a contract. Passing
-  one where the other goes fails at the decorator, with the difference spelled
-  out.
+- A contribution is a `Provider` like any other — same folder, same decorator,
+  same injection. `@Provides` covers both, because the token already says which
+  it is: a contract has one provider, a slot takes as many as are installed. An
+  event token is refused, since nothing provides an event.
 - **Only enabled modules contribute**, so turning an extension off removes what
   it added.
 - An empty array is a normal answer: a slot nobody filled is a feature nobody
@@ -722,7 +731,10 @@ export interface ProductRestocked {
   productId: number;
   quantity: number;
 }
-export const ProductRestocked = event<ProductRestocked>('catalog.product.restocked');
+export const ProductRestocked = token<ProductRestocked>(
+  'catalog.product.restocked',
+  'event',
+);
 ```
 
 ```typescript

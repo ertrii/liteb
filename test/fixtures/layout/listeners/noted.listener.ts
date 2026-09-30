@@ -1,6 +1,6 @@
-import { event, Listener, On } from '../../../../lib';
+import { token, Listener, On } from '../../../../lib';
 
-export const Noted = event<{ id: number }>('layout.noted');
+export const Noted = token<{ id: number }>('layout.noted', 'event');
 
 @On(Noted)
 export default class NotedListener extends Listener<{ id: number }> {

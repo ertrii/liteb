@@ -203,6 +203,36 @@ describe('ediciones sobre archivos que el generador no escribió', () => {
   });
 });
 
+describe('el token generado entra en el ancho de prettier', () => {
+  // El proyecto que `liteb init` arma corre `prettier --check`, así que una
+  // línea de más de 80 columnas en un archivo generado rompe el lint del
+  // consumidor en su primer commit. El ancho depende del módulo y del nombre,
+  // que sólo el generador conoce.
+  const contenido = (target: string) =>
+    createSlot({ target, modulesDir: 'src/modules', from: 'liteb' }).files[0]
+      .content;
+
+  it('lo deja en una línea cuando entra', () => {
+    const linea = contenido('shop/tags')
+      .split('\n')
+      .find((l) => l.startsWith('export const'));
+
+    expect(linea).toBe("export const Tags = token<Tag>('shop.tags', 'slot');");
+    expect(linea!.length).toBeLessThanOrEqual(80);
+  });
+
+  it('lo parte como lo partiría prettier cuando no entra', () => {
+    expect(contenido('subscriptions/invoice-line-renderers')).toContain(
+      [
+        'export const InvoiceLineRenderers = token<InvoiceLineRenderer>(',
+        "  'subscriptions.invoice-line-renderers',",
+        "  'slot',",
+        ');',
+      ].join('\n'),
+    );
+  });
+});
+
 describe('liteb init', () => {
   it('escribe un proyecto que arranca, no una carpeta vacía', () => {
     const files = createProject({ name: 'Mi App', litebVersion }).files;
@@ -736,7 +766,7 @@ describe('un módulo generado y puesto a andar', () => {
     expect(archivo.path).toBe(
       `${modulesDir}/reports/providers/low-stock.provider.ts`,
     );
-    expect(archivo.content).toContain('@Contributes(ProductBadges)');
+    expect(archivo.content).toContain('@Provides(ProductBadges)');
     expect(archivo.content).toContain(
       'extends Provider implements ProductBadge',
     );
@@ -755,12 +785,12 @@ describe('un módulo generado y puesto a andar', () => {
     // para ubicarse, y es el CLI quien la sostiene.
     expect(
       read(`${modulesDir}/inventory/events/item-added.event.ts`),
-    ).toContain("event<ItemAdded>('inventory.item-added')");
+    ).toContain("token<ItemAdded>('inventory.item-added', 'event')");
 
     const ranura = read(`${modulesDir}/inventory/slots/labels.slot.ts`);
     // El token nombra la colección, la interfaz nombra UNA contribución.
     expect(ranura).toContain('export interface Label {');
-    expect(ranura).toContain("slot<Label>('inventory.labels')");
+    expect(ranura).toContain("token<Label>('inventory.labels', 'slot')");
   });
 
   it('rutina, oyente y migración no tocan el manifiesto', () => {

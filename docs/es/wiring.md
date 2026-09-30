@@ -79,13 +79,16 @@ pedirle las dos cosas es un contrato escrito al revés.
 
 ```typescript
 // billing/contracts/billing-service.contract.ts
-import { contract } from 'liteb';
+import { token } from 'liteb';
 
 export interface BillingService {
   issueCharge(input: IssueChargeInput): Promise<Charge>;
 }
 
-export const BillingService = contract<BillingService>('billing.service');
+export const BillingService = token<BillingService>(
+  'billing.service',
+  'contract',
+);
 ```
 
 **La interfaz y la constante comparten nombre a propósito.** TypeScript guarda
@@ -102,10 +105,22 @@ Lo que lleva el token:
 - **`T`** — sólo en tiempo de compilación, en un campo fantasma que nunca se
   escribe. Es lo que hace que `this.get(BillingService)` devuelva el tipo correcto
   sin un cast.
-- **`kind`** — `'contract'` o `'slot'`. Sin ese campo los dos serían
-  estructuralmente idénticos y cada uno se podría pasar donde va el otro, que es
-  la única confusión que importa acá: un contrato tiene un proveedor, un slot
-  tiene muchos.
+- **`kind`** — `'contract'`, `'slot'` o `'event'`, que es el segundo argumento
+  de `token()`. Sin ese campo los tres serían estructuralmente idénticos y cada
+  uno se podría pasar donde va otro, que es la única confusión que importa acá.
+
+Los tres se declaran con **una sola función**, porque se diferencian en una sola
+cosa: cuántos pueden responder. Nombrarlo en la llamada lo convierte en una
+propiedad del token, que es de donde lo lee todo lo demás — `@Provides` para
+saber si registra la única implementación o una de varias, y el contenedor para
+decidir entre devolver una instancia y devolver una lista. Nada lo repite: un
+segundo lugar donde decirlo sería un segundo lugar donde decirlo mal.
+
+```typescript
+token<BillingService>('billing.service', 'contract'); // exactamente uno
+token<ProductBadge>('catalog.product-badges', 'slot'); // los que haya
+token<ProductRestocked>('catalog.product.restocked', 'event'); // sin respuesta
+```
 
 Dónde vive cada archivo, y qué comando lo escribe:
 
@@ -147,17 +162,17 @@ export class BillingServiceProvider
 Nada lista esta clase. La carpeta la encuentra, `@Provides` dice qué contrato
 responde, y el nombre del archivo no importa mientras termine en `.provider.ts`.
 
-Lo mismo vale para un aporte a un slot: misma clase base, misma carpeta, y
-`@Contributes` en lugar de `@Provides` — ver
+Lo mismo vale para un aporte a un slot: misma clase base, misma carpeta y el
+mismo decorador — ver
 [El contribuyente es un `Provider`](#el-contribuyente-es-un-provider).
 
-Un `Provider` sin `@Provides` ni `@Contributes` se saltea con un aviso en vez de
-detener el arranque, igual que un endpoint sin verbo: un archivo a medio escribir
-no es una instalación rota.
+Un `Provider` sin `@Provides` se saltea con un aviso en vez de detener el
+arranque, igual que un endpoint sin verbo: un archivo a medio escribir no es una
+instalación rota.
 
 ```
 [WARN] Provider BillingServiceProvider in module "billing" has no
-@Provides(contract) or @Contributes(slot) and was skipped.
+@Provides(token) and was skipped.
 ```
 
 ### Quien llama
@@ -309,12 +324,15 @@ export interface ProductBadge {
   for(product: { id: number; stock: number }): string | null;
 }
 
-export const ProductBadges = slot<ProductBadge>('catalog.product-badges');
+export const ProductBadges = token<ProductBadge>(
+  'catalog.product-badges',
+  'slot',
+);
 ```
 
 ```typescript
 // reports/providers/low-stock-badge.provider.ts
-@Contributes(ProductBadges)
+@Provides(ProductBadges)
 export class LowStockBadge extends Provider implements ProductBadge {
   readonly id = 'low-stock';
 
@@ -349,7 +367,7 @@ típico:
 | | Qué es | Quién lo usa |
 | --- | --- | --- |
 | `ProductBadge` | la forma de **un** aporte | lo `implements` un contribuyente |
-| `ProductBadges` | el token de la **colección** | va en `@Contributes` y en `this.all()` |
+| `ProductBadges` | el token de la **colección** | va en `@Provides` y en `this.all()` |
 
 El plural en el token de la colección es una convención, no una regla: lo que
 liteb chequea es `kind`, no el nombre.
@@ -364,31 +382,33 @@ sección anterior vale igual.
 | --- | --- | --- |
 | Clase base | `extends Provider` | `extends Provider` |
 | Carpeta | `providers/*.provider.ts` | `providers/*.provider.ts` |
-| Decorador | `@Provides(Contrato)` | `@Contributes(Slot)` |
+| Decorador | `@Provides(Contrato)` | `@Provides(Slot)` — el mismo |
 | Qué `implements` | la interfaz del contrato | la interfaz de **un** aporte |
 | Cuántos por token | exactamente uno | los que haya |
 | Se construye | en el primer `this.get()` | en el primer `this.all()` |
 | Inyecciones | `db`, `get()`, `all()`, `emit()` | las mismas |
 | Comando | `liteb provider <mod>/<name>` | el mismo con `--slot <name>` |
 
-No hay una carpeta `contributions/` ni una clase `Contribution`. Los dos
-decoradores guardan lo mismo debajo, porque es una sola pregunta — **de qué
-token es la implementación esta clase** — y el token es el que dice si tiene un
-proveedor o muchos. Por eso pasar uno donde va el otro falla en el decorador,
-con la diferencia explicada en el mensaje:
+No hay una carpeta `contributions/`, ni una clase `Contribution`, ni un segundo
+decorador. `@Provides` sirve para los dos porque es **una sola pregunta** —de qué
+token es la implementación esta clase— y el token ya dice si tiene un proveedor o
+muchos: el contenedor decide entre una instancia y una lista mirando `kind`, no
+mirando cómo se declaró la clase.
+
+Lo único que `@Provides` rechaza es un token de evento, porque un evento no lo
+provee nadie:
 
 ```
-@Provides() takes a contract, and got a slot. Contracts have one provider and
-are declared with contract(); extension points take many and are declared with
-slot().
+@Provides() takes a contract or an extension point, and got an event. Nothing
+provides an event: a module announces it with this.emit(), and a Listener
+reacts to it with @On().
 ```
 
-Y por eso el aviso del arranque nombra los dos: cubre los dos casos.
-
-```
-[WARN] Provider LowStockBadge in module "reports" has no @Provides(contract)
-or @Contributes(slot) and was skipped.
-```
+> Antes había dos decoradores, y `@Contributes` existía para atajar el caso de
+> pasar un slot donde iba un contrato. Ese error desapareció solo al mover el
+> `kind` al token: se afirmaba en dos lugares —el token y el nombre del
+> decorador— y dos lugares que pueden discrepar son la única razón por la que
+> hacía falta un error de "los cruzaste".
 
 **Lo único que importás es el archivo del slot**, del módulo que lo abrió. Ese
 import te da las dos mitades a la vez — la interfaz que vas a `implements` y el
@@ -396,10 +416,13 @@ token que va en el decorador:
 
 ```typescript
 // reports/providers/low-stock-badge.provider.ts
-import { Contributes, Provider } from 'liteb';
-import { ProductBadge, ProductBadges } from '@/catalog/slots/product-badges.slot';
+import { Provider, Provides } from 'liteb';
+import {
+  ProductBadge,
+  ProductBadges,
+} from '@/catalog/slots/product-badges.slot';
 
-@Contributes(ProductBadges)
+@Provides(ProductBadges)
 export class LowStockBadge extends Provider implements ProductBadge {
   readonly id = 'low-stock';
 
@@ -496,8 +519,9 @@ export interface ProductRestocked {
   quantity: number;
 }
 
-export const ProductRestocked = event<ProductRestocked>(
+export const ProductRestocked = token<ProductRestocked>(
   'catalog.product.restocked',
+  'event',
 );
 ```
 
@@ -643,9 +667,11 @@ La asimetría entre la última fila y el resto es a propósito, y está explicad
 | `Contract "y" is provided by both "a" and "b". Exactly one module can provide it.` | al arrancar | apagar uno de los dos |
 | `Contract "y" is being resolved while it is still being built: its implementation depends on itself.` | primera resolución | romper el ciclo: tercer módulo, evento, o slot |
 | `Extension point "z" is being filled while it is still being filled: a contribution asks for the slot it belongs to.` | primera lectura | un aporte no puede leer su propio slot |
-| `@Provides() takes a contract, and got a slot. …` | al importar el archivo | `@Contributes` para un slot, `@Provides` para un contrato |
+| `@Provides() takes a contract or an extension point, and got an event. …` | al importar el archivo | un evento no se provee: se emite, y se escucha con `@On` |
+| `token(): the id must be a non-empty string …` | al importar el archivo | el id va con el prefijo del módulo |
+| `token("x"): unknown kind "…"` | al importar el archivo | es `'contract'`, `'slot'` o `'event'` |
 | `Cannot resolve the contract "y": this application has no modules. Start it with Liteb.create({ modules }).` | fuera de una aplicación | construir la aplicación con sus módulos |
-| `Provider X in module "m" has no @Provides(contract) or @Contributes(slot) and was skipped.` | aviso al arrancar | falta el decorador — el archivo no quedó registrado |
+| `Provider X in module "m" has no @Provides(token) and was skipped.` | aviso al arrancar | falta el decorador — el archivo no quedó registrado |
 | `Listener X in module "m" has no @On(event) and was skipped.` | aviso al arrancar | falta `@On` |
 | `Listener X (module "m") failed on "e"` | en tiempo de ejecución | el oyente lanzó; quien emitió no se enteró |
 
@@ -695,7 +721,7 @@ src/modules/
 │   ├── endpoints/create-sale.endpoint.ts        this.get() · this.emit()
 │   └── module.ts                                consumes: [BillingService]
 ├── cash/
-│   └── providers/cash-method.provider.ts        @Contributes(PaymentMethods)
+│   └── providers/cash-method.provider.ts        @Provides(PaymentMethods)
 └── reports/
     └── listeners/sale-log.listener.ts           @On(SaleClosed)
 ```

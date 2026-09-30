@@ -128,9 +128,9 @@ declares its own.
 
 | | Who answers | Reads the answer |
 | --- | --- | --- |
-| **Contract** — `contract()` / `this.get()` | exactly one; a second provider is an error | the caller, and it waits |
-| **Event** — `event()` / `this.emit()` / `@On` | any number of listeners | nobody: there is no answer |
-| **Slot** — `slot()` / `contributes` / `this.all()` | any number of contributors | the module that opened it |
+| **Contract** — `token(id, 'contract')` / `this.get()` | exactly one; a second provider is an error | the caller, and it waits |
+| **Event** — `token(id, 'event')` / `this.emit()` / `@On` | any number of listeners | nobody: there is no answer |
+| **Slot** — `token(id, 'slot')` / `@Provides` / `this.all()` | any number of contributors | the module that opened it |
 
 They are not interchangeable, and the types refuse to mix them.
 

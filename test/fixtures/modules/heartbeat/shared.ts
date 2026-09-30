@@ -1,4 +1,4 @@
-import { event } from '../../../../lib';
+import { token } from '../../../../lib';
 
 /** Contadores observables: el test espera a que las cosas pasen de verdad. */
 export const beats = { count: 0, sawDb: false, sawContainer: false };
@@ -6,4 +6,4 @@ export const beats = { count: 0, sawDb: false, sawContainer: false };
 /** Lo que oyó el listener. Es la prueba de que el bus llega a la rutina. */
 export const heard = { count: 0 };
 
-export const Beat = event<{ n: number }>('heartbeat.beat');
+export const Beat = token<{ n: number }>('heartbeat.beat', 'event');

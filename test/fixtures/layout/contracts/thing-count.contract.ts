@@ -1,7 +1,7 @@
-import { contract } from '../../../../lib';
+import { token } from '../../../../lib';
 
 export interface ThingCount {
   total(): number;
 }
 
-export const ThingCount = contract<ThingCount>('layout.things');
+export const ThingCount = token<ThingCount>('layout.things', 'contract');

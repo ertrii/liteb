@@ -283,12 +283,15 @@ apagar un módulo quita sus rutas y detiene sus rutinas **sin tocar sus datos**.
 
 ```typescript
 // modules/billing/module.ts
-import { contract, defineModule } from 'liteb';
+import { defineModule, token } from 'liteb';
 
 export interface BillingService {
   issueCharge(input: IssueChargeInput): Promise<Charge>;
 }
-export const BillingService = contract<BillingService>('billing.service');
+export const BillingService = token<BillingService>(
+  'billing.service',
+  'contract',
+);
 
 export default defineModule({
   id: 'billing',
@@ -625,7 +628,10 @@ Un contrato está partido en dos a propósito, y viven en carpetas distintas.
 export interface BillingService {
   issueCharge(input: IssueChargeInput): Promise<Charge>;
 }
-export const BillingService = contract<BillingService>('billing.service');
+export const BillingService = token<BillingService>(
+  'billing.service',
+  'contract',
+);
 ```
 
 ```typescript
@@ -675,12 +681,15 @@ export interface ProductBadge {
   id: string;
   for(product: { id: number; stock: number }): string | null;
 }
-export const ProductBadges = slot<ProductBadge>('catalog.product-badges');
+export const ProductBadges = token<ProductBadge>(
+  'catalog.product-badges',
+  'slot',
+);
 ```
 
 ```typescript
 // cualquier módulo lo llena, sin que catalog cambie — providers/low-stock-badge.provider.ts
-@Contributes(ProductBadges)
+@Provides(ProductBadges)
 export class LowStockBadge extends Provider implements ProductBadge {
   readonly id = 'low-stock';
   for(product) {
@@ -699,9 +708,10 @@ extensiones: `catalog` no sabe nada de quién lo llena, mientras que un
 contribuyente importa su token. Al revés, el core dependería de sus propias
 extensiones y ninguna se podría quitar.
 
-- Una contribución es un `Provider` como cualquier otro — misma carpeta, misma
-  inyección — y `@Contributes` toma un slot donde `@Provides` toma un contrato.
-  Pasar uno donde va el otro falla en el decorador, con la diferencia explicada.
+- Una contribución es un `Provider` como cualquier otro — misma carpeta, mismo
+  decorador, misma inyección. `@Provides` sirve para los dos, porque el token ya
+  dice cuál es: un contrato tiene un proveedor, un slot acepta los que haya. Un
+  token de evento se rechaza, porque un evento no lo provee nadie.
 - **Sólo los módulos encendidos contribuyen**, así que apagar una extensión quita
   lo que agregó.
 - Un arreglo vacío es una respuesta normal: un slot que nadie llenó es una función
@@ -771,8 +781,9 @@ export interface ProductRestocked {
   productId: number;
   quantity: number;
 }
-export const ProductRestocked = event<ProductRestocked>(
+export const ProductRestocked = token<ProductRestocked>(
   'catalog.product.restocked',
+  'event',
 );
 ```
 

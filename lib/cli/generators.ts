@@ -403,7 +403,7 @@ export function createListener(options: ListenerOptions): Plan {
   const tokenName = toPascal(target.name);
   const from = relativeFrom(options.from, 3);
 
-  const content = `import { event, Listener, On } from '${from}';
+  const content = `import { token, Listener, On } from '${from}';
 
 /**
  * The token belongs to the module that ANNOUNCES the event, not to this one.
@@ -414,7 +414,12 @@ export function createListener(options: ListenerOptions): Plan {
  *
  * It is declared here only so the file compiles on its own.
  */
-export const ${tokenName} = event<{ id: number }>('${target.module}.${target.name}');
+${tokenDeclaration({
+  constName: tokenName,
+  typeName: '{ id: number }',
+  id: `${target.module}.${target.name}`,
+  kind: 'event',
+})}
 
 /**
  * Reacting is not answering: throwing here does not fail whoever emitted, and
@@ -438,6 +443,29 @@ export default class ${className} extends Listener<{ id: number }> {
   );
 }
 
+/**
+ * A `token(id, kind)` declaration, wrapped the way prettier would wrap it.
+ *
+ * The scaffolded project runs `prettier --check`, and the width depends on the
+ * module and the name, which only the generator knows: `liteb slot
+ * subscriptions/invoice-line-renderers` goes past 80 columns and
+ * `liteb slot shop/tags` does not. Getting it wrong means a generated file
+ * fails the project's own lint on the first commit.
+ */
+function tokenDeclaration(args: {
+  constName: string;
+  typeName: string;
+  id: string;
+  kind: 'contract' | 'slot' | 'event';
+}): string {
+  const { constName, typeName, id, kind } = args;
+  const oneLine = `export const ${constName} = token<${typeName}>('${id}', '${kind}');`;
+
+  if (oneLine.length <= 80) return oneLine;
+
+  return `export const ${constName} = token<${typeName}>(\n  '${id}',\n  '${kind}',\n);`;
+}
+
 export interface ContractOptions extends CommonOptions {
   target: string;
 }
@@ -455,7 +483,7 @@ export function createContract(options: ContractOptions): Plan {
   const name = toPascal(target.name);
   const from = relativeFrom(options.from, 3);
 
-  const content = `import { contract } from '${from}';
+  const content = `import { token } from '${from}';
 
 /**
  * What other modules may ask "${target.module}" for — WITHOUT importing
@@ -471,7 +499,12 @@ export interface ${name} {
   describe(): Promise<string>;
 }
 
-export const ${name} = contract<${name}>('${target.module}.${target.name}');
+${tokenDeclaration({
+  constName: name,
+  typeName: name,
+  id: `${target.module}.${target.name}`,
+  kind: 'contract',
+})}
 `;
 
   return plan(
@@ -499,7 +532,6 @@ export function createProvider(options: ProviderOptions): Plan {
   const fillsSlot = options.slot !== undefined;
 
   let tokenImport: string;
-  let decorator: string;
   let token: string;
   let implemented: string;
   let body: string;
@@ -512,7 +544,6 @@ export function createProvider(options: ProviderOptions): Plan {
     const slotFile = toKebab(options.slot as string);
     token = toPascal(options.slot as string);
     implemented = token.endsWith('s') ? token.slice(0, -1) : `${token}Entry`;
-    decorator = 'Contributes';
     tokenImport = `// The slot belongs to the module that OPENED it: replace <module> with the one
 // that declared it. \`@/\` is the alias for your modules folder.
 import { ${implemented}, ${token} } from '@/<module>/slots/${slotFile}.slot';`;
@@ -520,14 +551,13 @@ import { ${implemented}, ${token} } from '@/<module>/slots/${slotFile}.slot';`;
   } else {
     token = name;
     implemented = name;
-    decorator = 'Provides';
     tokenImport = `import { ${token} } from '../contracts/${target.name}.contract';`;
     body = `  public async describe(): Promise<string> {
     return '${target.module}';
   }`;
   }
 
-  const content = `import { ${decorator}, Provider } from '${from}';
+  const content = `import { Provides, Provider } from '${from}';
 ${tokenImport}
 
 /**
@@ -539,7 +569,7 @@ ${tokenImport}
  * initializer can already reach for a repository. Built the first time someone
  * asks for it, then reused.
  */
-@${decorator}(${token})
+@Provides(${token})
 export class ${name}Provider extends Provider implements ${implemented} {
   // private readonly things = this.db.getRepository(Thing);
 
@@ -575,7 +605,7 @@ export function createEvent(options: EventOptions): Plan {
   const name = toPascal(target.name);
   const from = relativeFrom(options.from, 3);
 
-  const content = `import { event } from '${from}';
+  const content = `import { token } from '${from}';
 
 /**
  * Announced after it happened. "${target.module}" does not know or care who
@@ -589,7 +619,12 @@ export interface ${name} {
   id: number;
 }
 
-export const ${name} = event<${name}>('${target.module}.${target.name}');
+${tokenDeclaration({
+  constName: name,
+  typeName: name,
+  id: `${target.module}.${target.name}`,
+  kind: 'event',
+})}
 `;
 
   return plan(
@@ -624,7 +659,7 @@ export function createSlot(options: SlotOptions): Plan {
     : `${collection}Entry`;
   const from = relativeFrom(options.from, 3);
 
-  const content = `import { slot } from '${from}';
+  const content = `import { token } from '${from}';
 
 /**
  * The shape of ONE contribution.
@@ -638,7 +673,12 @@ export interface ${item} {
  * \`this.all(${collection})\`, and an empty array is a normal answer — a slot
  * nobody filled is a feature nobody installed.
  */
-export const ${collection} = slot<${item}>('${target.module}.${target.name}');
+${tokenDeclaration({
+  constName: collection,
+  typeName: item,
+  id: `${target.module}.${target.name}`,
+  kind: 'slot',
+})}
 `;
 
   return plan(

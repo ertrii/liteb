@@ -1,7 +1,7 @@
-import { contract } from '../../../../lib';
+import { token } from '../../../../lib';
 
 export interface Grants {
   forUser(userId: number): Promise<string[] | null>;
 }
 
-export const Grants = contract<Grants>('grants.policy');
+export const Grants = token<Grants>('grants.policy', 'contract');

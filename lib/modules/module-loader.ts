@@ -129,9 +129,9 @@ export interface LoadedProvider {
 /**
  * Reads the `Provider` classes a module contributes.
  *
- * A `Provider` without `@Provides` or `@Contributes` is skipped rather than
- * fatal, the same way an endpoint without a verb is: it reads as a file being
- * written, not as a broken installation.
+ * A `Provider` without `@Provides` is skipped rather than fatal, the same way
+ * an endpoint without a verb is: it reads as a file being written, not as a
+ * broken installation.
  */
 export async function loadModuleProviders(
   mod: ResolvedModule,
@@ -152,7 +152,7 @@ export async function loadModuleProviders(
       ) as ProvidesMetadata;
       if (!metadata) {
         Logger.warn(
-          `Provider ${ProviderClass.name} in module "${mod.id}" has no @Provides(contract) or @Contributes(slot) and was skipped.`,
+          `Provider ${ProviderClass.name} in module "${mod.id}" has no @Provides(token) and was skipped.`,
         );
         return null;
       }

@@ -1,4 +1,4 @@
-import { contract } from '../../../../lib';
+import { token } from '../../../../lib';
 
 /** What other modules may ask catalog about its products. */
 export interface ProductCatalog {
@@ -6,4 +6,7 @@ export interface ProductCatalog {
   totalStock(): Promise<number>;
 }
 
-export const ProductCatalog = contract<ProductCatalog>('catalog.products');
+export const ProductCatalog = token<ProductCatalog>(
+  'catalog.products',
+  'contract',
+);

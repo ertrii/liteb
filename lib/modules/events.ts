@@ -9,22 +9,29 @@ import type { Container } from './container';
  * Like a contract, it is the ONLY thing two modules share: the emitter exports
  * the token, a listener imports it. Neither imports the other's code.
  *
+ * Declared with `token(id, 'event')`.
+ *
  * @example
  * export interface ChargeCreated {
  *   chargeId: number;
  *   customerId: number;
  * }
- * export const ChargeCreated = event<ChargeCreated>('billing.charge.created');
+ * export const ChargeCreated = token<ChargeCreated>(
+ *   'billing.charge.created',
+ *   'event',
+ * );
  */
 export interface EventToken<T> {
   readonly id: string;
+  /**
+   * Set by `token()`. It is what keeps a contract or a slot from being passed
+   * to `emit()`: without it this interface is a subset of both, so
+   * `emit(BillingService, payload)` used to compile and then quietly reach
+   * nobody, since no listener is registered under a contract's id.
+   */
+  readonly kind: 'event';
   /** Carries the payload type. Never read at runtime. */
   readonly payload?: T;
-}
-
-/** Declares an event. The id is what shows up in logs. */
-export function event<T>(id: string): EventToken<T> {
-  return { id };
 }
 
 interface Registration {

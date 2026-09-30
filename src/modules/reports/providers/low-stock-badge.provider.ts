@@ -1,4 +1,4 @@
-import { Contributes, Provider } from '../../../../lib';
+import { Provides, Provider } from '../../../../lib';
 import {
   ProductBadge,
   ProductBadges,
@@ -11,7 +11,7 @@ import {
  * Because `reports` installs disabled, the badge only appears once someone
  * turns the module on. Turning it off removes it again.
  */
-@Contributes(ProductBadges)
+@Provides(ProductBadges)
 export class LowStockBadge extends Provider implements ProductBadge {
   public readonly id = 'low-stock';
 

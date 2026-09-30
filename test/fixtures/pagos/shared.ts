@@ -1,8 +1,11 @@
-import { slot } from '../../../lib';
+import { token } from '../../../lib';
 
 export interface PaymentMethod {
   id: string;
   label: string;
 }
 
-export const PaymentMethods = slot<PaymentMethod>('billing.payment-methods');
+export const PaymentMethods = token<PaymentMethod>(
+  'billing.payment-methods',
+  'slot',
+);

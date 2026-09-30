@@ -10,23 +10,21 @@ import type { Slot } from './slots';
  * consumer imports *this* — never the implementation, which stays private to
  * the module that owns it. That asymmetry is what lets a module be swapped or
  * turned off without its consumers knowing.
+ *
+ * Declared with `token(id, 'contract')`.
  */
 export interface Contract<T> {
   readonly id: string;
   /**
-   * Tells a contract from a {@link Slot}. Without it the two would be
-   * structurally identical and each could be passed where the other goes,
-   * which is the one confusion that matters here: a contract has exactly one
-   * provider, a slot has many.
+   * Set by `token()`, and the only place this is written down. Without it the
+   * three kinds of token would be structurally identical and each could be
+   * passed where another goes, which is the one confusion that matters here: a
+   * contract has exactly one provider, a slot has many, an event has listeners
+   * and no answer.
    */
   readonly kind: 'contract';
   /** Phantom field: carries T so `get()` returns the right type. Never set. */
   readonly __type?: T;
-}
-
-/** Declares a contract. The id is what appears in errors, so name it well. */
-export function contract<T>(id: string): Contract<T> {
-  return { id, kind: 'contract' };
 }
 
 /** A class that implements a contract, or fills an extension point. */

@@ -6,10 +6,11 @@ import type { EventBus, EventToken } from '../modules/events';
 /**
  * How a module answers a contract, or fills someone else's extension point.
  *
- * It is the implementation that {@link contract} deliberately leaves out: the
- * consumer imports the token, never this. Which one it answers is the
- * `@Provides` (or `@Contributes`) decorator, and the file lives in the
- * module's `providers/` folder — nothing lists it.
+ * It is the implementation that a token deliberately leaves out: the consumer
+ * imports the token, never this. Which one it answers is the `@Provides`
+ * decorator — the same one whether the token is a contract or an extension
+ * point — and the file lives in the module's `providers/` folder, so nothing
+ * lists it.
  *
  * A class and not a function on purpose. A decorator cannot be put on an
  * object literal or an arrow function, so the class is what makes the folder

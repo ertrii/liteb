@@ -533,7 +533,7 @@ npx liteb provider reports/low-stock --slot badges # llena un punto de extensió
 | `--slot <name>` | llenar un punto de extensión en vez de responder un contrato |
 
 La clase que cumple la promesa. Escribe `providers/<name>.provider.ts` con
-`@Provides(Token)`, o `@Contributes(Slot)` con `--slot`.
+`@Provides(Token)` — el mismo decorador, sea el token un contrato o, con `--slot`, un punto de extensión.
 
 `this.db`, `this.get(Contract)`, `this.all(Slot)` y `this.emit(Event)` se
 inyectan **antes** de construir la instancia, así que un inicializador de campo

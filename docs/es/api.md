@@ -58,7 +58,7 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `Endpoint<B, P, Q>` | clase | Un endpoint HTTP. Los genéricos son el body, los params y el query ya validados. |
 | `Routine` | clase | Trabajo agendado. `@Cron` decide cuándo. |
 | `Listener<P>` | clase | Atiende un evento. `@On` dice cuál. |
-| `Provider` | clase | Responde un contrato o llena un slot. `@Provides` / `@Contributes`. |
+| `Provider` | clase | Responde un contrato o llena un slot. Se marca con `@Provides`. |
 | `DataJson` | `Record<string, any> \| Response \| Output \| null` | Lo que puede devolver el `main()` de un endpoint. |
 | `UploadedFile` | interface | Un archivo de una petición multipart. Tipo propio de liteb, no un global. |
 
@@ -95,7 +95,6 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `Cron` | `(expression: string, options?: ScheduleOptions) => ClassDecorator` | Cuándo corre una rutina. |
 | `On` | `<T>(token: EventToken<T>) => ClassDecorator` | Qué evento atiende un oyente. |
 | `Provides` | `<T>(token: Contract<T>) => ClassDecorator` | El contrato que responde un proveedor. |
-| `Contributes` | `<T>(target: Slot<T>) => ClassDecorator` | El slot al que aporta un proveedor. |
 | `ApiTag` `ApiSummary` `ApiDescription` `ApiResponse` `ApiHidden` | decoradores de clase | Qué dice `/docs` de este endpoint, o que no diga nada. |
 | `MiddlewareFn` | `(req, res, next) => void` | Lo que recibe `@Use`. |
 | `GroupOptions` | interface | Lo que recibe `@Group` además del nombre. |
@@ -148,15 +147,14 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 
 | Nombre | Tipado | Qué es |
 | --- | --- | --- |
-| `contract` | `<T>(id: string) => Contract<T>` | Un token para una capacidad que un módulo necesita y otro responde. |
-| `Contract<T>` | interface | Ese token. Lleva `T` sólo a nivel de tipos. |
+| `token` | `<T>(id, kind) => Contract<T> \| Slot<T> \| EventToken<T>` | Declara lo único que dos módulos comparten. La clase que le pases decide qué tipo vuelve. |
+| `TokenKind` | `'contract' \| 'slot' \| 'event'` | Cuántos pueden responder, que es lo único en lo que los tres se diferencian. Vive en el token y en ningún otro lado. |
+| `Contract<T>` | interface | Una capacidad con exactamente un proveedor: `token(id, 'contract')`. |
+| `Slot<T>` | interface | Un punto de extensión al que aportan los módulos que haya: `token(id, 'slot')`. `container.all()` contesta un arreglo, y vacío es una respuesta normal. |
+| `EventToken<T>` | interface | Algo que pasó, tipado por su carga: `token(id, 'event')`. |
 | `Container` | clase | Los resuelve: `.get(contract)`, `.all(slot)`, `.has()`, `.providerOf()`, `.ids()`. Se alcanza como `this.container`. |
 | `ContractError` | clase | Nadie provee ese contrato, o lo proveen dos módulos. |
-| `event` | `<T>(id: string) => EventToken<T>` | Un token para algo que pasó. |
-| `EventToken<T>` | interface | Ese token, tipado por su payload. |
 | `EventBus` | clase | `.emit(token, payload)`, más `.ids()` y `.countFor()` para saber qué está escuchando. |
-| `slot` | `<T>(id: string) => Slot<T>` | Un token al que pueden aportar muchos módulos, donde un contrato acepta exactamente uno. |
-| `Slot<T>` | interface | Ese token. `container.all(slot)` contesta un arreglo; vacío es una respuesta normal. |
 
 ---
 

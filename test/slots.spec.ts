@@ -5,7 +5,7 @@ import type { DataSource } from 'typeorm';
 import {
   buildContainer,
   Container,
-  contract,
+  token,
   defineModule,
   Provider,
 } from '../lib';
@@ -62,7 +62,7 @@ describe('ranuras de extensión', () => {
   });
 
   it('una contribución resuelve contratos como cualquier proveedor', () => {
-    const Tasa = contract<{ valor: number }>('fx.rate');
+    const Tasa = token<{ valor: number }>('fx.rate', 'contract');
 
     class TasaProvider extends Provider {
       public readonly valor = 3.7;

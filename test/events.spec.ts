@@ -5,7 +5,7 @@ import type { DataSource } from 'typeorm';
 import request from 'supertest';
 import {
   defineModule,
-  event,
+  token,
   EventBus,
   Liteb,
   Listener,
@@ -21,7 +21,7 @@ describe('EventBus (sin servidor)', () => {
   interface Hecho {
     n: number;
   }
-  const Hecho = event<Hecho>('demo.hecho');
+  const Hecho = token<Hecho>('demo.hecho', 'event');
 
   it('un evento que nadie escucha no es un error', async () => {
     const bus = new EventBus(fakeDb);

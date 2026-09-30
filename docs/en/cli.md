@@ -523,7 +523,7 @@ npx liteb provider reports/low-stock --slot badges # fills an extension point
 | `--slot <name>` | fill an extension point instead of answering a contract |
 
 The class that keeps the promise. Writes `providers/<name>.provider.ts` with
-`@Provides(Token)`, or `@Contributes(Slot)` with `--slot`.
+`@Provides(Token)` — the same decorator whether the token is a contract or, with `--slot`, an extension point.
 
 `this.db`, `this.get(Contract)`, `this.all(Slot)` and `this.emit(Event)` are
 injected **before** the instance is built, so a field initializer can already

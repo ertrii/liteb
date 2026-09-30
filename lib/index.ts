@@ -63,10 +63,11 @@ export {
 } from './modules/module-loader';
 export type { LoadedModule, LoadedListener } from './modules/module-loader';
 export { collectModuleEntities } from './modules/collect-entities';
-export { contract, Container, ContractError } from './modules/container';
-export { slot } from './modules/slots';
+export { Container, ContractError } from './modules/container';
+export { token } from './modules/token';
+export type { TokenKind } from './modules/token';
 export type { Slot } from './modules/slots';
-export { event, EventBus } from './modules/events';
+export { EventBus } from './modules/events';
 export { PermissionRegistry } from './modules/permissions';
 export type { PermissionsOf } from './modules/permissions';
 export type { RegisteredPermission } from './modules/permissions';
@@ -122,7 +123,7 @@ export type {
 export * from './templates/endpoint';
 export * from './templates/routine';
 export * from './templates/provider';
-export { Provides, Contributes } from './decorators/provides.decorator';
+export { Provides } from './decorators/provides.decorator';
 export type { ProvidesMetadata } from './decorators/provides.decorator';
 export * from './utilities/logger';
 export type { LogFiles, LoggerOptions } from './services/log4js';

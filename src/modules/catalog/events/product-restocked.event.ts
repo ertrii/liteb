@@ -1,4 +1,4 @@
-import { event } from '../../../../lib';
+import { token } from '../../../../lib';
 
 /**
  * Announced after stock goes up. Catalog does not know or care who reacts —
@@ -12,6 +12,7 @@ export interface ProductRestocked {
   userId: number;
 }
 
-export const ProductRestocked = event<ProductRestocked>(
+export const ProductRestocked = token<ProductRestocked>(
   'catalog.product.restocked',
+  'event',
 );

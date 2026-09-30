@@ -4,6 +4,85 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-alpha.5] - 2026-09-29
+
+### Changed
+
+- **One `token()` replaces `contract()`, `slot()` and `event()`.** The three
+  differed in exactly one thing — how many may answer — so that is now an
+  argument instead of three functions.
+
+  ```typescript
+  // before
+  export const BillingService = contract<BillingService>('billing.service');
+  export const ProductBadges = slot<ProductBadge>('catalog.product-badges');
+  export const ProductRestocked = event<ProductRestocked>('catalog.restocked');
+
+  // now
+  export const BillingService = token<BillingService>(
+    'billing.service',
+    'contract',
+  );
+  export const ProductBadges = token<ProductBadge>(
+    'catalog.product-badges',
+    'slot',
+  );
+  export const ProductRestocked = token<ProductRestocked>(
+    'catalog.restocked',
+    'event',
+  );
+  ```
+
+  `Contract<T>`, `Slot<T>` and `EventToken<T>` stay distinct types, so nothing
+  loosens: the overloads return the right one per kind, and passing the wrong
+  token anywhere still fails to compile. `TokenKind` is exported for a signature
+  that has to name it.
+
+  An empty id and an unknown kind are refused at import time. Both were silent
+  before: an empty id collides with the next empty id, and a kind nothing
+  recognizes produces a token no site ever resolves.
+
+- **`@Contributes` is gone. `@Provides` takes a contract and a slot.** [BREAKING]
+
+  ```typescript
+  @Provides(BillingService) // the one implementation of a contract
+  @Provides(ProductBadges)  // one contribution among however many exist
+  ```
+
+  The two decorators wrote the same metadata under the same symbol, and
+  `buildContainer` always decided by reading `kind` off the token — never by
+  which decorator was used. The only thing the second name bought was an error
+  for mixing a slot with a contract, and that error existed only because the
+  kind was asserted in two places that could disagree. With the kind on the
+  token there is nothing left to contradict.
+
+  `@Provides` still refuses an event token, because nothing provides an event: a
+  module announces it with `this.emit()` and a `Listener` reacts with `@On()`.
+
+  **Migrating:** rename `contract(id)` → `token(id, 'contract')`, `slot(id)` →
+  `token(id, 'slot')`, `event(id)` → `token(id, 'event')`, and `@Contributes` →
+  `@Provides`. The imports change from `{ contract }` / `{ slot }` / `{ event }`
+  to `{ token }`. Nothing else moves: the folders, the manifest fields and
+  `this.get()` / `this.all()` / `this.emit()` are the same.
+
+### Fixed
+
+- **`emit()` accepted a contract or a slot, and then reached nobody.**
+  `EventToken` carried no `kind`, so it was structurally a subset of both:
+  `this.emit(BillingService, payload)` compiled, and at run time no listener is
+  registered under a contract's id, so the call did nothing and said nothing.
+  `EventToken` now carries `kind: 'event'` and the compiler refuses it.
+
+  A type-level test pins it: `test/token.spec.ts` uses `@ts-expect-error` on
+  each crossed pair, and ts-jest fails the suite if any of them stops being an
+  error.
+
+- **A generated `token()` declaration could exceed 80 columns**, which fails the
+  `prettier --check` that `liteb init` wires into the scaffolded project. The
+  generator now wraps it the way prettier would, and which side of the line a
+  declaration falls on depends on the module and the name — so it is decided per
+  file, with a test for both cases.
+
 ## [2.0.0-alpha.4] - 2026-09-28
 
 ### Changed

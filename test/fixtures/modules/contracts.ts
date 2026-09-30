@@ -1,4 +1,4 @@
-import { contract } from '../../../lib';
+import { token } from '../../../lib';
 
 /** Contrato que publica el módulo de facturación. */
 export interface BillingService {
@@ -8,4 +8,7 @@ export interface BillingService {
   }): Promise<{ id: string }>;
 }
 
-export const BillingService = contract<BillingService>('billing.service');
+export const BillingService = token<BillingService>(
+  'billing.service',
+  'contract',
+);

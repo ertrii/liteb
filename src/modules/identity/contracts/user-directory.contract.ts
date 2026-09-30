@@ -1,4 +1,4 @@
-import { contract } from '../../../../lib';
+import { token } from '../../../../lib';
 
 /**
  * What other modules may ask about users — WITHOUT importing anything else
@@ -13,4 +13,7 @@ export interface UserDirectory {
   nameOf(userId: number): Promise<string | null>;
 }
 
-export const UserDirectory = contract<UserDirectory>('identity.directory');
+export const UserDirectory = token<UserDirectory>(
+  'identity.directory',
+  'contract',
+);
