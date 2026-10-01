@@ -2,6 +2,7 @@ import { Database } from '../modules/database';
 import type { Container, Contract } from '../modules/container';
 import type { Slot } from '../modules/slots';
 import type { EventBus, EventToken } from '../modules/events';
+import type { TaskHandle, TaskRunner, TaskToken } from '../modules/tasks';
 
 /**
  * Work the application does on its own, on a clock.
@@ -35,6 +36,8 @@ export abstract class Routine {
 
   /** Event bus of this application, injected like `db`. */
   public events?: EventBus;
+  /** Task runner of this application, injected like `db`. */
+  public tasks?: TaskRunner;
 
   /**
    * Resolves a contract another module provides. Same rule as an endpoint: the
@@ -90,6 +93,28 @@ export abstract class Routine {
   protected async emit<T>(token: EventToken<T>, payload: T): Promise<void> {
     if (!this.events) return;
     await this.events.emit(token, payload);
+  }
+
+  /**
+   * The handle of a scheduled task: `start()`, `stop()`, `isRunning()`.
+   *
+   * What it is for is the schedule an operator decides, not the deployment: a
+   * sync somebody triggers, a nightly job that gets paused during a migration.
+   * `start()` on something already running does nothing and says so, so the
+   * same button pressed twice cannot produce two clocks.
+   *
+   * @example
+   * const backup = this.task(NightlyBackup);
+   * backup.start();
+   * return { running: backup.isRunning() };
+   */
+  protected task(token: TaskToken): TaskHandle {
+    if (!this.tasks) {
+      throw new Error(
+        `Cannot reach the task "${token.id}": this application has no task runner. Start it with Liteb.create({ modules }).`,
+      );
+    }
+    return this.tasks.handle(token);
   }
 
   /**

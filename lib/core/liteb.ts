@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm';
 import { NextFunction, Request, Response } from 'express';
-import cron from 'node-cron';
 import swaggerUi from 'swagger-ui-express';
 import EndpointHandler from './endpoint-handler';
 import EndpointReader from './endpoint-reader';
@@ -12,7 +11,7 @@ import ErrorControl from '../utilities/error-control';
 import { NotFoundError } from '../utilities/errors';
 import { ErrorType } from '../interfaces/type-error';
 import { Routine } from '../templates/routine';
-import InterpreterRoutine from './interpreter-routine';
+import { TaskRunner, TaskHandle, TaskToken } from '../modules/tasks';
 import path from 'path';
 import { OpenAPIGenerator, OpenAPIInfo } from '../services/openapi-generator';
 import { ResolvedModule } from '../modules/module-manifest';
@@ -186,9 +185,9 @@ export default class Liteb extends Server {
   private permissionRegistry = new PermissionRegistry();
   private authResolver: AuthResolver;
   private moduleRoutines: Array<new () => Routine> = [];
+  private taskRunner?: TaskRunner;
   private templatesAsync: Promise<string[]>[] = [];
   private started = false;
-  private scheduled: cron.ScheduledTask[] = [];
   private shuttingDown = false;
   private swaggerConfig: {
     path: string;
@@ -359,6 +358,32 @@ export default class Liteb extends Server {
    */
   public permissions = (): RegisteredPermission[] =>
     this.permissionRegistry.list();
+
+  /**
+   * The handle of a scheduled task: `start()`, `stop()`, `isRunning()`.
+   *
+   * Here as well as on every unit so the decision can be made OUTSIDE a
+   * module: a deployment that wants one schedule off, a script that runs a
+   * nightly job by hand, a test that stops the clock before asserting.
+   *
+   * Populated during `start()`, so call it after.
+   *
+   * @example
+   * const app = await createApp();
+   * await app.start(5050);
+   * app.task(NightlyBackup).stop();
+   */
+  public task = (token: TaskToken): TaskHandle => {
+    if (!this.taskRunner) {
+      throw new Error(
+        `Cannot reach the task "${token.id}": the application has not started yet, so no task is registered. Call it after start().`,
+      );
+    }
+    return this.taskRunner.handle(token);
+  };
+
+  /** Ids of every registered task, whether running or stopped. */
+  public tasks = (): string[] => this.taskRunner?.ids() ?? [];
 
   /**
    * Configures the template engine and the views directory.
@@ -634,12 +659,22 @@ export default class Liteb extends Server {
 
     this.loadedModules = await loadModules(active);
 
-    // Routines are only COLLECTED here. They get scheduled at the end of
-    // `start()`, after `listen`, so a boot that fails on the way there never
-    // leaves a cron ticking against a half-built application.
+    // Tasks are REGISTERED here and started at the end of `start()`, after
+    // `listen`: a boot that fails on the way there never leaves a cron ticking
+    // against a half-built application. Registering early is what makes a
+    // duplicate token or a missing `@Cron` a boot-time complaint.
+    this.taskRunner = new TaskRunner(this.dbSource);
+    this.taskRunner.useWiring(this.container, this.events);
+    // Both directions: a task reaches contracts and events, and a provider, a
+    // strategy or a listener reaches a schedule.
+    this.container.useTasks(this.taskRunner);
+    this.events.useTasks(this.taskRunner);
     this.moduleRoutines = [];
     for (const mod of active) {
-      this.moduleRoutines.push(...(await loadModuleRoutines(mod)));
+      for (const RoutineClass of await loadModuleRoutines(mod)) {
+        this.moduleRoutines.push(RoutineClass);
+        this.taskRunner.register(mod.id, RoutineClass);
+      }
     }
     // Two lines, not six. What each wiring kind is CALLED belongs to the map
     // in `router.log` and to `app.permissions()`; a boot that went well only
@@ -757,6 +792,7 @@ export default class Liteb extends Server {
               this.authResolver,
               this.events,
               this.permissionRegistry,
+              this.taskRunner,
             );
             const option = new RouterOption(
               endpointReader.pathname,
@@ -787,21 +823,9 @@ export default class Liteb extends Server {
     // Start the HTTP server
     const boundPort = await this.listen(port);
 
-    if (this.moduleRoutines.length > 0) {
-      this.moduleRoutines.forEach((RoutineClass) => {
-        const interpreter = new InterpreterRoutine(
-          RoutineClass,
-          this.dbSource,
-          this.container,
-          // Without this a routine's `this.emit()` did nothing at all: the bus
-          // never reached it, and `emit` returns quietly when there is none.
-          this.events,
-        );
-        if (interpreter.isInvalid()) return;
-        const scheduled = interpreter.start();
-        if (scheduled) this.scheduled.push(scheduled);
-      });
-    }
+    // Only the ones that did not ask to stay stopped. The rest are registered
+    // and addressable, waiting for `app.task(Token).start()`.
+    this.taskRunner?.startAll();
 
     this.registerShutdownHooks();
 
@@ -809,9 +833,17 @@ export default class Liteb extends Server {
     // mounted: ZERO here is the failure that used to look like a healthy boot,
     // where a glob matched nothing and the application served 404 to
     // everything while saying `Done!`.
+    const tasks = this.taskRunner?.ids().length ?? 0;
+    const running = this.taskRunner?.runningCount() ?? 0;
     const serving = [
       count(order, 'route'),
-      count(this.scheduled.length, 'routine'),
+      // A task that is registered and stopped is not a failure, but it is the
+      // kind of thing somebody needs to see at a glance.
+      tasks === 0
+        ? ''
+        : `${count(tasks, 'task')}${
+            running === tasks ? '' : ` (${tasks - running} stopped)`
+          }`,
       this.swaggerConfig ? `docs at ${this.swaggerConfig.path}` : '',
     ].filter(Boolean);
 
@@ -899,8 +931,7 @@ export default class Liteb extends Server {
     this.shuttingDown = true;
 
     // Stop the schedules so nothing new starts.
-    this.scheduled.forEach((schedule) => schedule.stop());
-    this.scheduled = [];
+    this.taskRunner?.stopAll();
 
     try {
       await this.closeServer();

@@ -1,5 +1,6 @@
 import { Database } from '../modules/database';
 import type { Container, Contract } from '../modules/container';
+import type { TaskHandle, TaskRunner, TaskToken } from '../modules/tasks';
 import type { Slot } from '../modules/slots';
 
 /**
@@ -24,6 +25,8 @@ export abstract class Listener<P = unknown> {
 
   /** Container of the application this listener belongs to. */
   public container?: Container;
+  /** Task runner of this application, injected like `db`. */
+  public tasks?: TaskRunner;
 
   /** Resolves a contract another module provides. Same rule as an endpoint. */
   protected get<T>(token: Contract<T>): T {
@@ -57,6 +60,28 @@ export abstract class Listener<P = unknown> {
       );
     }
     return this.container.all(target);
+  }
+
+  /**
+   * The handle of a scheduled task: `start()`, `stop()`, `isRunning()`.
+   *
+   * What it is for is the schedule an operator decides, not the deployment: a
+   * sync somebody triggers, a nightly job that gets paused during a migration.
+   * `start()` on something already running does nothing and says so, so the
+   * same button pressed twice cannot produce two clocks.
+   *
+   * @example
+   * const backup = this.task(NightlyBackup);
+   * backup.start();
+   * return { running: backup.isRunning() };
+   */
+  protected task(token: TaskToken): TaskHandle {
+    if (!this.tasks) {
+      throw new Error(
+        `Cannot reach the task "${token.id}": this application has no task runner. Start it with Liteb.create({ modules }).`,
+      );
+    }
+    return this.tasks.handle(token);
   }
 
   /**

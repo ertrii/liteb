@@ -16,6 +16,7 @@ import type { Container, Contract } from '../modules/container';
 import { Auth, AuthContext, AuthResolver } from './auth';
 import type { EventBus } from '../modules/events';
 import type { PermissionRegistry } from '../modules/permissions';
+import type { TaskRunner } from '../modules/tasks';
 import { Output } from '../outputs/output';
 
 export default class EndpointHandler {
@@ -26,6 +27,7 @@ export default class EndpointHandler {
     private authResolver?: AuthResolver,
     private eventBus?: EventBus,
     private permissions?: PermissionRegistry,
+    private tasks?: TaskRunner,
   ) {}
 
   /**
@@ -99,6 +101,9 @@ export default class EndpointHandler {
     // Same rule as `db` and `container`: stable for the life of the handler, so
     // it goes on the prototype and is there before the instance exists.
     EndpointClass.prototype.events = this.eventBus;
+    // Same rule again: an endpoint is where an operator's "pause this schedule"
+    // button lands, so the runner has to be reachable from `main()`.
+    EndpointClass.prototype.tasks = this.tasks;
 
     const endpointClass = new EndpointClass();
     // The rest of the state is PER REQUEST and is assigned on the INSTANCE, not

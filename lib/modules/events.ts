@@ -2,6 +2,7 @@ import type { Database } from './database';
 import { Logger } from '../utilities/logger';
 import type { Listener } from '../templates/listener';
 import type { Container } from './container';
+import type { TaskRunner } from './tasks';
 
 /**
  * A named thing that happened, with the shape of what it carries.
@@ -58,6 +59,8 @@ export class EventBus {
 
   private container?: Container;
 
+  private tasks?: TaskRunner;
+
   constructor(private readonly db: Database) {}
 
   /**
@@ -71,6 +74,11 @@ export class EventBus {
    */
   public useContainer(container: Container): void {
     this.container = container;
+  }
+
+  /** Hands the bus the task runner, so a listener can start or stop one. */
+  public useTasks(tasks: TaskRunner): void {
+    this.tasks = tasks;
   }
 
   /** Subscribes a listener class to an event. */
@@ -113,6 +121,7 @@ export class EventBus {
         const listener = new ListenerClass();
         listener.db = this.db;
         listener.container = this.container;
+        listener.tasks = this.tasks;
         await listener.on(payload);
       }),
     );

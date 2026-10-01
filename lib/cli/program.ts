@@ -252,8 +252,12 @@ export function buildProgram(): Command {
   common(
     program
       .command('routine <module/name>')
-      .description('Work on a schedule, started with the application')
-      .option('--cron <expression>', 'node-cron expression', '0 7 * * *'),
+      .description('Work on a schedule, addressed by its own task token')
+      .option('--cron <expression>', 'node-cron expression', '0 7 * * *')
+      .option(
+        '--no-autostart',
+        'register it stopped, for a schedule somebody starts',
+      ),
   ).action((target, flags) => {
     report(
       createRoutine({
@@ -261,6 +265,7 @@ export function buildProgram(): Command {
         modulesDir: flags.dir,
         from: flags.from,
         cron: flags.cron,
+        autostart: flags.autostart,
       }),
       flags,
     );

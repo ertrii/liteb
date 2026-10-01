@@ -13,7 +13,7 @@ export { Group } from './decorators/group.decorator';
 export type { GroupOptions, GroupMetadata } from './decorators/group.decorator';
 export { Priority } from './decorators/priority.decorator';
 export { Cron } from './decorators/cron.decorator';
-export type { CronMetadata } from './decorators/cron.decorator';
+export type { CronMetadata, CronOptions } from './decorators/cron.decorator';
 export { Use } from './decorators/use.decorator';
 export type { MiddlewareFn, UseMetadata } from './decorators/use.decorator';
 export {
@@ -79,6 +79,8 @@ export { token } from './modules/token';
 export type { TokenKind } from './modules/token';
 export type { Slot } from './modules/slots';
 export { EventBus } from './modules/events';
+export { TaskRunner, TaskError } from './modules/tasks';
+export type { TaskToken, TaskHandle } from './modules/tasks';
 export { PermissionRegistry } from './modules/permissions';
 export type { PermissionsOf } from './modules/permissions';
 export type { RegisteredPermission } from './modules/permissions';

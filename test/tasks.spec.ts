@@ -1,0 +1,255 @@
+import 'reflect-metadata';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { Cron, Routine, TaskError, TaskRunner, token } from '../lib';
+import type { Database } from '../lib';
+
+/**
+ * Una task es un singleton con ciclo de vida: una instancia para toda la vida de
+ * la aplicación, construida al primer arranque, y el token es lo único que hace
+ * falta para prenderla o apagarla desde afuera.
+ */
+
+const fakeDb = {} as Database;
+
+const runners: TaskRunner[] = [];
+const nuevo = (): TaskRunner => {
+  const runner = new TaskRunner(fakeDb);
+  runners.push(runner);
+  return runner;
+};
+
+afterEach(() => {
+  // Un reloj que queda andando se lleva puesto al test siguiente, y jest avisa
+  // del handle abierto mucho después, en otro archivo.
+  runners.forEach((runner) => runner.stopAll());
+  runners.length = 0;
+});
+
+describe('el token de una task', () => {
+  it('es un cuarto tipo, y no lleva tipo propio', () => {
+    const Nocturna = token('demo.nocturna', 'task');
+
+    expect(Nocturna).toEqual({ id: 'demo.nocturna', kind: 'task' });
+  });
+
+  it('un kind inventado se reporta nombrando los cuatro', () => {
+    expect(() => token('demo.x', 'cron' as never)).toThrow(
+      /'task' \(a schedule that can be started and stopped\)/,
+    );
+  });
+});
+
+describe('@Cron valida al importar el archivo, no al arrancar', () => {
+  it('pide un token de task, y rechaza los otros tres por su nombre', () => {
+    for (const kind of ['contract', 'slot', 'event'] as const) {
+      const otro = token<{ x: number }>(`demo.${kind}`, kind as 'contract');
+
+      expect(() => {
+        @Cron(otro as never, '0 7 * * *')
+        class Mal extends Routine {
+          start() {}
+        }
+        return Mal;
+      }).toThrow(new RegExp(`got a ${kind}`));
+    }
+  });
+
+  it('rechaza una expresión que no es cron, con un ejemplo', () => {
+    // Antes esto compilaba y la task simplemente no corría nunca.
+    const T = token('demo.mala-expresion', 'task');
+
+    expect(() => {
+      @Cron(T, 'todas las noches')
+      class Mal extends Routine {
+        start() {}
+      }
+      return Mal;
+    }).toThrow(/is not a cron expression/);
+  });
+});
+
+describe('registro', () => {
+  it('una clase sin @Cron se saltea con aviso, no rompe el arranque', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    class Pelada extends Routine {
+      start() {}
+    }
+
+    const runner = nuevo();
+    expect(() => runner.register('demo', Pelada)).not.toThrow();
+    expect(runner.ids()).toEqual([]);
+
+    warn.mockRestore();
+  });
+
+  it('dos clases en el mismo token no se componen: una task es un reloj', () => {
+    const T = token('demo.una-sola', 'task');
+
+    @Cron(T, '0 7 * * *')
+    class Una extends Routine {
+      start() {}
+    }
+    @Cron(T, '0 8 * * *')
+    class Otra extends Routine {
+      start() {}
+    }
+
+    const runner = nuevo();
+    runner.register('a', Una);
+
+    expect(() => runner.register('b', Otra)).toThrow(TaskError);
+    // El error nombra a las dos clases y a los dos módulos.
+    expect(() => runner.register('b', Otra)).toThrow(
+      /Una \(module "a"\) and by Otra \(module "b"\)/,
+    );
+  });
+
+  it('un token que nadie registró lista los que sí', () => {
+    const Existe = token('demo.existe', 'task');
+    const Noexiste = token('demo.noexiste', 'task');
+
+    @Cron(Existe, '0 7 * * *')
+    class Hay extends Routine {
+      start() {}
+    }
+
+    const runner = nuevo();
+    runner.register('demo', Hay);
+
+    expect(() => runner.handle(Noexiste)).toThrow(/Registered: demo\.existe/);
+  });
+});
+
+describe('arrancar y parar', () => {
+  const Auto = token('demo.auto', 'task');
+  const Manual = token('demo.manual', 'task');
+
+  @Cron(Auto, '0 7 * * *')
+  class AutoRoutine extends Routine {
+    start() {}
+  }
+
+  @Cron(Manual, '0 7 * * *', { autostart: false })
+  class ManualRoutine extends Routine {
+    start() {}
+  }
+
+  const conLasDos = (): TaskRunner => {
+    const runner = nuevo();
+    runner.register('demo', AutoRoutine);
+    runner.register('demo', ManualRoutine);
+    return runner;
+  };
+
+  it('startAll respeta autostart: false', () => {
+    const runner = conLasDos();
+    runner.startAll();
+
+    expect(runner.handle(Auto).isRunning()).toBe(true);
+    // Registrada y direccionable, pero quieta.
+    expect(runner.handle(Manual).isRunning()).toBe(false);
+    expect(runner.ids()).toEqual(['demo.auto', 'demo.manual']);
+    expect(runner.runningCount()).toBe(1);
+  });
+
+  it('arrancar dos veces no hace nada la segunda, y lo dice', () => {
+    const runner = conLasDos();
+    const manual = runner.handle(Manual);
+
+    expect(manual.start()).toBe(true);
+    expect(manual.start()).toBe(false);
+    expect(manual.isRunning()).toBe(true);
+    expect(runner.runningCount()).toBe(1);
+  });
+
+  it('parar lo que no corre devuelve false', () => {
+    const runner = conLasDos();
+
+    expect(runner.handle(Manual).stop()).toBe(false);
+  });
+
+  it('parar y volver a arrancar reusa LA MISMA instancia', () => {
+    // Es lo que hace que `stop()` signifique algo: el reloj se detiene y lo que
+    // la task tenga en la mano queda como estaba.
+    let construidas = 0;
+    const T = token('demo.contada', 'task');
+
+    @Cron(T, '0 7 * * *')
+    class Contada extends Routine {
+      public readonly n: number;
+      constructor() {
+        super();
+        construidas += 1;
+        this.n = construidas;
+      }
+      start() {}
+    }
+
+    const runner = nuevo();
+    runner.register('demo', Contada);
+    const task = runner.handle(T);
+
+    task.start();
+    task.stop();
+    task.start();
+
+    expect(construidas).toBe(1);
+  });
+
+  it('no construye nada hasta que arranca: una task parada no cuesta', () => {
+    let construidas = 0;
+    const T = token('demo.perezosa', 'task');
+
+    @Cron(T, '0 7 * * *', { autostart: false })
+    class Perezosa extends Routine {
+      constructor() {
+        super();
+        construidas += 1;
+      }
+      start() {}
+    }
+
+    const runner = nuevo();
+    runner.register('demo', Perezosa);
+    runner.startAll();
+
+    expect(construidas).toBe(0);
+
+    runner.handle(T).start();
+    expect(construidas).toBe(1);
+  });
+
+  it('stopAll deja todo quieto, que es el apagado ordenado', () => {
+    const runner = conLasDos();
+    runner.startAll();
+    runner.handle(Manual).start();
+    expect(runner.runningCount()).toBe(2);
+
+    runner.stopAll();
+
+    expect(runner.runningCount()).toBe(0);
+  });
+});
+
+describe('lo que la task recibe', () => {
+  it('db y el runner llegan antes de construir, como a un proveedor', () => {
+    const T = token('demo.inyectada', 'task');
+
+    @Cron(T, '0 7 * * *', { autostart: false })
+    class Inyectada extends Routine {
+      public readonly vioDb = !!this.db;
+      public readonly vioRunner = !!this.tasks;
+      start() {}
+    }
+
+    const runner = nuevo();
+    runner.register('demo', Inyectada);
+    runner.handle(T).start();
+
+    const instancia = runner.instanceOf(T) as Inyectada;
+    expect(instancia.vioDb).toBe(true);
+    // Y el runner tambien: `this.task(T).stop()` adentro de start() es el caso
+    // de "corre una vez y no vuelvas".
+    expect(instancia.vioRunner).toBe(true);
+  });
+});

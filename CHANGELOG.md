@@ -190,6 +190,66 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already writes one and `src/index.ts` already passes it, so a scaffolded
   project needs no change.
 
+- **A scheduled task can be started and stopped, and `@Cron` takes its token
+  first.** [BREAKING]
+
+  A schedule used to be anonymous: a class with `@Cron`, started at boot,
+  stopped only by stopping the whole application. There was no way to pause one,
+  and no way to deploy one that waits — node-cron's `scheduled: false` passed
+  straight through and produced a task that could never be started, because
+  nothing held a handle to it.
+
+  A task is now addressed by a token of its own, which is what `start()` and
+  `stop()` take:
+
+  ```typescript
+  // reports/tokens/daily-summary.token.ts
+  export const DailySummary = token('reports.daily-summary', 'task');
+
+  // reports/routines/daily-summary.routine.ts
+  @Cron(DailySummary, '0 7 * * *', { timezone: 'America/Lima' })
+  export class DailySummaryRoutine extends Routine { ... }
+
+  // from an endpoint, a provider, a strategy, a listener or another task
+  this.task(DailySummary).stop();
+  // or from outside any module
+  app.task(DailySummary).start();
+  ```
+
+  What it buys:
+
+  - **`{ autostart: false }`** deploys a task registered and stopped, for a
+    schedule the application decides rather than the deployment — a sync
+    somebody triggers, a nightly job an operator turns on from a screen.
+  - **`start()` is idempotent.** It returns whether this call was the one that
+    started it, so the same button pressed twice cannot produce two clocks.
+  - **One instance, ever.** The task is built the first time it starts and kept
+    across a stop and a later start, so `stop()` means the clock stops and
+    whatever the task holds stays as it was. A task nobody starts is never built.
+  - **The expression and the token kind are checked when the file is imported.**
+    A malformed expression used to be a task that silently never ran.
+  - **Two classes on one token refuse to boot**, naming both classes and both
+    modules. A schedule has one clock, so that is a mistake and not a
+    composition.
+  - **A `Routine` without `@Cron` now warns** instead of being dropped in
+    silence.
+
+  New: `token(id, 'task')` and the `TaskToken` type, `TaskRunner`, `TaskHandle`,
+  `TaskError`, `this.task(Token)` on every unit, `app.task(Token)`,
+  `app.tasks()`, and `liteb routine --no-autostart`. `liteb routine` now writes
+  **two** files, the token beside the class, because a module owns its own
+  schedule — unlike an event's token, which belongs to whoever announces it.
+
+  Gone: `InterpreterRoutine`, which the runner replaces.
+
+  **Migrating:** declare a token per task and pass it first:
+  `@Cron('0 7 * * *')` becomes `@Cron(MyTask, '0 7 * * *')`. Anything passing
+  node-cron's `scheduled` should use `autostart` instead; `name` is dropped,
+  since the token is the name.
+
+  The boot line now counts tasks, and says how many are not running:
+  `Serving on :5050 - 11 routes, 3 tasks (1 stopped), docs at /docs (1.4s)`.
+
 - **A slot is filled by a `Strategy` with `@Fills`, not by a `Provider` with
   `@Provides`.** [BREAKING]
 

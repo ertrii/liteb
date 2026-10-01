@@ -327,18 +327,31 @@ export function createEndpoint(options: EndpointOptions): Plan {
 export interface RoutineOptions extends CommonOptions {
   target: string;
   cron?: string;
+  /** `false` writes it registered but stopped, for a schedule somebody starts. */
+  autostart?: boolean;
 }
 
 export function createRoutine(options: RoutineOptions): Plan {
   const target = parseTarget(options.target, 'routine');
   const dir = moduleDir(options, target.module);
   const className = `${toPascal(target.name)}Routine`;
+  const tokenName = toPascal(target.name);
   const cron = options.cron ?? '0 7 * * *';
   const from = relativeFrom(options.from, 3);
+  const autostart = options.autostart === false;
 
-  const content = `import { Cron, Routine } from '${from}';
+  // TWO files, and both belong to this module: unlike an event's, a task's
+  // token is not somebody else's — a module owns its own schedule, so the token
+  // goes where the module's other tokens go.
+  const tokenContent = `${importLine(['token'], from)}
 
-@Cron('${cron}')
+export const ${tokenName} = token('${target.module}.${target.name}', 'task');
+`;
+
+  const content = `${importLine(['Cron', 'Routine'], from)}
+${importLine([tokenName], `../tokens/${target.name}.token`)}
+
+@Cron(${tokenName}, '${cron}'${autostart ? ', { autostart: false }' : ''})
 export default class ${className} extends Routine {
   public async start(now: Date | 'manual' | 'init'): Promise<void> {
     console.log('[${target.module}] ${target.name} ran', now);
@@ -347,11 +360,16 @@ export default class ${className} extends Routine {
 `;
 
   return plan(
-    [{ path: `${dir}/routines/${target.name}.routine.ts`, content }],
+    [
+      { path: `${dir}/tokens/${target.name}.token.ts`, content: tokenContent },
+      { path: `${dir}/routines/${target.name}.routine.ts`, content },
+    ],
     [],
     [
       `Cron expression: '${cron}' — change it in the @Cron decorator. Set a timezone there too, or it follows the server's.`,
-      `The schedule starts once the server is listening and is cleared on shutdown, so a restart is what picks up a changed expression.`,
+      autostart
+        ? `It is registered and NOT running: start it with this.task(${tokenName}).start() from an endpoint, or app.task(${tokenName}).start() from outside.`
+        : `It starts once the server is listening and stops on shutdown. this.task(${tokenName}).stop() pauses it without a restart, and start() on something already running does nothing.`,
       "`this.db`, `this.get(Contract)` and `this.emit(Event)` work here exactly as in an endpoint. `now` is a Date, or 'init' when @Cron got runOnInit.",
     ],
   );
