@@ -31,15 +31,41 @@ export interface TaskToken {
 export interface TaskHandle {
   /**
    * Starts the schedule. Returns whether this call was the one that started it:
-   * calling it on a task that is already running does nothing and returns
+   * calling it on a task that is already scheduled does nothing and returns
    * `false`, so an endpoint can be called twice without a second clock
    * appearing.
    */
   start(): boolean;
-  /** Stops the schedule. `false` if it was not running. */
+  /**
+   * Stops the schedule. `false` if it was not scheduled.
+   *
+   * It stops the CLOCK, not a run already in flight: a stop during a billing
+   * run lets that run finish. {@link isExecuting} is how you tell.
+   */
   stop(): boolean;
-  /** Whether the clock is ticking right now. */
-  isRunning(): boolean;
+  /** Whether the clock is ticking — whether another run will come. */
+  isScheduled(): boolean;
+  /**
+   * Whether a run is in flight **right now**.
+   *
+   * Two different questions, and conflating them is how an operator reads
+   * "running" and believes the work is done. A task can be scheduled and idle,
+   * scheduled and executing, or stopped while a last run finishes.
+   */
+  isExecuting(): boolean;
+  /**
+   * Runs it once, now, without touching the schedule.
+   *
+   * This is the "Run now" button: generate this month's charges without waiting
+   * for 3am, re-apply the cut-offs after fixing the data. It goes through the
+   * SAME guard, so pressing it while the scheduled run is in flight does
+   * nothing and resolves to `false` — which is the whole point for a job that
+   * moves money.
+   *
+   * It works on a stopped task too: a schedule nobody turned on can still be
+   * run by hand.
+   */
+  runNow(): Promise<boolean>;
 }
 
 /** Thrown for a task that does not exist, or two claiming one token. */
@@ -62,7 +88,12 @@ interface Registration {
   /** Built on first start and reused: one task, one instance, ever. */
   instance?: Routine;
   scheduled?: cron.ScheduledTask;
-  running: boolean;
+  /** The clock is ticking. */
+  scheduledOn: boolean;
+  /** A run is in flight. What makes the executions sequential. */
+  executing: boolean;
+  /** Ticks dropped because the previous run had not finished. */
+  skipped: number;
 }
 
 /**
@@ -128,7 +159,9 @@ export class TaskRunner {
       expression,
       options,
       autostart,
-      running: false,
+      scheduledOn: false,
+      executing: false,
+      skipped: 0,
     });
   }
 
@@ -148,9 +181,16 @@ export class TaskRunner {
     return [...this.registrations.keys()];
   }
 
-  /** How many are ticking right now. */
-  public runningCount(): number {
-    return [...this.registrations.values()].filter((one) => one.running).length;
+  /** How many clocks are ticking right now. */
+  public scheduledCount(): number {
+    return [...this.registrations.values()].filter((one) => one.scheduledOn)
+      .length;
+  }
+
+  /** Ticks this task has dropped for overlapping with itself. */
+  public skippedCount(target: TaskToken | string): number {
+    const id = typeof target === 'string' ? target : target.id;
+    return this.registrationOf(id).skipped;
   }
 
   /**
@@ -177,7 +217,9 @@ export class TaskRunner {
     return {
       start: () => this.start(id),
       stop: () => this.stop(id),
-      isRunning: () => this.registrationOf(id).running,
+      isScheduled: () => this.registrationOf(id).scheduledOn,
+      isExecuting: () => this.registrationOf(id).executing,
+      runNow: () => this.run(id, 'manual'),
     };
   }
 
@@ -199,34 +241,90 @@ export class TaskRunner {
 
   private start(id: string): boolean {
     const registration = this.registrationOf(id);
-    if (registration.running) return false;
+    if (registration.scheduledOn) return false;
 
     if (!registration.scheduled) {
       // Built here and not at boot, so a task nobody starts costs nothing —
       // the same rule as a contract's implementation.
       registration.instance ??= this.build(registration.TaskClass);
-      const instance = registration.instance;
       // `cron.schedule` starts on creation, which is what we want: the first
       // start is also where `runOnInit` belongs, so a task that is not
       // autostarted does not fire its init tick until somebody asks for it.
       registration.scheduled = cron.schedule(
         registration.expression,
-        (now) => instance.start(now),
+        (now) => this.run(id, now),
         registration.options,
       );
     } else {
       registration.scheduled.start();
     }
 
-    registration.running = true;
+    registration.scheduledOn = true;
     return true;
   }
 
   private stop(id: string): boolean {
     const registration = this.registrationOf(id);
-    if (!registration.running) return false;
+    if (!registration.scheduledOn) return false;
     registration.scheduled?.stop();
-    registration.running = false;
+    registration.scheduledOn = false;
+    return true;
+  }
+
+  /**
+   * One run, and never two at once.
+   *
+   * node-cron does NOT wait: its scheduler ticks on its own timer and calls the
+   * function again whether the previous call finished or not. For a job that
+   * generates charges or applies cut-offs, two overlapping runs is the worst
+   * kind of bug — it is not a crash, it is duplicated money. So a tick that
+   * arrives while a run is in flight is DROPPED, and said out loud.
+   *
+   * Dropped and not queued on purpose: a queue turns a slow month into a
+   * backlog of identical runs, all of them stale by the time they get their
+   * turn. The next scheduled tick is the right time to try again.
+   *
+   * And the failure is logged here, because nothing else logs it: node-cron
+   * emits `task-failed` on an inner object nobody subscribes to, so until now a
+   * run that threw was completely silent. The schedule survives it — one bad
+   * night must not stop a nightly job forever — but somebody has to be able to
+   * find out.
+   */
+  private async run(
+    id: string,
+    now: Date | 'manual' | 'init',
+  ): Promise<boolean> {
+    const registration = this.registrationOf(id);
+
+    if (registration.executing) {
+      registration.skipped += 1;
+      Logger.warn(
+        `Task "${id}" (module "${registration.moduleId}") skipped a ${
+          now === 'manual' ? 'manual run' : 'tick'
+        }: the previous run has not finished. Skipped so far: ${
+          registration.skipped
+        }.`,
+      );
+      return false;
+    }
+
+    // A manual run on a task that was never started has nothing built yet.
+    registration.instance ??= this.build(registration.TaskClass);
+
+    registration.executing = true;
+    try {
+      await registration.instance.start(now);
+    } catch (error) {
+      Logger.error(
+        `Task "${id}" (module "${registration.moduleId}") failed on a run. The schedule keeps going.`,
+        error,
+      );
+    } finally {
+      // In `finally` and not after the await: a run that threw must not leave
+      // the task permanently "executing", which would silently stop it forever.
+      registration.executing = false;
+    }
+
     return true;
   }
 

@@ -145,11 +145,11 @@ describe('arrancar y parar', () => {
     const runner = conLasDos();
     runner.startAll();
 
-    expect(runner.handle(Auto).isRunning()).toBe(true);
+    expect(runner.handle(Auto).isScheduled()).toBe(true);
     // Registrada y direccionable, pero quieta.
-    expect(runner.handle(Manual).isRunning()).toBe(false);
+    expect(runner.handle(Manual).isScheduled()).toBe(false);
     expect(runner.ids()).toEqual(['demo.auto', 'demo.manual']);
-    expect(runner.runningCount()).toBe(1);
+    expect(runner.scheduledCount()).toBe(1);
   });
 
   it('arrancar dos veces no hace nada la segunda, y lo dice', () => {
@@ -158,8 +158,8 @@ describe('arrancar y parar', () => {
 
     expect(manual.start()).toBe(true);
     expect(manual.start()).toBe(false);
-    expect(manual.isRunning()).toBe(true);
-    expect(runner.runningCount()).toBe(1);
+    expect(manual.isScheduled()).toBe(true);
+    expect(runner.scheduledCount()).toBe(1);
   });
 
   it('parar lo que no corre devuelve false', () => {
@@ -223,11 +223,11 @@ describe('arrancar y parar', () => {
     const runner = conLasDos();
     runner.startAll();
     runner.handle(Manual).start();
-    expect(runner.runningCount()).toBe(2);
+    expect(runner.scheduledCount()).toBe(2);
 
     runner.stopAll();
 
-    expect(runner.runningCount()).toBe(0);
+    expect(runner.scheduledCount()).toBe(0);
   });
 });
 
@@ -251,5 +251,118 @@ describe('lo que la task recibe', () => {
     // Y el runner tambien: `this.task(T).stop()` adentro de start() es el caso
     // de "corre una vez y no vuelvas".
     expect(instancia.vioRunner).toBe(true);
+  });
+});
+
+describe('ejecuciones secuenciales: nunca dos a la vez', () => {
+  /**
+   * El caso que importa: facturación, cortes, generación de deudas. node-cron
+   * NO espera — su reloj dispara de nuevo haya terminado o no la corrida
+   * anterior. Dos corridas superpuestas de un job que mueve dinero no es una
+   * caída, es plata duplicada.
+   */
+  const demorada = (ms: number) => {
+    const T = token(`demo.lenta-${ms}`, 'task');
+    const corridas = { entradas: 0, salidas: 0 };
+
+    @Cron(T, '* * * * * *', { autostart: false })
+    class Lenta extends Routine {
+      async start() {
+        corridas.entradas += 1;
+        await new Promise((listo) => setTimeout(listo, ms));
+        corridas.salidas += 1;
+      }
+    }
+
+    const runner = nuevo();
+    runner.register('demo', Lenta);
+    return { runner, task: runner.handle(T), corridas, T };
+  };
+
+  it('un segundo disparo durante una corrida se descarta, y lo dice', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { runner, task, corridas, T } = demorada(60);
+
+    const primera = task.runNow();
+    // Mientras la primera está en vuelo.
+    expect(task.isExecuting()).toBe(true);
+    await expect(task.runNow()).resolves.toBe(false);
+
+    await expect(primera).resolves.toBe(true);
+
+    // Entró una sola vez, y el salto quedó contado.
+    expect(corridas.entradas).toBe(1);
+    expect(corridas.salidas).toBe(1);
+    expect(runner.skippedCount(T)).toBe(1);
+
+    warn.mockRestore();
+  });
+
+  it('una tras otra sí corren: el guardia es por superposición, no un candado', async () => {
+    const { task, corridas } = demorada(5);
+
+    await task.runNow();
+    await task.runNow();
+    await task.runNow();
+
+    expect(corridas.entradas).toBe(3);
+    expect(corridas.salidas).toBe(3);
+  });
+
+  it('una corrida que revienta NO deja la task trabada para siempre', async () => {
+    // Si la bandera se filtrara en el error, la task quedaría "ejecutando" y no
+    // volvería a correr nunca, en silencio. Es el peor final posible.
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const T = token('demo.revienta', 'task');
+    let veces = 0;
+
+    @Cron(T, '* * * * * *', { autostart: false })
+    class Revienta extends Routine {
+      async start() {
+        veces += 1;
+        throw new Error('la noche salió mal');
+      }
+    }
+
+    const runner = nuevo();
+    runner.register('demo', Revienta);
+    const task = runner.handle(T);
+
+    await expect(task.runNow()).resolves.toBe(true);
+    expect(task.isExecuting()).toBe(false);
+
+    // Y la siguiente corre igual, que es la regla: una mala noche no apaga un
+    // trabajo nocturno para siempre.
+    await task.runNow();
+    expect(veces).toBe(2);
+
+    error.mockRestore();
+  });
+
+  it('se puede correr a mano una task que nadie arrancó', async () => {
+    const { task, corridas } = demorada(1);
+
+    expect(task.isScheduled()).toBe(false);
+    await expect(task.runNow()).resolves.toBe(true);
+
+    expect(corridas.salidas).toBe(1);
+    // Y correrla a mano no prende el reloj.
+    expect(task.isScheduled()).toBe(false);
+  });
+
+  it('parar el reloj no corta una corrida en vuelo', async () => {
+    const { task, corridas } = demorada(40);
+    task.start();
+
+    const corriendo = task.runNow();
+    task.stop();
+
+    expect(task.isScheduled()).toBe(false);
+    // Sigue en vuelo: parar decide si VIENE otra, no mata la actual.
+    expect(task.isExecuting()).toBe(true);
+
+    await corriendo;
+    expect(corridas.salidas).toBe(1);
+    expect(task.isExecuting()).toBe(false);
   });
 });

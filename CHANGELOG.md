@@ -250,6 +250,47 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The boot line now counts tasks, and says how many are not running:
   `Serving on :5050 - 11 routes, 3 tasks (1 stopped), docs at /docs (1.4s)`.
 
+- **A task's runs are sequential: a tick that arrives while the previous run is
+  still going is dropped.**
+
+  node-cron does not wait. Its scheduler ticks on its own timer and calls the
+  function again whether the previous call finished or not, so a job that takes
+  longer than its interval used to overlap with itself. For the jobs this is
+  for — billing runs, cut-offs, generating charges — two overlapping runs is not
+  a crash, it is duplicated money.
+
+  Dropped and not queued: a queue turns one slow month into a backlog of
+  identical runs, all stale by the time they get their turn. The next scheduled
+  tick is the right moment to try again, and each drop is logged with a running
+  count.
+
+  `isRunning()` split in two, because they were two questions:
+
+  | | What it answers |
+  | --- | --- |
+  | `isScheduled()` | the clock is ticking — another run is coming |
+  | `isExecuting()` | a run is in flight **right now** |
+
+  Conflating them is how an operator reads "running" and believes the work is
+  finished. `stop()` stops the clock and lets a run in flight finish, so the two
+  states are independent.
+
+- **`runNow()`: run a task once, now, without touching its schedule.**
+
+  The "Run now" button — generate this month's charges without waiting for 3am,
+  re-apply the cut-offs after fixing the data. It goes through the same guard, so
+  pressing it during the scheduled run does nothing and resolves to `false`. It
+  works on a stopped task too, so `{ autostart: false }` plus `runNow()` is a job
+  that only ever runs by hand.
+
+- **A failing run is no longer silent.**
+
+  node-cron emits `task-failed` on an inner object nothing subscribes to, so a
+  task whose run threw failed invisibly — the schedule survived, which is right,
+  but nobody could find out. The runner logs it with the task id and its module.
+  A run that throws also cannot leave the task stuck as "executing", which would
+  have stopped it forever: the flag is cleared in a `finally`.
+
 - **A slot is filled by a `Strategy` with `@Fills`, not by a `Provider` with
   `@Provides`.** [BREAKING]
 

@@ -834,7 +834,7 @@ export default class Liteb extends Server {
     // where a glob matched nothing and the application served 404 to
     // everything while saying `Done!`.
     const tasks = this.taskRunner?.ids().length ?? 0;
-    const running = this.taskRunner?.runningCount() ?? 0;
+    const running = this.taskRunner?.scheduledCount() ?? 0;
     const serving = [
       count(order, 'route'),
       // A task that is registered and stopped is not a failure, but it is the
