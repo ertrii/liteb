@@ -190,6 +190,89 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already writes one and `src/index.ts` already passes it, so a scaffolded
   project needs no change.
 
+- **An event was a slot with one guarantee, so the guarantee stayed and the
+  mechanism went.** [BREAKING]
+
+  The bus, `Listener` and `@On` added exactly one thing over a slot: that a
+  contributor's failure cannot become the caller's failure. Everything else was
+  the same — any number of contributors, registered by declaration, the token
+  owned by whoever calls. "Returns nothing" is a `void` signature, not a
+  mechanism. And liteb never emitted an event itself: 259 lines of machinery
+  across 18 files for something only applications used, whose one demo use was a
+  `console.log`.
+
+  The guarantee is now a **verb on the slot**:
+
+  | | What it does | Whose failure it is |
+  | --- | --- | --- |
+  | `all(Token)` | hands you the contributions, you call them | **yours** |
+  | `notify(Token, payload)` | calls every one, discards the answers | **theirs** |
+
+  Which one it is now reads off the line you are looking at, instead of off a
+  token in another file.
+
+  ```typescript
+  // before — a kind of its own, a base class and a decorator
+  export const ProductRestocked = token<Payload>('catalog.product.restocked', 'event');
+
+  @On(ProductRestocked)
+  export class RestockLog extends Listener<Payload> { async on(p) {} }
+
+  await this.emit(ProductRestocked, payload);
+
+  // after — an ordinary slot, an ordinary Strategy
+  export const ProductRestocked = token<Reaction<Payload>>(
+    'catalog.product.restocked',
+    'slot',
+  );
+
+  @Fills(ProductRestocked)
+  export class RestockLog extends Strategy implements Reaction<Payload> {
+    async on(p: Payload) {}
+  }
+
+  await this.notify(ProductRestocked, payload);
+  ```
+
+  `Reaction<T>` supplies the method, so `notify()` takes the payload directly and
+  needs no lambda — the call site stays as short as `emit` was.
+
+  Removed: the `'event'` token kind, `EventToken`, `EventBus`, `Listener`, `@On`,
+  the `listeners/` folder and its manifest field, `loadModuleListeners`,
+  `LoadedListener`, `emit()` on `Endpoint`, `Provider`, `Strategy` and `Routine`,
+  `liteb listener`, and `liteb token <name> event`.
+
+  Added: `Reaction<T>`, `Container.notify()`, `this.notify()` on every unit, and
+  `liteb token <name> slot --reaction`, which writes the payload interface and
+  the `Reaction<T>` token.
+
+  Two properties the bus gave for free and that had to be built on purpose:
+
+  - **One hop, no cascades.** `Listener` had no `emit()`, so an event could not
+    trigger an event — by accident, not by design. A reaction that announces
+    something is now refused by name, naming both slots. The guard is scoped with
+    `AsyncLocalStorage` and not a shared `Set`, because `notify` awaits: two
+    concurrent requests would otherwise refuse a cascade that is not one.
+  - **Isolation of a SYNCHRONOUS throw.** `Promise.allSettled` only catches a
+    rejected promise, so a reaction that throws synchronously escapes the mapper
+    and fails the announcer. Each reaction runs inside an async wrapper, which is
+    what the old bus did too.
+
+  **Migrating:** `token(id, 'event')` becomes
+  `token<Reaction<Payload>>(id, 'slot')`; a `Listener` with `@On` becomes a
+  `Strategy` with `@Fills` implementing `Reaction<Payload>`, moved from
+  `listeners/` to `strategies/` and renamed `*.strategy.ts`; `this.emit(Token,
+  payload)` becomes `this.notify(Token, payload)`. A listener that emitted a
+  follow-up event has to be split: have the host announce both, or make the
+  second one a contract.
+
+  What this gives up is a word that said "this happened" without naming a call.
+  `notify()` is a call, and that is deliberate: N awaited calls into code you do
+  not own is what it always was, and now the call site says so. If liteb ever
+  grows a durable outbox — persisted, retried, surviving the process and the
+  replica — that is a different thing and gets its own name; the bus was its
+  in-memory shadow.
+
 - **A schedule can be started and stopped, and `@Cron` takes its token first.**
   [BREAKING]
 
