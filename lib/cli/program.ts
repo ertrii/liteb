@@ -252,7 +252,7 @@ export function buildProgram(): Command {
   common(
     program
       .command('routine <module/name>')
-      .description('Work on a schedule, addressed by its own task token')
+      .description('Work on a schedule, addressed by its own schedule token')
       .option('--cron <expression>', 'node-cron expression', '0 7 * * *')
       .option(
         '--no-autostart',

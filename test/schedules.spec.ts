@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { Cron, Routine, TaskError, TaskRunner, token } from '../lib';
+import { Cron, Routine, ScheduleError, Scheduler, token } from '../lib';
 import type { Database } from '../lib';
 
 /**
@@ -11,9 +11,9 @@ import type { Database } from '../lib';
 
 const fakeDb = {} as Database;
 
-const runners: TaskRunner[] = [];
-const nuevo = (): TaskRunner => {
-  const runner = new TaskRunner(fakeDb);
+const runners: Scheduler[] = [];
+const nuevo = (): Scheduler => {
+  const runner = new Scheduler(fakeDb);
   runners.push(runner);
   return runner;
 };
@@ -25,22 +25,22 @@ afterEach(() => {
   runners.length = 0;
 });
 
-describe('el token de una task', () => {
+describe('el token de un horario', () => {
   it('es un cuarto tipo, y no lleva tipo propio', () => {
-    const Nocturna = token('demo.nocturna', 'task');
+    const Nocturna = token('demo.nocturna', 'schedule');
 
-    expect(Nocturna).toEqual({ id: 'demo.nocturna', kind: 'task' });
+    expect(Nocturna).toEqual({ id: 'demo.nocturna', kind: 'schedule' });
   });
 
   it('un kind inventado se reporta nombrando los cuatro', () => {
     expect(() => token('demo.x', 'cron' as never)).toThrow(
-      /'task' \(a schedule that can be started and stopped\)/,
+      /'schedule' \(a clock that can be started and stopped\)/,
     );
   });
 });
 
 describe('@Cron valida al importar el archivo, no al arrancar', () => {
-  it('pide un token de task, y rechaza los otros tres por su nombre', () => {
+  it('pide un token de horario, y rechaza los otros tres por su nombre', () => {
     for (const kind of ['contract', 'slot', 'event'] as const) {
       const otro = token<{ x: number }>(`demo.${kind}`, kind as 'contract');
 
@@ -56,7 +56,7 @@ describe('@Cron valida al importar el archivo, no al arrancar', () => {
 
   it('rechaza una expresión que no es cron, con un ejemplo', () => {
     // Antes esto compilaba y la task simplemente no corría nunca.
-    const T = token('demo.mala-expresion', 'task');
+    const T = token('demo.mala-expresion', 'schedule');
 
     expect(() => {
       @Cron(T, 'todas las noches')
@@ -69,7 +69,7 @@ describe('@Cron valida al importar el archivo, no al arrancar', () => {
 });
 
 describe('registro', () => {
-  it('una clase sin @Cron se saltea con aviso, no rompe el arranque', () => {
+  it('una Routine sin @Cron se saltea con aviso, no rompe el arranque', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     class Pelada extends Routine {
       start() {}
@@ -82,8 +82,8 @@ describe('registro', () => {
     warn.mockRestore();
   });
 
-  it('dos clases en el mismo token no se componen: una task es un reloj', () => {
-    const T = token('demo.una-sola', 'task');
+  it('dos clases en el mismo token no se componen: un horario es un reloj', () => {
+    const T = token('demo.una-sola', 'schedule');
 
     @Cron(T, '0 7 * * *')
     class Una extends Routine {
@@ -97,7 +97,7 @@ describe('registro', () => {
     const runner = nuevo();
     runner.register('a', Una);
 
-    expect(() => runner.register('b', Otra)).toThrow(TaskError);
+    expect(() => runner.register('b', Otra)).toThrow(ScheduleError);
     // El error nombra a las dos clases y a los dos módulos.
     expect(() => runner.register('b', Otra)).toThrow(
       /Una \(module "a"\) and by Otra \(module "b"\)/,
@@ -105,8 +105,8 @@ describe('registro', () => {
   });
 
   it('un token que nadie registró lista los que sí', () => {
-    const Existe = token('demo.existe', 'task');
-    const Noexiste = token('demo.noexiste', 'task');
+    const Existe = token('demo.existe', 'schedule');
+    const Noexiste = token('demo.noexiste', 'schedule');
 
     @Cron(Existe, '0 7 * * *')
     class Hay extends Routine {
@@ -121,8 +121,8 @@ describe('registro', () => {
 });
 
 describe('arrancar y parar', () => {
-  const Auto = token('demo.auto', 'task');
-  const Manual = token('demo.manual', 'task');
+  const Auto = token('demo.auto', 'schedule');
+  const Manual = token('demo.manual', 'schedule');
 
   @Cron(Auto, '0 7 * * *')
   class AutoRoutine extends Routine {
@@ -134,7 +134,7 @@ describe('arrancar y parar', () => {
     start() {}
   }
 
-  const conLasDos = (): TaskRunner => {
+  const conLasDos = (): Scheduler => {
     const runner = nuevo();
     runner.register('demo', AutoRoutine);
     runner.register('demo', ManualRoutine);
@@ -172,7 +172,7 @@ describe('arrancar y parar', () => {
     // Es lo que hace que `stop()` signifique algo: el reloj se detiene y lo que
     // la task tenga en la mano queda como estaba.
     let construidas = 0;
-    const T = token('demo.contada', 'task');
+    const T = token('demo.contada', 'schedule');
 
     @Cron(T, '0 7 * * *')
     class Contada extends Routine {
@@ -196,9 +196,9 @@ describe('arrancar y parar', () => {
     expect(construidas).toBe(1);
   });
 
-  it('no construye nada hasta que arranca: una task parada no cuesta', () => {
+  it('no construye nada hasta que arranca: un horario parado no cuesta', () => {
     let construidas = 0;
-    const T = token('demo.perezosa', 'task');
+    const T = token('demo.perezosa', 'schedule');
 
     @Cron(T, '0 7 * * *', { autostart: false })
     class Perezosa extends Routine {
@@ -231,14 +231,14 @@ describe('arrancar y parar', () => {
   });
 });
 
-describe('lo que la task recibe', () => {
+describe('lo que la Routine recibe', () => {
   it('db y el runner llegan antes de construir, como a un proveedor', () => {
-    const T = token('demo.inyectada', 'task');
+    const T = token('demo.inyectada', 'schedule');
 
     @Cron(T, '0 7 * * *', { autostart: false })
     class Inyectada extends Routine {
       public readonly vioDb = !!this.db;
-      public readonly vioRunner = !!this.tasks;
+      public readonly vioRunner = !!this.scheduler;
       start() {}
     }
 
@@ -248,7 +248,7 @@ describe('lo que la task recibe', () => {
 
     const instancia = runner.instanceOf(T) as Inyectada;
     expect(instancia.vioDb).toBe(true);
-    // Y el runner tambien: `this.task(T).stop()` adentro de start() es el caso
+    // Y el runner tambien: `this.schedule(T).stop()` adentro de start() es el caso
     // de "corre una vez y no vuelvas".
     expect(instancia.vioRunner).toBe(true);
   });
@@ -262,7 +262,7 @@ describe('ejecuciones secuenciales: nunca dos a la vez', () => {
    * caída, es plata duplicada.
    */
   const demorada = (ms: number) => {
-    const T = token(`demo.lenta-${ms}`, 'task');
+    const T = token(`demo.lenta-${ms}`, 'schedule');
     const corridas = { entradas: 0, salidas: 0 };
 
     @Cron(T, '* * * * * *', { autostart: false })
@@ -309,11 +309,11 @@ describe('ejecuciones secuenciales: nunca dos a la vez', () => {
     expect(corridas.salidas).toBe(3);
   });
 
-  it('una corrida que revienta NO deja la task trabada para siempre', async () => {
-    // Si la bandera se filtrara en el error, la task quedaría "ejecutando" y no
+  it('una corrida que revienta NO deja el horario trabado para siempre', async () => {
+    // Si la bandera se filtrara en el error, el horario quedaría "ejecutando" y no
     // volvería a correr nunca, en silencio. Es el peor final posible.
     const error = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const T = token('demo.revienta', 'task');
+    const T = token('demo.revienta', 'schedule');
     let veces = 0;
 
     @Cron(T, '* * * * * *', { autostart: false })
@@ -339,7 +339,7 @@ describe('ejecuciones secuenciales: nunca dos a la vez', () => {
     error.mockRestore();
   });
 
-  it('se puede correr a mano una task que nadie arrancó', async () => {
+  it('se puede correr a mano un horario que nadie arrancó', async () => {
     const { task, corridas } = demorada(1);
 
     expect(task.isScheduled()).toBe(false);

@@ -2,7 +2,11 @@ import { Database } from '../modules/database';
 import type { Container, Contract } from '../modules/container';
 import type { Slot } from '../modules/slots';
 import type { EventBus, EventToken } from '../modules/events';
-import type { TaskHandle, TaskRunner, TaskToken } from '../modules/tasks';
+import type {
+  ScheduleHandle,
+  Scheduler,
+  ScheduleToken,
+} from '../modules/schedules';
 
 /**
  * One implementation of a domain interface another module opened.
@@ -47,8 +51,8 @@ export abstract class Strategy {
 
   /** Event bus of this application. */
   public events?: EventBus;
-  /** Task runner of this application, injected like `db`. */
-  public tasks?: TaskRunner;
+  /** Scheduler of this application, injected like `db`. */
+  public scheduler?: Scheduler;
 
   /**
    * Resolves a contract. A strategy may depend on contracts like anything
@@ -91,7 +95,7 @@ export abstract class Strategy {
   }
 
   /**
-   * The handle of a scheduled task: `start()`, `stop()`, `isRunning()`.
+   * The handle of a schedule: `start()`, `stop()`, `runNow()`.
    *
    * What it is for is the schedule an operator decides, not the deployment: a
    * sync somebody triggers, a nightly job that gets paused during a migration.
@@ -99,16 +103,16 @@ export abstract class Strategy {
    * same button pressed twice cannot produce two clocks.
    *
    * @example
-   * const backup = this.task(NightlyBackup);
+   * const backup = this.schedule(NightlyBackup);
    * backup.start();
    * return { running: backup.isRunning() };
    */
-  protected task(token: TaskToken): TaskHandle {
-    if (!this.tasks) {
+  protected schedule(token: ScheduleToken): ScheduleHandle {
+    if (!this.scheduler) {
       throw new Error(
-        `Cannot reach the task "${token.id}": this application has no task runner. Start it with Liteb.create({ modules }).`,
+        `Cannot reach the schedule "${token.id}": this application has no scheduler. Start it with Liteb.create({ modules }).`,
       );
     }
-    return this.tasks.handle(token);
+    return this.scheduler.handle(token);
   }
 }

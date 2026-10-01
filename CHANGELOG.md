@@ -190,68 +190,74 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already writes one and `src/index.ts` already passes it, so a scaffolded
   project needs no change.
 
-- **A scheduled task can be started and stopped, and `@Cron` takes its token
-  first.** [BREAKING]
+- **A schedule can be started and stopped, and `@Cron` takes its token first.**
+  [BREAKING]
 
   A schedule used to be anonymous: a class with `@Cron`, started at boot,
   stopped only by stopping the whole application. There was no way to pause one,
   and no way to deploy one that waits — node-cron's `scheduled: false` passed
-  straight through and produced a task that could never be started, because
+  straight through and produced a routine that could never be started, because
   nothing held a handle to it.
 
-  A task is now addressed by a token of its own, which is what `start()` and
-  `stop()` take:
+  A schedule is now addressed by a token of its own — a fourth kind,
+  `token(id, 'schedule')` — which is what `start()` and `stop()` take. The kind
+  names the RELATIONSHIP, as the other three do, and `Routine` stays the name of
+  the class you write: the token is the clock, the class is the work. It is also
+  why the word "task" appears nowhere in liteb, so an application with its own
+  `Task` entity never has to alias anything.
 
   ```typescript
   // reports/tokens/daily-summary.token.ts
-  export const DailySummary = token('reports.daily-summary', 'task');
+  export const DailySummary = token('reports.daily-summary', 'schedule');
 
   // reports/routines/daily-summary.routine.ts
   @Cron(DailySummary, '0 7 * * *', { timezone: 'America/Lima' })
   export class DailySummaryRoutine extends Routine { ... }
 
-  // from an endpoint, a provider, a strategy, a listener or another task
-  this.task(DailySummary).stop();
+  // from an endpoint, a provider, a strategy, a listener or another routine
+  this.schedule(DailySummary).stop();
   // or from outside any module
-  app.task(DailySummary).start();
+  app.schedule(DailySummary).start();
   ```
 
   What it buys:
 
-  - **`{ autostart: false }`** deploys a task registered and stopped, for a
-    schedule the application decides rather than the deployment — a sync
+  - **`{ autostart: false }`** deploys a routine registered with its clock off,
+    for a schedule the application decides rather than the deployment — a sync
     somebody triggers, a nightly job an operator turns on from a screen.
   - **`start()` is idempotent.** It returns whether this call was the one that
     started it, so the same button pressed twice cannot produce two clocks.
-  - **One instance, ever.** The task is built the first time it starts and kept
-    across a stop and a later start, so `stop()` means the clock stops and
-    whatever the task holds stays as it was. A task nobody starts is never built.
+  - **One instance, ever.** The routine is built the first time its schedule
+    starts and kept across a stop and a later start, so `stop()` means the clock
+    stops and whatever the routine holds stays as it was. A schedule nobody
+    starts is never built.
   - **The expression and the token kind are checked when the file is imported.**
-    A malformed expression used to be a task that silently never ran.
+    A malformed expression used to be a routine that silently never ran.
   - **Two classes on one token refuse to boot**, naming both classes and both
     modules. A schedule has one clock, so that is a mistake and not a
     composition.
   - **A `Routine` without `@Cron` now warns** instead of being dropped in
     silence.
 
-  New: `token(id, 'task')` and the `TaskToken` type, `TaskRunner`, `TaskHandle`,
-  `TaskError`, `this.task(Token)` on every unit, `app.task(Token)`,
-  `app.tasks()`, and `liteb routine --no-autostart`. `liteb routine` now writes
-  **two** files, the token beside the class, because a module owns its own
-  schedule — unlike an event's token, which belongs to whoever announces it.
+  New: `token(id, 'schedule')` and the `ScheduleToken` type, `Scheduler`,
+  `ScheduleHandle`, `ScheduleError`, `this.schedule(Token)` on every unit,
+  `app.schedule(Token)`, `app.schedules()`, and `liteb routine --no-autostart`.
+  `liteb routine` now writes **two** files, the token beside the class, because a
+  module owns its own schedule — unlike an event's token, which belongs to
+  whoever announces it.
 
-  Gone: `InterpreterRoutine`, which the runner replaces.
+  Gone: `InterpreterRoutine`, which the scheduler replaces.
 
-  **Migrating:** declare a token per task and pass it first:
-  `@Cron('0 7 * * *')` becomes `@Cron(MyTask, '0 7 * * *')`. Anything passing
+  **Migrating:** declare a schedule token per routine and pass it first:
+  `@Cron('0 7 * * *')` becomes `@Cron(MySchedule, '0 7 * * *')`. Anything passing
   node-cron's `scheduled` should use `autostart` instead; `name` is dropped,
   since the token is the name.
 
-  The boot line now counts tasks, and says how many are not running:
-  `Serving on :5050 - 11 routes, 3 tasks (1 stopped), docs at /docs (1.4s)`.
+  The boot line now counts routines, and says how many have their clock off:
+  `Serving on :5050 - 11 routes, 3 routines (1 stopped), docs at /docs (1.4s)`.
 
-- **A task's runs are sequential: a tick that arrives while the previous run is
-  still going is dropped.**
+- **A routine's runs are sequential: a tick that arrives while the previous run
+  is still going is dropped.**
 
   node-cron does not wait. Its scheduler ticks on its own timer and calls the
   function again whether the previous call finished or not, so a job that takes
@@ -264,7 +270,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tick is the right moment to try again, and each drop is logged with a running
   count.
 
-  `isRunning()` split in two, because they were two questions:
+  The handle answers two different questions, and conflating them was the bug
+  waiting to happen:
 
   | | What it answers |
   | --- | --- |
@@ -275,21 +282,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   finished. `stop()` stops the clock and lets a run in flight finish, so the two
   states are independent.
 
-- **`runNow()`: run a task once, now, without touching its schedule.**
+- **`runNow()`: run a routine once, now, without touching its schedule.**
 
   The "Run now" button — generate this month's charges without waiting for 3am,
   re-apply the cut-offs after fixing the data. It goes through the same guard, so
   pressing it during the scheduled run does nothing and resolves to `false`. It
-  works on a stopped task too, so `{ autostart: false }` plus `runNow()` is a job
-  that only ever runs by hand.
+  works with the clock off too, so `{ autostart: false }` plus `runNow()` is a
+  job that only ever runs by hand.
 
 - **A failing run is no longer silent.**
 
   node-cron emits `task-failed` on an inner object nothing subscribes to, so a
-  task whose run threw failed invisibly — the schedule survived, which is right,
-  but nobody could find out. The runner logs it with the task id and its module.
-  A run that throws also cannot leave the task stuck as "executing", which would
-  have stopped it forever: the flag is cleared in a `finally`.
+  routine whose run threw failed invisibly — the schedule survived, which is
+  right, but nobody could find out. The scheduler logs it with the schedule id
+  and its module. A run that throws also cannot leave the routine stuck as
+  "executing", which would have stopped it forever: the flag is cleared in a
+  `finally`.
 
 - **A slot is filled by a `Strategy` with `@Fills`, not by a `Provider` with
   `@Provides`.** [BREAKING]
@@ -1282,7 +1290,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   // src/config/permissions.ts — once per module, appended
   interface Permissions
-    extends PermissionsOf<typeof import('../modules/tasks/permissions').permissions> {}
+    extends PermissionsOf<typeof import('../modules/schedules/permissions').permissions> {}
 
   // an endpoint — still a plain string, and now a typo does not compile
   this.auth.assert('tasks.manage');

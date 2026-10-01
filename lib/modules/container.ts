@@ -1,7 +1,7 @@
 import { Database } from './database';
 import type { Provider } from '../templates/provider';
 import type { Strategy } from '../templates/strategy';
-import type { TaskRunner } from './tasks';
+import type { Scheduler } from './schedules';
 import type { EventBus } from './events';
 import type { Slot } from './slots';
 
@@ -73,7 +73,7 @@ export class Container {
   private slots = new Map<string, SlotRegistration[]>();
   /** Built contributions per slot, cached like a contract's instance. */
   private filled = new Map<string, unknown[]>();
-  private tasks?: TaskRunner;
+  private scheduler?: Scheduler;
   private resolvingSlots = new Set<string>();
   private events?: EventBus;
 
@@ -217,12 +217,12 @@ export class Container {
 
   /** See {@link EventBus.useContainer}: the two reference each other. */
   /**
-   * Hands the container the task runner, so a provider or a strategy can start
+   * Hands the container the scheduler, so a provider or a strategy can start
    * and stop a schedule. Set afterwards for the same reason as the bus: the
-   * runner needs the container to build its tasks.
+   * scheduler needs the container to build its routines.
    */
-  public useTasks(tasks: TaskRunner): void {
-    this.tasks = tasks;
+  public useScheduler(scheduler: Scheduler): void {
+    this.scheduler = scheduler;
   }
 
   public useEvents(events: EventBus): void {
@@ -243,13 +243,13 @@ export class Container {
     proto.db = this.db;
     proto.container = this;
     proto.events = this.events;
-    proto.tasks = this.tasks;
+    proto.scheduler = this.scheduler;
 
     const instance = new UnitClass();
     instance.db = this.db;
     instance.container = this;
     instance.events = this.events;
-    instance.tasks = this.tasks;
+    instance.scheduler = this.scheduler;
 
     return instance;
   }

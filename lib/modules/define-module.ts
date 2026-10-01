@@ -225,7 +225,7 @@ const validatePermissions = (
  * confusing startup error.
  *
  * Paths are the exception: with `dir`, the standard layout
- * ({@link MODULE_LAYOUT}) is where tables, migrations, endpoints, tasks and
+ * ({@link MODULE_LAYOUT}) is where tables, migrations, endpoints, routines and
  * listeners are found. A manifest names one of those fields only to put it
  * somewhere else, so what is left is what is particular to the module.
  *

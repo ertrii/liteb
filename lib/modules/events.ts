@@ -2,7 +2,7 @@ import type { Database } from './database';
 import { Logger } from '../utilities/logger';
 import type { Listener } from '../templates/listener';
 import type { Container } from './container';
-import type { TaskRunner } from './tasks';
+import type { Scheduler } from './schedules';
 
 /**
  * A named thing that happened, with the shape of what it carries.
@@ -59,7 +59,7 @@ export class EventBus {
 
   private container?: Container;
 
-  private tasks?: TaskRunner;
+  private scheduler?: Scheduler;
 
   constructor(private readonly db: Database) {}
 
@@ -76,9 +76,9 @@ export class EventBus {
     this.container = container;
   }
 
-  /** Hands the bus the task runner, so a listener can start or stop one. */
-  public useTasks(tasks: TaskRunner): void {
-    this.tasks = tasks;
+  /** Hands the bus the scheduler, so a listener can start or stop a schedule. */
+  public useScheduler(scheduler: Scheduler): void {
+    this.scheduler = scheduler;
   }
 
   /** Subscribes a listener class to an event. */
@@ -121,7 +121,7 @@ export class EventBus {
         const listener = new ListenerClass();
         listener.db = this.db;
         listener.container = this.container;
-        listener.tasks = this.tasks;
+        listener.scheduler = this.scheduler;
         await listener.on(payload);
       }),
     );

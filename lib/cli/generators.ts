@@ -340,12 +340,12 @@ export function createRoutine(options: RoutineOptions): Plan {
   const from = relativeFrom(options.from, 3);
   const autostart = options.autostart === false;
 
-  // TWO files, and both belong to this module: unlike an event's, a task's
+  // TWO files, and both belong to this module: unlike an event's, a routine's
   // token is not somebody else's — a module owns its own schedule, so the token
   // goes where the module's other tokens go.
   const tokenContent = `${importLine(['token'], from)}
 
-export const ${tokenName} = token('${target.module}.${target.name}', 'task');
+export const ${tokenName} = token('${target.module}.${target.name}', 'schedule');
 `;
 
   const content = `${importLine(['Cron', 'Routine'], from)}
@@ -368,8 +368,8 @@ export default class ${className} extends Routine {
     [
       `Cron expression: '${cron}' — change it in the @Cron decorator. Set a timezone there too, or it follows the server's.`,
       autostart
-        ? `It is registered and NOT running: start it with this.task(${tokenName}).start() from an endpoint, or app.task(${tokenName}).start() from outside.`
-        : `It starts once the server is listening and stops on shutdown. this.task(${tokenName}).stop() pauses it without a restart, and start() on something already running does nothing.`,
+        ? `It is registered and NOT running: start it with this.schedule(${tokenName}).start() from an endpoint, or app.schedule(${tokenName}).start() from outside.`
+        : `It starts once the server is listening and stops on shutdown. this.schedule(${tokenName}).stop() pauses it without a restart, and start() on something already running does nothing.`,
       "`this.db`, `this.get(Contract)` and `this.emit(Event)` work here exactly as in an endpoint. `now` is a Date, or 'init' when @Cron got runOnInit.",
     ],
   );

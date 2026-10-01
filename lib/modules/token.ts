@@ -1,7 +1,7 @@
 import type { Contract } from './container';
 import type { EventToken } from './events';
 import type { Slot } from './slots';
-import type { TaskToken } from './tasks';
+import type { ScheduleToken } from './schedules';
 
 /**
  * What a token is for.
@@ -11,11 +11,11 @@ import type { TaskToken } from './tasks';
  * it decides between handing back an instance and handing back a list. Nothing
  * repeats it: a second place to say it would be a second place to say it wrong.
  *
- * Three of them are about two modules meeting. `'task'` is the odd one: it
- * names something the application turns on and off, and what it buys is that a
- * schedule can be addressed without importing the class that implements it.
+ * Three of them are about two modules meeting. `'schedule'` is the odd one: it
+ * names a clock the application turns on and off, and what it buys is that a
+ * schedule can be addressed without importing the `Routine` that runs on it.
  */
-export type TokenKind = 'contract' | 'slot' | 'event' | 'task';
+export type TokenKind = 'contract' | 'slot' | 'event' | 'schedule';
 
 /**
  * Declares a **contract**: a capability one module publishes and others call,
@@ -71,9 +71,9 @@ export function token<T>(id: string, kind: 'event'): EventToken<T>;
  * clock. The class that runs on it names it in its `@Cron`.
  *
  * @example
- * export const NightlyBackup = token('system.nightly-backup', 'task');
+ * export const NightlyBackup = token('system.nightly-backup', 'schedule');
  */
-export function token(id: string, kind: 'task'): TaskToken;
+export function token(id: string, kind: 'schedule'): ScheduleToken;
 
 /**
  * The one way to declare what two modules share.
@@ -95,7 +95,7 @@ export function token(id: string, kind: 'task'): TaskToken;
 export function token<T>(
   id: string,
   kind: TokenKind,
-): Contract<T> | Slot<T> | EventToken<T> | TaskToken {
+): Contract<T> | Slot<T> | EventToken<T> | ScheduleToken {
   // Runs once per token, at import time, so it costs nothing per request. Both
   // mistakes are silent otherwise: an empty id collides with the next empty
   // id, and an unknown kind produces a token that nothing ever resolves.
@@ -111,12 +111,12 @@ export function token<T>(
     kind !== 'contract' &&
     kind !== 'slot' &&
     kind !== 'event' &&
-    kind !== 'task'
+    kind !== 'schedule'
   ) {
     throw new Error(
-      `token("${id}"): unknown kind ${JSON.stringify(kind)}. It is 'contract' (exactly one provider), 'slot' (as many as are installed), 'event' (a notification with no answer) or 'task' (a schedule that can be started and stopped).`,
+      `token("${id}"): unknown kind ${JSON.stringify(kind)}. It is 'contract' (exactly one provider), 'slot' (as many as are installed), 'event' (a notification with no answer) or 'schedule' (a clock that can be started and stopped).`,
     );
   }
 
-  return { id, kind } as Contract<T> | Slot<T> | EventToken<T> | TaskToken;
+  return { id, kind } as Contract<T> | Slot<T> | EventToken<T> | ScheduleToken;
 }

@@ -1,8 +1,9 @@
 import path from 'path';
+import request from 'supertest';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import Liteb from '../lib/core/liteb';
 import { defineModule } from '../lib/modules/define-module';
-import { beats, heard } from './fixtures/modules/heartbeat/shared';
+import { beats, heard, Heartbeat } from './fixtures/modules/heartbeat/shared';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
 import type { Database } from '../lib';
@@ -44,7 +45,7 @@ describe('rutinas de los módulos', () => {
     heard.count = 0;
   });
 
-  it('arranca la rutina de un módulo habilitado', async () => {
+  it('arranca la rutina de un módulo, y su horario se alcanza por el token', async () => {
     db = await createTestDb();
     app = await Liteb.create({
       auth: cualquiera,
@@ -55,6 +56,22 @@ describe('rutinas de los módulos', () => {
     await app.start(0);
 
     expect(await waitFor(() => beats.count > 0)).toBe(true);
+
+    // Y el Scheduler llega a un endpoint. Es el camino que se rompe en
+    // silencio: el campo se asigna sobre el prototipo desde `endpoint-handler`,
+    // así que un nombre que no coincida compila igual y deja `this.schedule()`
+    // inservible adentro de un endpoint.
+    const respuesta = await request(app.getApp()).get('/api/latido/estado');
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.programado).toBe(true);
+
+    // Desde afuera de todo módulo también, por el token.
+    expect(app.schedules()).toEqual(['heartbeat.beat-task']);
+    app.schedule(Heartbeat).stop();
+
+    expect(
+      (await request(app.getApp()).get('/api/latido/estado')).body.programado,
+    ).toBe(false);
   });
 
   it('su emit LLEGA a los oyentes: el bus también se le inyecta', async () => {

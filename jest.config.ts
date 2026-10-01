@@ -29,6 +29,15 @@ const config: Config = {
    * cuelgue de verdad.
    */
   testTimeout: 30000,
+  /**
+   * Y subir el timeout no alcanzaba: con un worker por core, cada suite que
+   * levanta PGlite —un Postgres en WASM— pelea por el mismo CPU, y el arranque
+   * de `demo-app` se pasaba de los 30s de forma intermitente. Era carga, no
+   * lógica: la misma suite tarda 3s corriendo sola. Con la mitad de los workers
+   * no sólo deja de fallar, además la corrida completa baja de ~48s a ~21s,
+   * porque dejar de sobresuscribir el CPU sale más barato que el paralelismo.
+   */
+  maxWorkers: '50%',
   verbose: true,
 };
 

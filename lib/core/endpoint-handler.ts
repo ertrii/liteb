@@ -16,7 +16,7 @@ import type { Container, Contract } from '../modules/container';
 import { Auth, AuthContext, AuthResolver } from './auth';
 import type { EventBus } from '../modules/events';
 import type { PermissionRegistry } from '../modules/permissions';
-import type { TaskRunner } from '../modules/tasks';
+import type { Scheduler } from '../modules/schedules';
 import { Output } from '../outputs/output';
 
 export default class EndpointHandler {
@@ -27,7 +27,7 @@ export default class EndpointHandler {
     private authResolver?: AuthResolver,
     private eventBus?: EventBus,
     private permissions?: PermissionRegistry,
-    private tasks?: TaskRunner,
+    private scheduler?: Scheduler,
   ) {}
 
   /**
@@ -103,7 +103,7 @@ export default class EndpointHandler {
     EndpointClass.prototype.events = this.eventBus;
     // Same rule again: an endpoint is where an operator's "pause this schedule"
     // button lands, so the runner has to be reachable from `main()`.
-    EndpointClass.prototype.tasks = this.tasks;
+    EndpointClass.prototype.scheduler = this.scheduler;
 
     const endpointClass = new EndpointClass();
     // The rest of the state is PER REQUEST and is assigned on the INSTANCE, not
