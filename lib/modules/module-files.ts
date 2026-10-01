@@ -5,7 +5,7 @@ import slash from 'slash';
 /**
  * Finding a module's files: the glob, the extension and the one-file rule.
  *
- * Separate from the loader because `defineModule()` needs it too — entities and
+ * Separate from the loader because `defineModule()` needs it too — tables and
  * migrations resolve when the manifest is read, long before any endpoint is
  * mounted — and importing the loader from there would pull in Express, the
  * decorators and every template.

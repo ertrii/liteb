@@ -140,7 +140,7 @@ export default defineModule({
     ],
     [
       "`engine` is which versions of YOUR APPLICATION this module plugs into — the `version` passed to Liteb.create(), not liteb's own.",
-      'The manifest names no paths: entities/, migrations/, endpoints/, routines/, listeners/ and providers/ are found from `dir`. Name a field only to say something else.',
+      'The manifest names no paths: tables/, migrations/, endpoints/, routines/, providers/ and strategies/ are found from `dir`. Name a field only to say something else.',
       `Everything this module can gate is spelled once, in \`permissions\`. Give a key a { key, label } when it does not say it on its own — the label is what a roles screen shows.`,
     ],
   );

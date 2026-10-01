@@ -2,7 +2,7 @@
   "name": "liteb",
   "npmName": "liteb",
   "version": "2.0.0-alpha.5",
-  "description": "Backend framework whose unit is the installable module: routes, entities, migrations, permissions and contracts declared per module.",
+  "description": "Backend framework whose unit is the installable module: routes, tables, migrations, permissions and contracts declared per module.",
   "main": "./dist/lib/index.js",
   "types": "./types/lib/index.d.ts",
   "bin": {
@@ -31,11 +31,12 @@
     "LICENSE"
   ],
   "keywords": [
-    "backed",
+    "backend",
     "api",
     "orm",
-    "typeorm",
-    "express"
+    "drizzle",
+    "express",
+    "modules"
   ],
   "author": "Erick <ertriilive@gmail.com> (https://github.com/ertrii)",
   "license": "MIT",

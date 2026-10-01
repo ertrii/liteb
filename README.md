@@ -1,12 +1,12 @@
 # liteb
 
 Backend framework for Node whose unit is the **installable module**: a folder
-that declares its own routes, entities, migrations, permissions and contracts,
-and can be turned off without touching the rest of the application.
+that declares its own routes, tables, migrations, permissions and contracts,
+and installs into another application as one piece.
 
 Express + Drizzle + class-validator underneath, decorators on top.
 
-> **2.0.0-alpha.1** — alpha: the API will still move. The stable `1.x` line
+> **2.0.0-alpha.5** — alpha: the API will still move. The stable `1.x` line
 > lives on the [`v1`](https://github.com/ertrii/liteb/tree/v1) branch.
 
 ## Start

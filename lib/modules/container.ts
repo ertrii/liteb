@@ -12,7 +12,7 @@ import type { Reaction, Slot } from './slots';
  * It carries its type at compile time and its identity at run time, so a
  * consumer imports *this* — never the implementation, which stays private to
  * the module that owns it. That asymmetry is what lets a module be swapped or
- * turned off without its consumers knowing.
+ * removed without its consumers knowing.
  *
  * Declared with `token(id, 'contract')`.
  */

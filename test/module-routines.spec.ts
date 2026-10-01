@@ -15,7 +15,7 @@ const heartbeat = () =>
     id: 'heartbeat',
     version: '1.0.0',
     dir: heartbeatDir,
-    // Sin globs: `routines/` y `listeners/` son la disposición estándar.
+    // Sin globs: `routines/` es la disposición estándar.
   });
 
 /** Espera a que se cumpla una condición, sin dormir a ciegas. */

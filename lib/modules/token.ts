@@ -48,7 +48,7 @@ export function token<T>(id: string, kind: 'contract'): Contract<T>;
 export function token<T>(id: string, kind: 'slot'): Slot<T>;
 
 /**
- * Declares a **task**: a schedule the application can start and stop.
+ * Declares a **schedule**: a recurring run the application can start and stop.
  *
  * It carries no type, because nothing is handed over — what it identifies is a
  * clock. The class that runs on it names it in its `@Cron`.
@@ -64,11 +64,13 @@ export function token(id: string, kind: 'schedule'): ScheduleToken;
  * A token carries its type at compile time and its identity at run time, so a
  * consumer imports *this* — never the implementation, which stays private to
  * the module that owns it. That asymmetry is what lets a module be swapped or
- * turned off without its consumers knowing.
+ * removed without its consumers knowing.
  *
- * One function and not three because the three differ in exactly one thing:
- * how many may answer. Naming that in the call makes it the token's own
- * property, which is where every other part of the framework reads it from.
+ * One function and not three because the kind belongs to the token rather than
+ * to three separate declarations: a contract has exactly one provider, a slot
+ * has as many as are deployed, and a schedule has none because what it names is
+ * a clock. Writing it in the call is what lets every other part of the
+ * framework read it back off the token.
  *
  * The id is what appears in errors and in the startup log, so namespace it
  * under the module id (`billing.service`, not `service`): every installed
