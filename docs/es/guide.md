@@ -56,7 +56,7 @@ de autenticación usa sesiones por cookie — el framework ya no depende de él.
 | Contratos entre módulos        | ✔      |
 | Migraciones por módulo         | ✔      |
 | Costura de autenticación       | ✔      |
-| Eventos entre módulos          | ✔      |
+| Reacciones entre módulos       | ✔      |
 | Puntos de extensión (slots)    | ✔      |
 | CLI de andamiaje               | ✔      |
 
@@ -89,9 +89,8 @@ código lo escribís vos.
 | `contract <module>/<name>` | Una capacidad que este módulo publica: token y forma |
 | `provider <module>/<name>` | La clase que la responde |
 | `strategy <module>/<name> <slot>` | Lo que este módulo aporta a un punto de extensión ajeno |
-| `event <module>/<name>` | Algo que este módulo anuncia |
+| `token <module>/<name> slot --reaction` | Algo que este módulo anuncia, para quien reaccione |
 | `slot <module>/<name>` | Un punto de extensión que otros pueden llenar |
-| `listener <module>/<name>` | Un oyente |
 | `table <module>/<name>` | Una tabla y sus tipos de fila (`--name`) |
 | `migration <module>/<name>` | Una migración con sello de tiempo |
 | `migrate` | Corre las migraciones pendientes sin levantar el servidor (`--dry-run`, `--entry`) |
@@ -335,7 +334,7 @@ lo que tiene de particular **este** módulo. Las carpetas se encuentran desde
 | `migrations/*.ts` | las clases de migración |
 | `endpoints/*.endpoint.ts` | los endpoints, montados bajo el id del módulo |
 | `routines/*.routine.ts` | las rutinas programadas |
-| `listeners/*.listener.ts` | los oyentes de eventos |
+| `strategies/*.strategy.ts` | las clases `Strategy`: lo que aporta a puntos de extensión ajenos, reacciones incluidas |
 | `providers/*.provider.ts` | las clases `Provider`: los contratos que este módulo responde |
 | `strategies/*.strategy.ts` | las clases `Strategy`: lo que aporta a puntos de extensión ajenos |
 
@@ -356,7 +355,7 @@ en ellas — un token se importa por nombre:
 
 | Carpeta | Qué va adentro |
 | --- | --- |
-| `tokens/*.token.ts` | cada contrato, punto de extensión y evento que este módulo comparte |
+| `tokens/*.token.ts` | cada contrato, punto de extensión y horario que este módulo comparte |
 
 Juntas son la cara pública del módulo: los únicos archivos que otro módulo
 importa alguna vez — y la razón por la que `liteb init` escribe un alias de
@@ -382,7 +381,7 @@ export default defineModule({
   dir: __dirname,
 
   // Una disposición DDD: los endpoints están en otro lado. Entidades,
-  // migraciones, rutinas y oyentes siguen viniendo de las carpetas estándar.
+  // migraciones, rutinas y estrategias siguen viniendo de las carpetas estándar.
   routes: './presentation/controllers/**/*.controller.ts',
 });
 ```
@@ -459,7 +458,7 @@ caso en que el cliente necesita datos sobre el fallo y no sólo palabras.
 
 Se lee de `x-request-id` o se genera, se devuelve en la respuesta, y está en
 **cada línea de log escrita mientras se atiende esa petición** — la línea de
-acceso, lo que registre un endpoint, lo que registre un proveedor o un oyente
+acceso, lo que registre un endpoint, lo que registre un proveedor o una reacción
 bien adentro:
 
 ```
@@ -620,7 +619,7 @@ permite que el proveedor cambie o se reemplace sin tocar a quienes lo llaman.
 > instalación, y la prueba es si puede estar **ausente**. Cuando la respuesta es
 > "nunca" —todos se despliegan juntos y quién ve qué lo deciden los permisos y
 > no la instalación— esos módulos son una organización del código, y un import
-> directo entre ellos es más simple y mejor tipado. Contratos, slots y eventos
+> directo entre ellos es más simple y mejor tipado. Contratos y slots
 > son la **superficie de extensión**: lo que permite que participe algo que no
 > escribiste, o que puede no estar instalado. No son el tejido por defecto entre
 > carpetas del mismo producto. Un cableado que es la excepción se lee con
@@ -678,9 +677,9 @@ El consumidor importa el **archivo del contrato** y nunca el proveedor. Nada
 lista al proveedor: la carpeta es lo que lo registra y el decorador dice qué
 contrato responde.
 
-- **`this.db`, `this.get()`, `this.all()` y `this.emit()`** se inyectan antes de
+- **`this.db`, `this.get()`, `this.all()` y `this.notify()`** se inyectan antes de
   construir la instancia, así que un inicializador de campo ya puede alcanzar un
-  repositorio — igual que un endpoint, una rutina o un oyente.
+  repositorio — igual que un endpoint, una rutina o una estrategia.
 - **Se construye al primer uso, y después se reutiliza.** Un contrato que nadie
   llama no cuesta nada, y el arranque no se cuelga por algo que necesita un solo
   endpoint.
@@ -694,13 +693,17 @@ contrato responde.
 
 ### Puntos de extensión
 
-Tres formas en que los módulos se encuentran, y no son intercambiables:
+Dos formas en que los módulos se encuentran, y no son intercambiables:
 
-| | Quién responde | Quién lee |
-| --- | --- | --- |
-| **Contrato** (`get`) | exactamente uno | quien llama, y espera la respuesta |
-| **Evento** (`emit`) | cualquier cantidad de oyentes | nadie — no hay respuesta |
-| **Slot** (`all`) | cualquier cantidad de contribuciones | el módulo que lo abrió |
+| | Quién responde | Quién lo corre | De quién es la falla |
+| --- | --- | --- | --- |
+| **Contrato** (`get`) | exactamente uno | quien llama, y espera la respuesta | de quien llama |
+| **Slot** (`all`) | los aportes que haya | el anfitrión, y usa lo que devuelven | del anfitrión |
+| el mismo slot, **anunciado** (`notify`) | los aportes que haya | el anfitrión, y descarta las respuestas | **de ellos** |
+
+Las dos últimas filas son **la misma ranura**: lo único que cambia es el verbo con
+que el anfitrión la lee, y con él de quién es la falla. Hubo un tercer mecanismo
+—un evento, con su bus y su clase base— y eso era todo lo que agregaba.
 
 Un slot es donde se enchufa una extensión de terceros: el anfitrión no sabe qué
 va a existir, así que declara la forma y enumera lo que esté instalado.
@@ -799,56 +802,59 @@ Did you mean: billing.view, billing.void?
 La comprobación corre **antes** del 401, así que una clave no declarada aparece
 en la primera petición aunque sigas siendo anónimo.
 
-### Eventos entre módulos
+### Anunciar algo, para quien reaccione
 
-Un contrato es una llamada: le pedís algo a un módulo en particular y esperás. Un
-evento es un anuncio: *esto pasó*, y reacciona quien le importe.
+Un contrato es una llamada: le pedís algo a un módulo en particular y esperás.
+Anunciar es lo otro: *esto pasó*, y reacciona quien le importe. Es la misma ranura
+de arriba, leída con `notify()`.
 
 ```typescript
-// catalog/module.ts — quien emite exporta el token, nada más
-export interface ProductRestocked {
+// catalog/tokens/product-restocked.token.ts — el anfitrión declara la CARGA
+export interface RestockPayload {
   productId: number;
   quantity: number;
+  userId: number;
 }
-export const ProductRestocked = token<ProductRestocked>(
+export const ProductRestocked = token<Reaction<RestockPayload>>(
   'catalog.product.restocked',
-  'event',
+  'slot',
 );
 ```
 
+`Reaction<T>` aporta el método, así que nadie tiene que inventarle un nombre.
+
 ```typescript
 // en un endpoint o una rutina de `catalog`
-await this.emit(ProductRestocked, { productId, quantity });
+await this.notify(ProductRestocked, { productId, quantity, userId });
 ```
 
 ```typescript
-// reports/listeners/restock-log.listener.ts
-@On(ProductRestocked)
-export class RestockLog extends Listener<ProductRestocked> {
-  async on(payload: ProductRestocked) {
+// reports/strategies/restock-log.strategy.ts
+@Fills(ProductRestocked)
+export class RestockLog extends Strategy implements Reaction<RestockPayload> {
+  async on(payload: RestockPayload) {
     await this.get(UserDirectory).find(payload.userId);
   }
 }
 ```
 
-El archivo va en la carpeta `listeners/` del módulo, igual que una rutina va en
+El archivo va en la carpeta `strategies/` del módulo, igual que una rutina va en
 `routines/`. No hay nada que declarar.
 
-Las reglas que evitan que un evento se convierta en una llamada con pasos de
-más:
+Las reglas que evitan que anunciar se convierta en una llamada con pasos de más:
 
-- **Un oyente que lanza no hace fallar a quien emitió.** El fallo se registra con
-  el módulo y el evento; la petición sigue. Si el resultado le importa a quien
-  llama, lo que quiere es un contrato, no un evento.
-- **Un evento que nadie escucha es normal**, no un error.
-- Los oyentes corren en paralelo y `emit()` resuelve cuando todos terminaron.
-- Un oyente que **declara** su parámetro de carga se chequea contra el token, así
-  que un campo renombrado no puede llegar en silencio a un manejador que todavía
-  espera el viejo. (Uno que ignora la carga compila contra cualquier token — no
-  puede malinterpretar lo que nunca lee.)
+- **Una reacción que lanza no hace fallar a quien anunció.** El fallo se registra
+  con el módulo y la ranura; la petición sigue. Si el resultado le importa a quien
+  llama, lo que quiere es un contrato.
+- **Una ranura que nadie llenó es normal**: `notify()` no hace nada.
+- Las reacciones corren en paralelo y `notify()` resuelve cuando todas terminaron.
+  **No es una cola**: una reacción lenta te frena igual.
+- **Un salto y no más.** Una reacción que quiere anunciar otra cosa se rechaza por
+  nombre, con las dos ranuras. Sin eso vuelve A → B → C y "por qué se mandó este
+  correo" deja de tener respuesta.
 
-**OJO:** los oyentes leen en su propia conexión. Emitir dentro de
-`db.transaction()` significa que no van a ver las filas sin confirmar — emitá
+**OJO:** las reacciones leen en su propia conexión. Anunciar dentro de
+`db.transaction()` significa que no van a ver las filas sin confirmar — anunciá
 *después* de que confirme, o poné lo que necesitan en la carga.
 
 ## Probar una compilación local
@@ -1334,8 +1340,9 @@ especificación OpenAPI.
 ## Rutinas
 
 Trabajo que la aplicación hace por su cuenta, con reloj. La tercera puerta de
-entrada, al lado de un endpoint (contesta una petición) y un oyente (reacciona a
-un evento): a una rutina no la llama nadie, la llama el horario.
+entrada, al lado de un endpoint (contesta una petición) y una estrategia (una
+implementación entre las que haya): a una rutina no la llama nadie, la llama el
+reloj.
 
 ```typescript
 import { Cron, Routine } from 'liteb';
@@ -1343,7 +1350,7 @@ import { Cron, Routine } from 'liteb';
 @Cron('0 * * * *', { timezone: 'America/Lima' }) // cada hora
 export class HourlyReport extends Routine {
   start(now: Date | 'manual' | 'init') {
-    // this.db, this.get(Contract) y this.emit(Event) funcionan acá
+    // this.db, this.get(Contract) y this.notify(Slot, carga) funcionan acá
   }
 }
 ```
@@ -1396,7 +1403,7 @@ Tres módulos, a propósito:
 | --- | --- | --- |
 | `identity` | | Tabla + migración con datos de siembra, login/logout/me, un contrato que otros módulos consumen, permisos, y una proyección para que la contraseña no salga |
 | `catalog` | | `requires`, DTO de validación, `@Priority` bien usado, una página con `view()`, una exportación con `csv()`, `db.transaction()` para dos escrituras que tienen que caer juntas |
-| `reports` | | No tiene tabla propia: lee a los otros dos por sus contratos, llena el punto de extensión de catalog y escucha su evento — la forma que tiene una extensión |
+| `reports` | | No tiene tabla propia: lee a los otros dos por sus contratos, llena el punto de extensión de catalog y reacciona a lo que anuncia — la forma que tiene una extensión |
 
 ```bash
 cp .env.template .env      # completá DB_* y SECRET_KEY

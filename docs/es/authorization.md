@@ -623,9 +623,9 @@ Sólo un `Endpoint` lo tiene, porque sólo una petición tiene un actor detrás.
 - **Una rutina programada** corre porque lo dijo el reloj. Nadie la pidió, así que
   no hay nada que autorizar. Si actúa en nombre de alguien, eso tiene que ser un
   dato que lee, no un actor ambiental.
-- **Un oyente** reacciona a un evento que anunció otro módulo. Si el actor
-  importa, lo lleva la carga del evento — `ProductRestocked` en la demo lleva
-  `userId` exactamente por esto.
+- **Una reacción** (`Reaction<T>`) corre porque otro módulo anunció algo. Si el
+  actor importa, lo lleva la carga — `RestockPayload` en la demo lleva `userId`
+  exactamente por esto.
 - **El resolutor mismo**, obviamente, no puede usarlo.
 
 ---

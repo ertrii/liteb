@@ -72,9 +72,9 @@ No paths, because a module keeps the standard layout and liteb finds it from
 billing/
 ├── module.ts
 ├── tables/*.table.ts           migrations/*.ts
-├── endpoints/*.endpoint.ts     routines/*.routine.ts   listeners/*.listener.ts
+├── endpoints/*.endpoint.ts     routines/*.routine.ts
 ├── providers/*.provider.ts     strategies/*.strategy.ts
-└── tokens/*.token.ts           (contracts, slots and events)
+└── tokens/*.token.ts           (contracts, slots and schedules)
 ```
 
 Name a field — `routes: './apis/*.api.ts'` — only to say something else; it
@@ -96,7 +96,7 @@ export default class CreateChargeApi extends Endpoint<null, CreateChargeDto> {
       .insert(charges)
       .values({ ...this.body, by: who?.fullName })
       .returning();
-    await this.emit(ChargeCreated, { chargeId: charge.id });
+    await this.notify(ChargeCreated, { chargeId: charge.id });
 
     this.httpStatus = HttpStatus.CREATED;
     return charge;
@@ -126,11 +126,16 @@ declares its own.
 
 ## How modules meet
 
-| | Who answers | Reads the answer |
+| | Who answers | Whose failure it is |
 | --- | --- | --- |
-| **Contract** — `token(id, 'contract')` / `this.get()` | exactly one; a second provider is an error | the caller, and it waits |
-| **Event** — `token(id, 'event')` / `this.emit()` / `@On` | any number of listeners | nobody: there is no answer |
-| **Slot** — `token(id, 'slot')` / `@Fills` / `this.all()` | any number of contributors | the module that opened it, and only it |
+| **Contract** — `token(id, 'contract')` / `@Provides` on a `Provider` / `this.get()` | exactly one; a second provider is an error | the caller's, and it waits for the answer |
+| **Slot** — `token(id, 'slot')` / `@Fills` on a `Strategy` / `this.all()` | as many as are deployed | the host's: it calls them and uses what they return |
+| **the same slot, announced into** — `Reaction<T>` / `this.notify()` | as many as are deployed | **theirs**: a failure is logged and the announcer answers anyway |
+
+Two relationships, not three. An event used to be the third, and all it added
+over a slot was that last row — so the guarantee became a verb and the bus went
+away. A third token kind, `'schedule'`, is not a wiring at all: it names a clock
+that `app.schedule(Token)` starts and stops.
 
 They are not interchangeable, and the types refuse to mix them.
 
@@ -145,8 +150,8 @@ npx liteb migration billing/create-charges
 npx liteb contract billing/service
 npx liteb provider billing/service
 npx liteb strategy billing/cash payment-methods      # fills someone else's slot
-npx liteb routine billing/nightly --cron "0 7 * * *"
-npx liteb listener billing/audit
+npx liteb routine billing/nightly --cron "0 7 * * *"   # + its schedule token
+npx liteb token billing/charge-created slot --reaction  # something to react to
 
 npx liteb migrate                            # run pending migrations, no server
 npx liteb migrate --dry-run                  # what would run

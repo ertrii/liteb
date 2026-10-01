@@ -43,7 +43,7 @@ npm install liteb
 | Contracts between modules   | ✔      |
 | Per-module migrations       | ✔      |
 | Authentication seam         | ✔      |
-| Events between modules      | ✔      |
+| Reactions between modules   | ✔      |
 | Extension points (slots)    | ✔      |
 | Scaffolding CLI             | ✔      |
 
@@ -75,9 +75,8 @@ writes the shape; you write the code.
 | `contract <module>/<name>` | A capability this module publishes: token and shape |
 | `provider <module>/<name>` | The class that answers it |
 | `strategy <module>/<name> <slot>` | What this module contributes to someone else's extension point |
-| `event <module>/<name>` | Something this module announces |
+| `token <module>/<name> slot --reaction` | Something this module announces, for whoever reacts |
 | `slot <module>/<name>` | An extension point others may fill |
-| `listener <module>/<name>` | A listener |
 | `table <module>/<name>` | A table and its row types (`--name`) |
 | `migration <module>/<name>` | A timestamped migration |
 | `migrate` | Runs pending migrations without starting the server (`--dry-run`, `--entry`) |
@@ -291,7 +290,7 @@ is particular to **this** module. The folders are found from `dir`:
 | `migrations/*.ts` | the migration classes |
 | `endpoints/*.endpoint.ts` | the endpoints, mounted under the module id |
 | `routines/*.routine.ts` | the scheduled routines |
-| `listeners/*.listener.ts` | the event listeners |
+| `strategies/*.strategy.ts` | the `Strategy` classes: what it contributes to other modules' extension points, reactions included |
 | `providers/*.provider.ts` | the `Provider` classes: the contracts this module answers |
 | `strategies/*.strategy.ts` | the `Strategy` classes: what it contributes to other modules' extension points |
 
@@ -308,7 +307,7 @@ in it to discover — a token is imported by name:
 
 | Folder | What goes in it |
 | --- | --- |
-| `tokens/*.token.ts` | every contract, extension point and event this module shares |
+| `tokens/*.token.ts` | every contract, extension point and schedule this module shares |
 
 It is the module's public face: the only files another module ever
 imports — and the reason `liteb init` writes a path alias, because those are
@@ -334,7 +333,7 @@ export default defineModule({
   dir: __dirname,
 
   // A DDD layout: the endpoints are elsewhere. Entities, migrations, routines
-  // and listeners keep coming from the standard folders.
+  // and strategies keep coming from the standard folders.
   routes: './presentation/controllers/**/*.controller.ts',
 });
 ```
@@ -408,7 +407,7 @@ the case where the client needs data about the failure and not just words.
 
 Read from `x-request-id` or generated, echoed in the response, and present in
 **every log line written while serving that request** — the access line,
-anything an endpoint logs, anything a provider or a listener logs deep inside:
+anything an endpoint logs, anything a provider or a strategy logs deep inside:
 
 ```
 GET /api/products 200 4.4 ms - 139 [44e9e203a52f]
@@ -563,7 +562,7 @@ what lets the provider change or be swapped without touching its callers.
 > never — every module ships together and who sees what is decided by
 > permissions rather than by installation — those modules are an organisation of
 > the code, and a direct import between them is simpler and better typed.
-> Contracts, extension points and events are the **extension surface**: what
+> Contracts and extension points are the **extension surface**: what
 > lets something you did not write, or that may not be installed, take part.
 > They are not the default tissue between folders of the same product. A wiring
 > that is the exception is read carefully; a wiring that is everywhere stops
@@ -622,9 +621,9 @@ The consumer imports the **contract file** and never the provider. Nothing
 lists the provider: the folder is what registers it and the decorator says
 which contract it answers.
 
-- **`this.db`, `this.get()`, `this.all()` and `this.emit()`** are injected
+- **`this.db`, `this.get()`, `this.all()` and `this.notify()`** are injected
   before the instance is built, so a field initializer can already reach for a
-  repository — the same as an endpoint, a routine or a listener.
+  repository — the same as an endpoint, a routine or a strategy.
 - **Built on first use, then reused.** A contract nobody calls costs nothing,
   and the boot does not hang on something one endpoint needs.
 - **Exactly one provider.** Two modules answering the same contract is an error
@@ -638,13 +637,18 @@ which contract it answers.
 
 ### Extension points
 
-Three ways modules meet, and they are not interchangeable:
+Two ways modules meet, and they are not interchangeable:
 
-| | Who answers | Who reads |
-| --- | --- | --- |
-| **Contract** (`get`) | exactly one | the caller, who waits for the answer |
-| **Event** (`emit`) | any number of listeners | nobody — there is no answer |
-| **Slot** (`all`) | any number of contributions | the module that opened it |
+| | Who answers | Who runs it | Whose failure it is |
+| --- | --- | --- | --- |
+| **Contract** (`get`) | exactly one | the caller, who waits for the answer | the caller's |
+| **Slot** (`all`) | however many contributions | the host, and it uses what they return | the host's |
+| the same slot, **announced** (`notify`) | however many contributions | the host, and it discards the answers | **theirs** |
+
+The last two rows are **the same slot**: all that changes is the verb the host
+reads it with, and with it whose failure it is. There used to be a third
+mechanism — an event, with its own bus and base class — and that was the whole of
+what it added.
 
 A slot is what a third-party extension plugs into: the host does not know what
 will exist, so it declares the shape and enumerates whatever is installed.
@@ -740,56 +744,60 @@ Did you mean: billing.view, billing.void?
 The check runs **before** the 401, so an undeclared key surfaces on the first
 request even while you are still anonymous.
 
-### Events between modules
+### Announcing something, for whoever reacts
 
-A contract is a call: you ask a particular module for something and wait. An
-event is an announcement: *this happened*, and whoever cares reacts.
+A contract is a call: you ask a particular module for something and wait.
+Announcing is the other thing: *this happened*, and whoever cares reacts. It is
+the same slot as above, read with `notify()`.
 
 ```typescript
-// catalog/module.ts — the emitter exports the token, nothing else
-export interface ProductRestocked {
+// catalog/tokens/product-restocked.token.ts — the host declares the PAYLOAD
+export interface RestockPayload {
   productId: number;
   quantity: number;
+  userId: number;
 }
-export const ProductRestocked = token<ProductRestocked>(
+export const ProductRestocked = token<Reaction<RestockPayload>>(
   'catalog.product.restocked',
-  'event',
+  'slot',
 );
 ```
 
+`Reaction<T>` supplies the method, so nobody has to agree on a name for it.
+
 ```typescript
 // in an endpoint or a routine of `catalog`
-await this.emit(ProductRestocked, { productId, quantity });
+await this.notify(ProductRestocked, { productId, quantity, userId });
 ```
 
 ```typescript
-// reports/listeners/restock-log.listener.ts
-@On(ProductRestocked)
-export class RestockLog extends Listener<ProductRestocked> {
-  async on(payload: ProductRestocked) {
+// reports/strategies/restock-log.strategy.ts
+@Fills(ProductRestocked)
+export class RestockLog extends Strategy implements Reaction<RestockPayload> {
+  async on(payload: RestockPayload) {
     await this.get(UserDirectory).find(payload.userId);
   }
 }
 ```
 
-The file goes in the module's `listeners/` folder, the same way a routine goes
+The file goes in the module's `strategies/` folder, the same way a routine goes
 in `routines/`. Nothing to declare.
 
-The rules that keep an event from turning into a call with extra steps:
+The rules that keep announcing from turning into a call with extra steps:
 
-- **A listener that throws does not fail the emitter.** The failure is logged
-  with the module and the event; the request goes on. If the outcome matters to
-  the caller, it wants a contract, not an event.
-- **An event nobody listens to is normal**, not an error.
-- Listeners run in parallel and `emit()` resolves once they have all settled.
-- A listener that **declares** its payload parameter is checked against the
-  token, so a renamed field cannot quietly reach a handler still expecting the
-  old one. (One that ignores the payload compiles against any token — it cannot
-  misread what it never reads.)
+- **A reaction that throws does not fail the announcer.** The failure is logged
+  with the module and the slot; the request goes on. If the outcome matters to
+  the caller, it wants a contract.
+- **A slot nobody filled is normal**: `notify()` is a no-op.
+- Reactions run in parallel and `notify()` resolves once they have all settled.
+  **It is not a queue**: a slow reaction still slows you down.
+- **One hop, and no further.** A reaction that tries to announce something of its
+  own is refused by name, naming both slots. Without that it becomes A → B → C
+  and "why was this email sent" stops having an answer.
 
-**GOTCHA:** listeners read on their own connection. Emitting inside
-`db.transaction()` means they will not see the uncommitted rows — emit *after*
-it commits, or put what they need in the payload.
+**GOTCHA:** reactions read on their own connection. Announcing inside
+`db.transaction()` means they will not see the uncommitted rows — announce
+*after* it commits, or put what they need in the payload.
 
 ## Trying a local build
 
@@ -1236,7 +1244,8 @@ spec.
 ## Routines
 
 Work the application does on its own, on a clock. The third way in, next to an
-endpoint (answers a request) and a listener (reacts to an event): nobody calls
+endpoint (answers a request) and a strategy (one implementation among however
+many are deployed): nobody calls
 a routine, the schedule does.
 
 ```typescript
@@ -1245,7 +1254,7 @@ import { Cron, Routine } from 'liteb';
 @Cron('0 * * * *', { timezone: 'America/Lima' })  // every hour
 export class HourlyReport extends Routine {
   start(now: Date | 'manual' | 'init') {
-    // this.db, this.get(Contract) and this.emit(Event) all work here
+    // this.db, this.get(Contract) and this.notify(Slot, payload) all work here
   }
 }
 ```
@@ -1293,7 +1302,7 @@ Three modules, on purpose:
 | --- | --- | --- |
 | `identity` | | Table + migration with seed data, login/logout/me, a contract other modules consume, permissions, a projection so the password never leaves |
 | `catalog` | | `requires`, validation DTOs, `@Priority` done right, a page with `view()`, an export with `csv()`, `db.transaction()` for two writes that must land together |
-| `reports` | | Owns no table: it reads the other two through their contracts, fills catalog's extension point and listens to its event — the shape an extension has |
+| `reports` | | Owns no table: it reads the other two through their contracts, fills catalog's extension point and reacts to what it announces — the shape an extension has |
 
 ```bash
 cp .env.template .env      # fill in DB_* and SECRET_KEY

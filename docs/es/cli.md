@@ -36,9 +36,8 @@ sin ella `npx liteb` trae la etiqueta `latest`, que es otro major con otro CLI.
 | [`table <module>/<name>`](#liteb-table-modulename) | Una tabla, con sus tipos de fila |
 | [`migration <module>/<name>`](#liteb-migration-modulename) | Una migración con sello de tiempo |
 | [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | La misma, escrita desde tus tablas |
-| [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | Lo que este módulo comparte: contrato, slot o evento |
+| [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | Lo que este módulo comparte: un contrato o un slot |
 | [`provider <module>/<name>`](#liteb-provider-modulename) | La clase que responde un contrato o llena un slot |
-| [`listener <module>/<name>`](#liteb-listener-modulename) | Una reacción a un evento |
 | [`migrate`](#liteb-migrate) | Corre las migraciones pendientes |
 | [`migrate:status`](#liteb-migratestatus) | Qué declara cada módulo, y qué ya corrió |
 | [`build`](#liteb-build) | Compila, opcionalmente a bytecode de V8 |
@@ -66,9 +65,9 @@ mantener sincronizada, porque **la carpeta es lo que registra el archivo**:
 billing/
 ├── module.ts                   ← el cableado, y las claves de permiso
 ├── tables/*.table.ts           migrations/*.ts
-├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
+├── endpoints/*.endpoint.ts     routines/*.routine.ts
 ├── providers/*.provider.ts     strategies/*.strategy.ts
-└── tokens/*.token.ts           (contratos, slots y eventos)
+└── tokens/*.token.ts           (contratos, slots y horarios)
 ```
 
 Las primeras filas son globs que liteb lee al arrancar. La última no: un token
@@ -592,20 +591,26 @@ que nadie commiteó aparecen ahí y en ningún otro lado.
 ## `liteb token <module>/<name> <kind>`
 
 ```bash
-npx liteb token identity/directory contract   # lo responde exactamente uno
-npx liteb token catalog/product-badges slot   # lo llenan los que haya
-npx liteb token billing/charge-issued event   # no lo responde nadie
+npx liteb token identity/directory contract            # lo responde exactamente uno
+npx liteb token catalog/product-badges slot            # lo llenan los que haya
+npx liteb token catalog/product-restocked slot --reaction  # el anfitrión anuncia
 ```
 
-Lo único que dos módulos comparten. Escribe `tokens/<name>.token.ts`, y el
-segundo argumento es el mismo que lleva `token(id, kind)` adentro del archivo:
-los tres se diferencian en una sola cosa, cuántos pueden responder.
+| Bandera | Efecto |
+| --- | --- |
+| `--reaction` | para un slot: el anfitrión **anuncia** y no lee nada de vuelta |
 
-| kind | Quién responde | Cómo se lee |
-| --- | --- | --- |
-| `contract` | exactamente uno | `this.get(Token)`, y espera la respuesta |
-| `slot` | los que estén instalados | `this.all(Token)`; un arreglo vacío es normal |
-| `event` | nadie | no se lee: se anuncia con `this.emit(Token, carga)` |
+Lo único que dos módulos comparten. Escribe `tokens/<name>.token.ts`, y el
+segundo argumento es el mismo que lleva `token(id, kind)` adentro del archivo.
+
+| kind | Quién responde | Cómo se lee | De quién es la falla |
+| --- | --- | --- | --- |
+| `contract` | exactamente uno | `this.get(Token)`, y espera la respuesta | de quien llama |
+| `slot` | los que estén desplegados | `this.all(Token)`; un arreglo vacío es normal | del anfitrión |
+| `slot --reaction` | los que estén desplegados | `this.notify(Token, carga)`; sin nadie, no hace nada | **de ellos** |
+
+El token de un **horario** no sale de acá: lo escribe
+[`liteb routine`](#liteb-routine-modulename), al lado de su clase.
 
 Con **`contract`**, la interfaz y el token comparten nombre a propósito:
 TypeScript tiene tipos y valores en espacios de nombres separados, así que un
@@ -617,14 +622,21 @@ y el token nombra la colección. Y mirá la dirección — el módulo que abre e
 es del que dependen las extensiones: no sabe nada de quién lo llena, que es lo
 que mantiene al anfitrión independiente de sus propias extensiones.
 
-Con **`event`**, la carga tiene que llevar lo que un oyente necesita: los oyentes
-leen en su propia conexión, así que no pueden ver filas que una transacción
-todavía no confirmó. No hay respuesta, un oyente que lanza no hace fallar a quien
-emitió, y un evento que nadie escucha es normal.
+Con **`--reaction`** el módulo declara la **carga** y `Reaction<T>` aporta el
+método, así que nadie tiene que inventarle un nombre. Esa carga tiene que llevar
+lo que una reacción necesita: las reacciones leen en su propia conexión, así que
+no pueden ver filas que una transacción todavía no confirmó — anunciá **después**
+de que confirme. Y una reacción que lanza no hace fallar a quien anunció: se
+loguea con su módulo y las demás corren igual.
 
-Los tres caen en la **misma** carpeta a propósito. Separarlos en `contracts/`,
-`slots/` y `events/` pedía archivar una decisión que ya está tomada adentro del
-archivo, en el segundo argumento.
+Es la misma ranura en los dos casos; lo único que cambia es el **verbo** con que
+el anfitrión la lee. Hubo un tercer tipo de token, `'event'`, con su propio bus y
+su propia clase base, y lo único que agregaba sobre una ranura era esa última
+columna — así que la garantía quedó y el mecanismo se fue.
+
+Los dos caen en la **misma** carpeta a propósito. Separarlos en `contracts/` y
+`slots/` pedía archivar una decisión que ya está tomada adentro del archivo, en
+el segundo argumento.
 
 ---
 
@@ -640,7 +652,7 @@ La clase que cumple la promesa de un contrato. Escribe
 Llenar el punto de extensión de otro módulo es
 [otro comando](#liteb-strategy-modulename-slot), porque es otra relación.
 
-`this.db`, `this.get(Contract)`, `this.all(Slot)` y `this.emit(Event)` se
+`this.db`, `this.get(Contract)`, `this.all(Slot)` y `this.notify(Slot, carga)` se
 inyectan **antes** de construir la instancia, así que un inicializador de campo
 ya puede alcanzar un repositorio:
 
@@ -684,31 +696,10 @@ export class LowStock extends Strategy implements ProductBadge {
 - El import generado es un marcador que apunta a `@/<module>/tokens/…`: el slot
   pertenece al módulo que lo **abrió**, y una extensión importa ese token, nunca
   al revés.
-- **Tirar una excepción acá voltea la petición del anfitrión**, porque te llama
-  derecho. Para un efecto que no pueda romper a quien lo dispara, eso es un
-  evento y un `Listener`.
-
----
-
-## `liteb listener <module>/<name>`
-
-```bash
-npx liteb listener reports/restock-log
-```
-
-Reacciona a un evento que anunció otro módulo. Escribe
-`listeners/<name>.listener.ts`.
-
-El archivo generado declara un token marcador para que compile solo —
-reemplazalo con el import real del módulo que anuncia el evento:
-
-```typescript
-import { ChargeIssued } from '@/billing/tokens/charge-issued.token';
-```
-
-Los oyentes leen en su
-propia conexión: emitá **después** de que la transacción confirme, o no pueden
-ver las filas.
+- **De quién es la falla depende de cómo lea el anfitrión.** Con `all()` te llama
+  derecho, así que tirar una excepción voltea su petición. Con `notify()` se
+  loguea con el id de tu módulo y el anfitrión responde igual — que es lo que
+  elige cuando la ranura es para efectos.
 
 ---
 

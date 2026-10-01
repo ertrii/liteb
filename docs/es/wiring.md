@@ -1,9 +1,12 @@
 # Cableado entre módulos
 
 Dos módulos instalables tienen que poder hablarse sin conocerse. Esta página es
-el detalle de las tres formas de hacerlo — **contrato**, **evento** y **slot** —,
-qué garantiza cada una, qué se rompe al arrancar y qué se rompe recién en
-producción.
+el detalle de las dos formas de hacerlo — **contrato** y **slot** —, qué
+garantiza cada una, qué se rompe al arrancar y qué se rompe recién en producción.
+
+El slot se lee de dos maneras, y la diferencia entre ellas es de quién es la
+falla. Eso alcanzaba para que hubiera un tercer mecanismo —el evento, con su bus
+y su clase base— y es la razón por la que ya no está.
 
 La versión corta está en [la guía](./guide.md#llamar-a-otro-módulo). Acá está el
 por qué de cada regla, y lo que pasa en los bordes.
@@ -11,11 +14,11 @@ por qué de cada regla, y lo que pasa en los bordes.
 | | |
 | --- | --- |
 | [1. Por qué no se importan](#1-por-qué-no-se-importan) | el costo de un import directo |
-| [2. Las tres formas](#2-las-tres-formas) | y cómo elegir entre ellas |
+| [2. Las dos formas](#2-las-dos-formas-y-los-tres-verbos) | y los tres verbos |
 | [3. El token](#3-el-token-lo-único-que-cruza-el-límite) | lo único que cruza el límite |
 | [4. Contratos](#4-contratos) | una capacidad, un proveedor |
 | [5. Slots](#5-slots) | un punto de extensión, muchos aportes |
-| [6. Eventos](#6-eventos) | un anuncio, sin respuesta |
+| [6. Anunciar](#6-anunciar) | el mismo slot, sin leer la respuesta |
 | [7. Quién alcanza qué](#7-quién-alcanza-qué) | la tabla de inyecciones |
 | [8. Qué se ve al arrancar](#8-qué-se-ve-al-arrancar) | y qué significa el silencio |
 | [9. Quitar un módulo](#9-quitar-un-módulo) | qué desaparece con él |
@@ -103,27 +106,37 @@ Dónde sigue valiendo la pena aunque ningún módulo falte nunca:
   llama — una pasarela, un proveedor de mensajería, un almacenamiento.
 - Cuando el otro lado lo escribe **alguien más**, ahora o después.
 - Cuando el que avisa **no debe romperse** si quien reacciona falla: eso es un
-  evento, y no tiene sustituto por import.
+  slot leído con `notify()`, y no tiene sustituto por import.
 
-## 2. Las tres formas
+## 2. Las dos formas, y los tres verbos
 
 | | Qué dice | Cuántos responden | Quién lee | Si no hay nadie | Si falla |
 | --- | --- | --- | --- | --- | --- |
 | **Contrato** `this.get()` | «dame esto» | exactamente uno | quien llama, y espera | error | falla quien llamó |
-| **Slot** `this.all()` | «quien pueda, que se presente» | los que haya | el módulo que lo abrió | arreglo vacío, normal | falla quien leyó |
-| **Evento** `this.emit()` | «esto pasó» | los oyentes que haya | nadie | normal | se registra, nadie falla |
+| **Slot** `this.all()` | «quien pueda, que se presente» | los que haya | el anfitrión, y usa lo que devuelven | arreglo vacío, normal | **falla quien leyó** |
+| el mismo slot, `this.notify()` | «esto pasó» | los que haya | el anfitrión, y descarta las respuestas | no hace nada, normal | **se registra, nadie falla** |
+
+Dos mecanismos y tres verbos: `all()` y `notify()` leen **la misma ranura**, y lo
+único que cambia es si la falla de un aporte es tuya.
 
 Tres preguntas alcanzan para elegir:
 
 1. **¿Necesitás la respuesta para seguir?** → contrato. Si el resultado cambia lo
    que contestás, no es un aviso.
-2. **¿Vas a enumerar a quien esté instalado?** → slot. Si la lista puede crecer
-   con un módulo que todavía no existe, no es un contrato.
-3. **¿Terminaste tu trabajo y sólo querés que otros se enteren?** → evento.
+2. **¿Vas a enumerar a quien esté desplegado y usar lo que devuelvan?** → slot con
+   `all()`. Si la lista puede crecer con un módulo que todavía no existe, no es un
+   contrato.
+3. **¿Terminaste tu trabajo y sólo querés que otros se enteren?** → el mismo slot,
+   con `notify()` y un aporte tipado `Reaction<T>`.
 
-El caso límite útil: si escribís `await this.emit(...)` y después necesitás saber
-si salió bien, elegiste mal. Un evento no tiene respuesta y no propaga fallos;
-pedirle las dos cosas es un contrato escrito al revés.
+El caso límite útil: si escribís `await this.notify(...)` y después necesitás
+saber si salió bien, elegiste mal. `notify()` no devuelve nada y no propaga
+fallos; pedirle las dos cosas es un contrato escrito al revés.
+
+> **Hubo un tercer mecanismo.** Un `'event'`, con su bus, su `Listener` y su
+> `@On`. Lo único que agregaba sobre una ranura era la última celda de la tabla
+> —de quién es la falla— y eso no necesita un subsistema, necesita un verbo. Se
+> quitó en 2.0.0-alpha.5 y la garantía quedó.
 
 ## 3. El token: lo único que cruza el límite
 
@@ -155,7 +168,7 @@ Lo que lleva el token:
 - **`T`** — sólo en tiempo de compilación, en un campo fantasma que nunca se
   escribe. Es lo que hace que `this.get(BillingService)` devuelva el tipo correcto
   sin un cast.
-- **`kind`** — `'contract'`, `'slot'` o `'event'`, que es el segundo argumento
+- **`kind`** — `'contract'`, `'slot'` o `'schedule'`, que es el segundo argumento
   de `token()`. Sin ese campo los tres serían estructuralmente idénticos y cada
   uno se podría pasar donde va otro, que es la única confusión que importa acá.
 
@@ -168,17 +181,17 @@ rechazar el token que no le toca.
 ```typescript
 token<BillingService>('billing.service', 'contract'); // exactamente uno
 token<ProductBadge>('catalog.product-badges', 'slot'); // los que haya
-token<ProductRestocked>('catalog.product.restocked', 'event'); // sin respuesta
+token<Reaction<RestockPayload>>('catalog.product.restocked', 'slot'); // para anunciar
+token('billing.nightly-close', 'schedule'); // un reloj que se prende y se para
 ```
 
 Dónde vive cada archivo, y qué comando lo escribe:
 
 | Carpeta | Qué hay | Comando |
 | --- | --- | --- |
-| `tokens/*.token.ts` | los tres: contratos, slots y eventos | [`liteb token`](./cli.md#liteb-token-modulename-kind) |
+| `tokens/*.token.ts` | contratos, slots y horarios | [`liteb token`](./cli.md#liteb-token-modulename-kind) |
 | `providers/*.provider.ts` | lo que responde **un contrato propio** | [`liteb provider`](./cli.md#liteb-provider-modulename) |
 | `strategies/*.strategy.ts` | lo que llena **el slot de otro módulo** | [`liteb strategy`](./cli.md#liteb-strategy-modulename-slot) |
-| `listeners/*.listener.ts` | lo que reacciona a un evento | [`liteb listener`](./cli.md#liteb-listener-modulename) |
 
 Las tres son globs: la carpeta es lo que los registra, y el decorador dice a qué
 token responden. Y son **tres** carpetas porque son tres relaciones distintas —
@@ -241,7 +254,7 @@ export default class CreateSale extends Endpoint<never, CreateSaleDto> {
 }
 ```
 
-`this.get()` está en un endpoint, una rutina, un proveedor y un oyente — ver
+`this.get()` está en un endpoint, una rutina, un proveedor y una estrategia — ver
 [la tabla de inyecciones](#7-quién-alcanza-qué).
 
 ### `consumes`: mover el fallo al arranque
@@ -304,7 +317,7 @@ arrancar, y desde ahí se reutiliza la misma instancia.
 
 ### La inyección llega antes del constructor
 
-`db`, `container` y `events` se ponen en el **prototipo** antes de construir, y
+`db`, `container` y `scheduler` se ponen en el **prototipo** antes de construir, y
 después se copian en la instancia. Eso es lo que hace que un inicializador de
 campo funcione:
 
@@ -332,7 +345,7 @@ de tests y un servidor, o un worker al lado — no ven las implementaciones de l
 otra. Es lo que hace que un test pueda arrancar una aplicación con otro conjunto
 de módulos sin ensuciar a la siguiente.
 
-Si un proveedor o un oyente se construye fuera de una aplicación, `this.get()` lo
+Si un proveedor o una estrategia se construye fuera de una aplicación, `this.get()` lo
 dice con la causa en vez de dejar un `undefined`:
 
 ```
@@ -356,7 +369,7 @@ lo volvió a pedir. Si son dos contratos en círculo, empezá por ese.
 
 Salir de un ciclo real es casi siempre una de tres: mover lo compartido a un
 tercer módulo del que dependan los dos, convertir una de las dos direcciones en un
-evento (si esa dirección era sólo un aviso), o abrir un slot (si era «el core
+anuncio (si esa dirección era sólo un aviso), o abrir un slot (si era «el core
 llamando a su extensión»).
 
 ### Diagnóstico
@@ -447,7 +460,7 @@ relaciones distintas y en liteb se escriben distinto:
 | Quién la llama | quien la resolvió, y espera | **el anfitrión, y nadie más** |
 | Se construye | en el primer `this.get()` | en el primer `this.all()` |
 | Si tira excepción | falla la petición de quien llamó | falla la petición del **anfitrión** |
-| Inyecciones | `db`, `get()`, `all()`, `emit()` | las mismas |
+| Inyecciones | `db`, `get()`, `all()`, `notify()` | las mismas |
 | Comando | `liteb provider <mod>/<name>` | `liteb strategy <mod>/<name> <slot>` |
 
 Cada decorador rechaza el token del otro, y el error dice las tres cosas que hay
@@ -567,123 +580,151 @@ it is still being filled: a contribution asks for the slot it belongs to.
 | un cero significa «nadie lo instaló» | slot |
 | un cero significa «falta un módulo» | contrato, declarado en `consumes` |
 
-## 6. Eventos
+## 6. Anunciar
+
+El mismo slot, leído con el otro verbo. Lo que el módulo declara es la **carga**;
+`Reaction<T>` aporta el método, así que nadie tiene que inventarle un nombre.
 
 ```typescript
 // catalog/tokens/product-restocked.token.ts
-export interface ProductRestocked {
+export interface RestockPayload {
   productId: number;
   quantity: number;
 }
 
-export const ProductRestocked = token<ProductRestocked>(
+export const ProductRestocked = token<Reaction<RestockPayload>>(
   'catalog.product.restocked',
-  'event',
+  'slot',
 );
 ```
 
 ```typescript
-// en un endpoint, una rutina o un proveedor de `catalog`
-await this.emit(ProductRestocked, { productId, quantity });
+// en un endpoint, una rutina, un proveedor o una estrategia de `catalog`
+await this.notify(ProductRestocked, { productId, quantity });
 ```
 
 ```typescript
-// reports/listeners/restock-log.listener.ts
-@On(ProductRestocked)
-export class RestockLog extends Listener<ProductRestocked> {
-  async on(payload: ProductRestocked) {
+// reports/strategies/restock-log.strategy.ts
+@Fills(ProductRestocked)
+export class RestockLog extends Strategy implements Reaction<RestockPayload> {
+  async on(payload: RestockPayload) {
     // ...
   }
 }
 ```
 
-No hay nada que declarar en el manifiesto: el archivo va en `listeners/` y el
-decorador dice a qué token responde. Uno sin `@On` se saltea con un aviso, como
-un proveedor sin decorador.
+Nada que declarar en el manifiesto: el archivo va en `strategies/` y el decorador
+dice a qué token responde. Uno sin `@Fills` se saltea con un aviso, como un
+proveedor sin decorador. Es una `Strategy` común — la de un slot que devuelve
+algo y la de una reacción son la misma clase, con la misma carpeta y el mismo
+decorador.
 
-### Emitir es avisar
+### Anunciar es avisar
 
-- **Todos los oyentes corren**, en paralelo, y `emit()` resuelve cuando todos
-  terminaron. No hay orden garantizado entre ellos.
-- **Un oyente que lanza no hace fallar a quien emitió.** El fallo se registra con
-  el nombre de la clase, el módulo y el evento, y la petición sigue:
+- **Todas las reacciones corren**, en paralelo, y `notify()` resuelve cuando todas
+  terminaron. No hay orden garantizado entre ellas.
+- **Una reacción que lanza no hace fallar a quien anunció.** El fallo se registra
+  con el nombre de la clase, el módulo y la ranura, y la petición sigue:
 
 ```
-[ERROR] Listener RestockLog (module "reports") failed on
+[ERROR] Reaction RestockLog (module "reports") failed on
 "catalog.product.restocked"
 ```
 
-- **Un evento que nadie escucha no es un error.** Es el punto: `emit()` con cero
-  oyentes vuelve enseguida.
-- `await` sobre `emit()` te espera a los efectos, no a un resultado: no hay
-  resultado. Si te importa el resultado, era un contrato.
+- Esa garantía cubre también un `throw` **sincrónico**, no sólo una promesa
+  rechazada. Cada reacción corre dentro de una `async`, porque sin eso un throw
+  sincrónico se escapa y voltea a quien anunció — que es justo lo contrario de
+  para qué existe el verbo.
+- **Una ranura que nadie llenó no es un error.** Es el punto: `notify()` con cero
+  aportes vuelve enseguida.
+- `await` sobre `notify()` te espera a los efectos, no a un resultado: no hay
+  resultado. Si te importa el resultado, era un contrato. Y **no es una cola**:
+  una reacción lenta te frena la petición igual.
 
 ### El tipado de la carga
 
-El genérico ata el token con el oyente. Un oyente que **declara** su parámetro se
-chequea contra el token, así que un campo renombrado no puede llegar en silencio
-a un manejador que todavía espera el viejo.
+El genérico ata el token con la reacción: `Reaction<RestockPayload>` es lo que
+`implements` la clase y lo que `notify()` exige, así que un campo renombrado no
+puede llegar en silencio a un manejador que todavía espera el viejo.
 
-Un oyente que ignora la carga (`on() {}`) compila contra cualquier token, y eso
-es inofensivo: no puede malinterpretar un campo que nunca lee.
+Y una ranura que **no** es de reacciones no se puede anunciar: su aporte no tiene
+`on(payload)`, y es el tipo el que lo dice. `notify(ProductBadges, ...)` no
+compila.
 
-### Un oyente no emite
+### Una reacción no anuncia
 
-Un `Listener` tiene `db`, `get()` y `all()`, pero **no** `emit()`. El efecto es
-que una cadena de eventos no se arma sola: para que un oyente provoque otro
-anuncio tiene que pasar por un contrato, donde el módulo dueño de ese evento
-decide si corresponde emitirlo. Un endpoint, una rutina y un proveedor sí emiten.
+Una reacción que llama a `notify()` se **rechaza por nombre**, con las dos
+ranuras:
+
+```
+ContractError: Extension point "billing.charge.created" is being announced from
+inside a reaction to "catalog.product.restocked". A reaction must not announce
+another one: have the host announce both, or make the second one a contract so
+the dependency is visible.
+```
+
+El efecto es que una cadena no se arma sola. Sin eso vuelve A → B → C y «por qué
+se mandó este correo» deja de tener respuesta.
+
+El guardia está scopeado al **contexto async** de cada anuncio, no a una bandera
+compartida: `notify()` espera, así que con una bandera global dos peticiones
+simultáneas se rechazarían entre ellas una cascada que no existe.
 
 ### La trampa de la transacción
 
-Los oyentes leen en **su propia conexión**. Emitir adentro de `db.transaction()`
-significa que no van a ver las filas sin confirmar:
+Las reacciones leen en **su propia conexión**. Anunciar adentro de
+`db.transaction()` significa que no van a ver las filas sin confirmar:
 
 ```typescript
-// ❌ el oyente busca el cargo y no lo encuentra
-await this.db.transaction(async (manager) => {
-  const charge = await manager.save(newCharge);
-  await this.emit(ChargeCreated, { chargeId: charge.id });
+// ❌ la reacción busca el cargo y no lo encuentra
+await this.db.transaction(async (tx) => {
+  const [charge] = await tx.insert(charges).values(nuevo).returning();
+  await this.notify(ChargeCreated, { chargeId: charge.id });
 });
 
-// ✅ emitir después de que confirme
-const charge = await this.db.transaction((manager) => manager.save(newCharge));
-await this.emit(ChargeCreated, { chargeId: charge.id });
+// ✅ anunciar después de que confirme
+const charge = await this.db.transaction(async (tx) => {
+  const [fila] = await tx.insert(charges).values(nuevo).returning();
+  return fila;
+});
+await this.notify(ChargeCreated, { chargeId: charge.id });
 ```
 
-La otra salida es poner en la carga todo lo que el oyente necesita, y que no
-tenga que leer nada. Sirve para cargas chicas; en cuanto el oyente necesita el
-resto de la fila, emitir después es más simple que hacer crecer la carga.
+La otra salida es poner en la carga todo lo que la reacción necesita, y que no
+tenga que leer nada. Sirve para cargas chicas; en cuanto necesita el resto de la
+fila, anunciar después es más simple que hacer crecer la carga.
 
-### Lo que un evento no es
+### Lo que esto no es
 
-El bus es **en proceso**: no hay cola, no hay reintento, no persiste y no cruza
-al worker de al lado. Si el proceso se cae entre el commit y el `emit()`, ese
+Es **en proceso**: no hay cola, no hay reintento, no persiste y no cruza al worker
+de al lado. Dos réplicas detrás de un balanceador reaccionan **sólo en la que
+anunció**, y nada avisa. Si el proceso se cae entre el commit y el `notify()`, ese
 efecto se perdió y nada lo va a recuperar.
 
 Para un efecto que no se puede perder, el patrón es escribir la intención en una
 fila dentro de la misma transacción y que una [rutina](./guide.md#rutinas) la
-procese. El evento sirve para el resto, que es la mayoría: un log, un aviso, un
+procese. Anunciar sirve para el resto, que es la mayoría: un log, un aviso, un
 contador, una caché que se invalida.
 
 ## 7. Quién alcanza qué
 
-| | `this.db` | `this.get()` | `this.all()` | `this.emit()` |
-| --- | --- | --- | --- | --- |
-| `Endpoint` | ✅ | ✅ | ✅ | ✅ |
-| `Routine` | ✅ | ✅ | ✅ | ✅ |
-| `Provider` | ✅ | ✅ | ✅ | ✅ |
-| `Listener` | ✅ | ✅ | ✅ | — |
+| | `this.db` | `this.get()` | `this.all()` | `this.notify()` | `this.schedule()` |
+| --- | --- | --- | --- | --- | --- |
+| `Endpoint` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `Routine` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `Provider` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `Strategy` | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Las cuatro reciben lo mismo por la misma vía y antes de construir la instancia,
 así que un inicializador de campo puede alcanzar un repositorio en cualquiera de
-ellas.
+ellas. La única asimetría es de ejecución, no de acceso: una `Strategy` que corre
+como reacción tiene `notify()` y lo usa a su propio riesgo — se lo rechazan.
 
 ## 8. Qué se ve al arrancar
 
 ```
 [INFO] Modules: identity, catalog (2 of 3)
-[INFO] Wiring: 2 contracts, 1 extension point, 1 event, 5 permissions
+[INFO] Wiring: 2 contracts, 1 extension point, 5 permissions
 [INFO] Serving on :5050 - 11 routes, 1 routine, docs at /docs (1.4s)
 ```
 
@@ -693,7 +734,7 @@ ellas.
 | --- | --- |
 | `contracts` | ningún módulo tiene un `Provider` con `@Provides` |
 | `extension points` | nadie aportó a ningún slot — no que no haya slots |
-| `events` | nadie escucha nada; los `emit()` vuelven enseguida |
+| `routines` | ningún módulo tiene una clase con `@Cron` |
 
 `extension points` cuenta los slots **que alguien llenó**, no los que se
 declararon: un slot abierto y vacío no aparece en ningún lado, porque un token es
@@ -720,7 +761,7 @@ que un módulo **deje de estar** — lo sacaste del despliegue, o del `modules` 
 | Contrato que consume | nada: nadie lo llama |
 | Slot que llena | su aporte desaparece de `this.all()` — el método de pago, el canal, el badge |
 | Slot que abre | el slot deja de leerse, porque nadie lo lee |
-| Oyentes | no reaccionan más |
+| Reacciones que aporta | no corren más: `notify()` sigue resolviendo, con un aporte menos |
 | Permisos | **desaparecen del catálogo**, porque salen de los manifiestos presentes |
 | Sus datos | **intactos**. La fila en `_modules` tampoco se borra: se reporta como huérfana, y qué hacer con esas tablas lo decide quien opera la instalación |
 
@@ -733,27 +774,27 @@ Esa última fila es la que importa: quitar código nunca borra datos.
 | `Module "x" consumes the contract "y", which no module provides.` | al arrancar | agregar el módulo que lo provee, o sacarlo de `consumes` |
 | `No module provides the contract "y". Check that the module providing it is installed.` | en una petición | lo mismo, y declararlo en `consumes` para que la próxima vez sea al arrancar |
 | `Contract "y" is provided by both "a" and "b". Exactly one module can provide it.` | al arrancar | quitar uno de los dos, o partir el contrato en dos |
-| `Contract "y" is being resolved while it is still being built: its implementation depends on itself.` | primera resolución | romper el ciclo: tercer módulo, evento, o slot |
+| `Contract "y" is being resolved while it is still being built: its implementation depends on itself.` | primera resolución | romper el ciclo: tercer módulo, o un slot |
 | `Extension point "z" is being filled while it is still being filled: a contribution asks for the slot it belongs to.` | primera lectura | un aporte no puede leer su propio slot |
 | `@Provides() takes a contract, and got an extension point. …` | al importar el archivo | un slot se llena con `@Fills` sobre una `Strategy`, en `strategies/` |
 | `@Fills() takes an extension point, and got a contract. …` | al importar el archivo | un contrato se responde con `@Provides` sobre un `Provider`, en `providers/` |
-| `@Provides() takes a contract, and got an event. …` | al importar el archivo | un evento no se provee ni se llena: se emite, y se escucha con `@On` |
+| `@Provides() takes a contract, and got a schedule. …` | al importar el archivo | sobre un horario corre una `Routine`, declarada con `@Cron(token, expresión)` |
+| `Extension point "z" is being announced from inside a reaction to "w". …` | al anunciar | una reacción no puede anunciar otra cosa: que anuncie el anfitrión, o que la segunda sea un contrato |
 | `token(): the id must be a non-empty string …` | al importar el archivo | el id va con el prefijo del módulo |
-| `token("x"): unknown kind "…"` | al importar el archivo | es `'contract'`, `'slot'` o `'event'` |
+| `token("x"): unknown kind "…"` | al importar el archivo | es `'contract'`, `'slot'` o `'schedule'` |
 | `Cannot resolve the contract "y": this application has no modules. Start it with Liteb.create({ modules }).` | fuera de una aplicación | construir la aplicación con sus módulos |
 | `Provider X in module "m" has no @Provides(token) and was skipped.` | aviso al arrancar | falta el decorador — el archivo no quedó registrado |
 | `Strategy X in module "m" has no @Fills(token) and was skipped.` | aviso al arrancar | lo mismo, del lado del slot |
-| `Listener X in module "m" has no @On(event) and was skipped.` | aviso al arrancar | falta `@On` |
-| `Listener X (module "m") failed on "e"` | en tiempo de ejecución | el oyente lanzó; quien emitió no se enteró |
+| `Reaction X (module "m") failed on "z"` | en tiempo de ejecución | la reacción lanzó; quien anunció respondió igual |
 
 Todos los `ContractError` llevan el `contractId` como propiedad, así que un
 manejador puede distinguirlos sin parsear el mensaje.
 
 ## 11. Antipatrones
 
-**Un evento para conseguir un resultado.** `emit()` y después leer la base
-esperando que el oyente ya escribió. Los oyentes corren en paralelo y sus fallos
-no llegan: lo que querías era un contrato.
+**Anunciar para conseguir un resultado.** `notify()` y después leer la base
+esperando que la reacción ya escribió. Las reacciones corren en paralelo y sus
+fallos no llegan: lo que querías era un contrato.
 
 **Un contrato para avisar.** Un `NotificationService` que quien llama invoca «por
 si acaso» y cuyo fallo le tira abajo la petición. Si el resultado no cambia lo que
@@ -771,10 +812,14 @@ la interfaz del contrato, que está en el archivo que sí podés importar.
 parte de la promesa: si es una entidad ajena, quien llama termina importándola y
 se acopló al esquema. Devolvé la forma que el contrato define.
 
-**Emitir adentro de la transacción.** Ver
+**Anunciar adentro de la transacción.** Ver
 [la trampa](#la-trampa-de-la-transacción). Es el error más caro de esta página,
-porque anda en desarrollo — donde el oyente suele llegar más tarde que el commit
+porque anda en desarrollo — donde la reacción suele llegar más tarde que el commit
 — y falla en producción.
+
+**Leer con `all()` una ranura que es para efectos.** Compila, y le regalás a un
+tercero la capacidad de voltearte la petición. Si lo que te devuelven no lo vas a
+usar, el verbo es `notify()`.
 
 ## 12. Un flujo completo
 
@@ -788,13 +833,13 @@ src/modules/
 │   ├── tokens/payment-methods.token.ts          PaymentMethod · PaymentMethods
 │   └── providers/billing-service.provider.ts    @Provides(BillingService)
 ├── sales/
-│   ├── tokens/sale-closed.token.ts              SaleClosed
-│   ├── endpoints/create-sale.endpoint.ts        this.get() · this.emit()
+│   ├── tokens/sale-closed.token.ts              Reaction<SaleClosedPayload>
+│   ├── endpoints/create-sale.endpoint.ts        this.get() · this.notify()
 │   └── module.ts                                consumes: [BillingService]
 ├── cash/
-│   └── strategies/cash-method.strategy.ts      @Fills(PaymentMethods)
+│   └── strategies/cash-method.strategy.ts       @Fills(PaymentMethods)
 └── reports/
-    └── listeners/sale-log.listener.ts           @On(SaleClosed)
+    └── strategies/sale-log.strategy.ts          @Fills(SaleClosed)
 ```
 
 ```typescript
@@ -809,7 +854,7 @@ export default class CreateSale extends Endpoint<never, CreateSaleDto> {
     });
 
     // Después de que la transacción de issueCharge confirmó.
-    await this.emit(SaleClosed, { chargeId: charge.id, amount: charge.amount });
+    await this.notify(SaleClosed, { chargeId: charge.id, amount: charge.amount });
 
     return { chargeId: charge.id };
   }

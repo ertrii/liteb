@@ -611,12 +611,12 @@ shows up without editing a central file.
 
 Only an `Endpoint` has it, because only a request has an actor behind it.
 
-- **A scheduled task** runs because the clock said so. Nobody asked for it, so
-  there is nothing to authorize. If it acts on somebody's behalf, that has to be
-  data it reads, not an ambient actor.
-- **A listener** reacts to an event another module announced. If the actor
-  matters, the event payload carries it — `ProductRestocked` in the demo carries
-  `userId` for exactly this reason.
+- **A routine** runs because the clock said so. Nobody asked for it, so there is
+  nothing to authorize. If it acts on somebody's behalf, that has to be data it
+  reads, not an ambient actor.
+- **A reaction** (`Reaction<T>`) runs because another module announced something.
+  If the actor matters, the payload carries it — `RestockPayload` in the demo
+  carries `userId` for exactly this reason.
 - **The resolver itself** obviously cannot use it.
 
 ---

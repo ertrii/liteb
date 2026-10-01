@@ -59,8 +59,7 @@ Four base classes. A file exporting one is found by the folder it is in — see
 | Name | Type | What it is |
 | --- | --- | --- |
 | `Endpoint<B, P, Q>` | class | One HTTP endpoint. Generics are the validated body, params and query. |
-| `Routine` | class | Scheduled work. `@Cron` decides when. |
-| `Listener<P>` | class | Handles one event. `@On` says which. |
+| `Routine` | class | Work on a clock. `@Cron` says which schedule it runs on, and when. |
 | `Provider` | class | Answers a contract — exactly one. Marked with `@Provides`. |
 | `Strategy` | class | Fills ANOTHER module's extension point, and that module runs it. Marked with `@Fills`. |
 | `DataJson` | `Record<string, any> \| Response \| Output \| null` | What an endpoint's `main()` may return. |
@@ -76,15 +75,15 @@ Four base classes. A file exporting one is found by the folder it is in — see
 | `auth` | `Auth` | Who is asking and what they may do. |
 | `db` | `Database` | The connection, injected. |
 | `container` | `Container` | Contracts other modules provide. |
-| `events` | `EventBus` | For `emit`. |
+| `scheduler` | `Scheduler` | For `this.schedule(Token)`: start, stop or run a schedule. |
 | `file` / `files` | `UploadedFile` / `UploadedFile[]` or a map | Multipart uploads. |
 | `request` / `response` | Express `Request` / `Response` | The raw pair, for what liteb does not cover. |
 | `httpStatus` | `HttpStatus` | Set it to answer something other than 200. |
 | `requestId` | `string` | The id in the `x-request-id` header and in every log line of this request. |
 
-`Routine` has `start(now: Date \| 'manual' \| 'init')`, `Listener` has
-`on(payload: P)`, and all of them get `db`, `container` and `events` the same
-way.
+`Routine` has `start(now: Date \| 'manual' \| 'init')` and a `Reaction<T>` has
+`on(payload: T)`. All of them get `db`, `container` and `scheduler` the same way,
+and all of them have `get()`, `all()` and `notify()`.
 
 ---
 
@@ -97,9 +96,9 @@ way.
 | `Priority` | `(number: number) => ClassDecorator` | Mount order, for a literal route a `:param` sibling would otherwise swallow. |
 | `Use` | `(middleware: MiddlewareFn) => ClassDecorator` | Express middleware for this endpoint only. |
 | `Body` `Params` `Query` | `(Schema: new () => object) => ClassDecorator` | Validates that part of the request against a class-validator DTO, and types it. |
-| `Cron` | `(expression: string, options?: ScheduleOptions) => ClassDecorator` | When a routine runs. |
-| `On` | `<T>(token: EventToken<T>) => ClassDecorator` | Which event a listener handles. |
+| `Cron` | `(token: ScheduleToken, expression: string, options?: CronOptions) => ClassDecorator` | Which schedule a routine runs on, and when. `{ autostart: false }` registers it stopped. |
 | `Provides` | `<T>(token: Contract<T>) => ClassDecorator` | The contract a provider answers. |
+| `Fills` | `<T>(token: Slot<T>) => ClassDecorator` | The extension point a strategy fills. |
 | `ApiTag` `ApiSummary` `ApiDescription` `ApiResponse` `ApiHidden` | class decorators | What `/docs` says about this endpoint, or that it says nothing. |
 | `MiddlewareFn` | `(req, res, next) => void` | What `@Use` takes. |
 | `GroupOptions` | interface | What `@Group` takes besides the name. |
@@ -150,14 +149,17 @@ way.
 
 | Name | Type | What it is |
 | --- | --- | --- |
-| `token` | `<T>(id, kind) => Contract<T> \| Slot<T> \| EventToken<T>` | Declares the one thing two modules share. The kind you pass decides which type comes back. |
-| `TokenKind` | `'contract' \| 'slot' \| 'event'` | How many may answer, which is the only thing the three differ in. It lives on the token and nowhere else. |
+| `token` | `<T>(id, kind) => Contract<T> \| Slot<T> \| ScheduleToken` | Declares the one thing two modules share. The kind you pass decides which type comes back. |
+| `TokenKind` | `'contract' \| 'slot' \| 'schedule'` | Which relationship it is. It lives on the token and nowhere else. |
 | `Contract<T>` | interface | A capability with exactly one provider: `token(id, 'contract')`. |
 | `Slot<T>` | interface | An extension point filled by however many modules are installed: `token(id, 'slot')`. `container.all()` answers an array, and empty is a normal answer. |
-| `EventToken<T>` | interface | Something that happened, typed by its payload: `token(id, 'event')`. |
-| `Container` | class | Resolves them: `.get(contract)`, `.all(slot)`, `.has()`, `.providerOf()`, `.ids()`. Reachable as `this.container`. |
-| `ContractError` | class | Nobody provides that contract, or two modules do. |
-| `EventBus` | class | `.emit(token, payload)`, plus `.ids()` and `.countFor()` to see what is listening. |
+| `Reaction<T>` | interface | The shape of a contribution when the host **announces** rather than asks: one `on(payload)`. It is what `notify()` takes. |
+| `ScheduleToken` | interface | A clock that can be started and stopped: `token(id, 'schedule')`. It carries no type, because nothing is handed over. |
+| `Container` | class | Resolves them: `.get(contract)`, `.all(slot)`, `.notify(slot, payload)`, `.has()`, `.providerOf()`, `.ids()`. Reachable as `this.container`. |
+| `ContractError` | class | Nobody provides that contract, two modules do, or a reaction tried to announce something. |
+| `Scheduler` | class | `.handle(token)`, `.startAll()`, `.stopAll()`, `.ids()`. Reachable as `app.schedule(token)` or `this.schedule(token)`. |
+| `ScheduleHandle` | interface | `.start()`, `.stop()`, `.isScheduled()`, `.isExecuting()`, `.runNow()`. |
+| `ScheduleError` | class | No such schedule, or two classes claim it. |
 
 ---
 

@@ -37,9 +37,8 @@ different CLI.
 | [`table <module>/<name>`](#liteb-table-modulename) | A table, with its row types |
 | [`migration <module>/<name>`](#liteb-migration-modulename) | A timestamped migration |
 | [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | The same, written from your tables |
-| [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | What this module shares: a contract, a slot or an event |
+| [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | What this module shares: a contract or a slot |
 | [`provider <module>/<name>`](#liteb-provider-modulename) | The class that answers a contract or fills a slot |
-| [`listener <module>/<name>`](#liteb-listener-modulename) | A reaction to an event |
 | [`migrate`](#liteb-migrate) | Runs the pending migrations |
 | [`migrate:status`](#liteb-migratestatus) | What each module declares, and what already ran |
 | [`build`](#liteb-build) | Compiles, optionally to V8 bytecode |
@@ -67,9 +66,9 @@ in sync, because **the folder is what registers the file**:
 billing/
 ├── module.ts                   ← the wiring, and the permission keys
 ├── tables/*.table.ts           migrations/*.ts
-├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
+├── endpoints/*.endpoint.ts     routines/*.routine.ts
 ├── providers/*.provider.ts     strategies/*.strategy.ts
-└── tokens/*.token.ts           (contracts, slots and events)
+└── tokens/*.token.ts           (contracts, slots and schedules)
 ```
 
 The first two rows are globs liteb reads at boot. The last row is not: a token
@@ -587,20 +586,26 @@ run the same DDL twice. `liteb migrate` first.
 ## `liteb token <module>/<name> <kind>`
 
 ```bash
-npx liteb token identity/directory contract   # exactly one answers it
-npx liteb token catalog/product-badges slot   # however many are installed fill it
-npx liteb token billing/charge-issued event   # nobody answers it
+npx liteb token identity/directory contract                 # exactly one answers it
+npx liteb token catalog/product-badges slot                 # however many are deployed fill it
+npx liteb token catalog/product-restocked slot --reaction   # the host announces into it
 ```
 
-The one thing two modules share. Writes `tokens/<name>.token.ts`, and the second
-argument is the same one `token(id, kind)` takes inside the file: the three
-differ in exactly one thing, how many may answer.
+| Flag | Effect |
+| --- | --- |
+| `--reaction` | for a slot: the host **announces** and reads nothing back |
 
-| kind | Who answers | How it is read |
-| --- | --- | --- |
-| `contract` | exactly one | `this.get(Token)`, and it waits for the answer |
-| `slot` | however many are installed | `this.all(Token)`; an empty array is normal |
-| `event` | nobody | it is not read: announce it with `this.emit(Token, payload)` |
+The one thing two modules share. Writes `tokens/<name>.token.ts`, and the second
+argument is the same one `token(id, kind)` takes inside the file.
+
+| kind | Who answers | How it is read | Whose failure it is |
+| --- | --- | --- | --- |
+| `contract` | exactly one | `this.get(Token)`, and it waits for the answer | the caller's |
+| `slot` | however many are deployed | `this.all(Token)`; an empty array is normal | the host's |
+| `slot --reaction` | however many are deployed | `this.notify(Token, payload)`; with nobody there, a no-op | **theirs** |
+
+A **schedule**'s token does not come from here:
+[`liteb routine`](#liteb-routine-modulename) writes it beside its class.
 
 With **`contract`**, the interface and the token share a name on purpose:
 TypeScript keeps types and values in separate namespaces, so one import gives you
@@ -613,14 +618,21 @@ module that opens the slot is the one extensions depend on: it knows nothing
 about who fills it, which is what keeps the host independent of its own
 extensions.
 
-With **`event`**, the payload has to carry what a listener needs: listeners read
-on their own connection, so they cannot see rows a transaction has not committed
-yet. There is no answer, a listener that throws does not fail whoever emitted,
-and an event nobody listens to is normal.
+With **`--reaction`** the module declares the **payload** and `Reaction<T>`
+supplies the method, so nobody has to agree on a name for it. That payload has to
+carry what a reaction needs: reactions read on their own connection, so they
+cannot see rows a transaction has not committed — announce **after** it commits.
+And a reaction that throws does not fail whoever announced it: the failure is
+logged with its module and the rest still run.
 
-All three land in the **same** folder on purpose. Splitting them across
-`contracts/`, `slots/` and `events/` asked you to file a decision already made
-inside the file, in the second argument.
+It is the same slot either way; what changes is the **verb** the host reads it
+with. There used to be a third token kind, `'event'`, with its own bus and its
+own base class, and all it added over a slot was that last column — so the
+guarantee stayed and the mechanism went.
+
+Both land in the **same** folder on purpose. Splitting them across `contracts/`
+and `slots/` asked you to file a decision already made inside the file, in the
+second argument.
 
 ---
 
@@ -637,7 +649,7 @@ Filling another module's extension point is
 [a different command](#liteb-strategy-modulename-slot), because it is a
 different relationship.
 
-`this.db`, `this.get(Contract)`, `this.all(Slot)` and `this.emit(Event)` are
+`this.db`, `this.get(Contract)`, `this.all(Slot)` and `this.notify(Slot, payload)` are
 injected **before** the instance is built, so a field initializer can already
 reach for a repository:
 
@@ -681,31 +693,10 @@ export class LowStock extends Strategy implements ProductBadge {
 - The generated import is a placeholder pointing at `@/<module>/tokens/…`: the
   slot belongs to the module that **opened** it, and an extension imports that
   token, never the other way round.
-- **Throwing here fails the host's request**, because it calls you directly. For
-  a side effect that must not be able to break whoever triggered it, that is an
-  event and a `Listener`.
-
----
-
-## `liteb listener <module>/<name>`
-
-```bash
-npx liteb listener reports/restock-log
-```
-
-Reacts to an event another module announced. Writes
-`listeners/<name>.listener.ts`.
-
-The generated file declares a placeholder token so it compiles on its own —
-replace it with the real import from the module that announces the event:
-
-```typescript
-import { ChargeIssued } from '@/billing/tokens/charge-issued.token';
-```
-
-Listeners read on their
-own connection: emit **after** the transaction commits, or they cannot see the
-rows.
+- **Whose failure it is depends on how the host reads the slot.** With `all()` it
+  calls you directly, so throwing fails its request. With `notify()` the failure
+  is logged with your module's id and the host answers anyway — which is what it
+  picks when the slot is for side effects.
 
 ---
 

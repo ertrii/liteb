@@ -50,8 +50,8 @@ is **not** an application. Dual layout:
   the guide, not in the README.
 
 - **`docs/` is split by language**: `docs/en/` is the source, `docs/es/` is the
-  translation, and `docs/README.md` is the index. `docs/es/wiring.md` (contracts, slots
-  and events) and `docs/es/openapi.md` (the generated spec) are **Spanish only
+  translation, and `docs/README.md` is the index. `docs/es/wiring.md` (contracts and
+  slots) and `docs/es/openapi.md` (the generated spec) are **Spanish only
   for now**, on the author's call; their English pages are owed. **English is what matches the code** — change it first, then bring the
   Spanish page across in the same commit. Code, identifiers and the framework's
   own JSDoc stay English on both sides; only the prose is translated.
@@ -214,7 +214,7 @@ Packaging and licensing stay OUT of liteb: MIT framework, product problem.
 | `module-migrator.ts` | Per-module migrations + `_module_migrations` |
 | `module-loader.ts` | Reads endpoints/tasks from a module's globs, any extension |
 | `container.ts` / `build-container.ts` | Contracts (`register`) and slot contributions (`contribute`) |
-| `events.ts` | Event bus: `event()`, `EventBus`, listeners |
+| `schedules.ts` | `token(id, 'schedule')`, the `Scheduler` and a routine's lifecycle |
 | `slots.ts` | Extension points: `token(id, 'slot')`, filled by a `Strategy` |
 | `permissions.ts` | Registry of what the modules declare |
 | `collect-tables.ts` | Union of every module's tables, as one schema |
@@ -408,26 +408,36 @@ Keep that split — the decision is the part worth testing.
   install the `.tgz`. A tarball is closer to what npm installs than `npm link`,
   which resolves through symlinks and hides a bad `files` entry.
 
-## The three ways modules meet
+## The two ways modules meet
 
-Keep them distinct; collapsing any two is the easiest way to ruin this design.
+Keep them distinct; collapsing them is the easiest way to ruin this design.
 
-| | Answers | Read by | Refuses |
+| | Answers | Who runs it | Whose failure it is |
 | --- | --- | --- | --- |
-| `contract` / `get` / `@Provides` on a `Provider` | exactly one | the caller, waiting | a second provider |
-| `event` / `emit` / `@On` on a `Listener` | any number | nobody | nothing; failures are logged |
-| `slot` / `all` / `@Fills` on a `Strategy` | any number | the module that opened it | nothing |
+| `contract` / `get` / `@Provides` on a `Provider` | exactly one; a second is refused | the caller, waiting for the answer | the caller's |
+| `slot` / `all` / `@Fills` on a `Strategy` | however many are deployed | the host, using what they return | the host's |
+| the same slot / `notify` / the same `Strategy` typed `Reaction<T>` | however many are deployed | the host, discarding the answers | **theirs**, logged |
 
 `Contract` and `Slot` each carry a `kind` literal so neither can be passed where
 the other goes. They are otherwise structurally identical, and that one
 confusion is the one that matters: one provider versus many.
 
-What separates a slot from an event is NOT only the return value, it is **who
-runs the code and whose failure it is**. The host calls a strategy directly, so
-a strategy that throws fails the host's request; the bus runs listeners under
-`Promise.allSettled`, so a listener that throws is logged and the emitter
-answers anyway. That is the asymmetry to reach for when a third party writes the
-code.
+- **There was a third kind, `'event'`, and it was removed in 2.0.0-alpha.5
+  because it was a slot plus one guarantee.** The bus, `Listener` and `@On` added
+  exactly this: a contributor's failure cannot become the caller's. Everything
+  else was identical, and "returns nothing" is a `void` signature. The guarantee
+  became the verb — `notify()` instead of `all()` — and the 259 lines of bus went
+  away. liteb never emitted an event itself, which is the evidence that settled
+  it. Do not reintroduce a parallel mechanism for this; if a DURABLE one is ever
+  needed — persisted, retried, surviving the process and the replica — that is an
+  outbox, a different thing, and it gets its own name.
+- **`notify()` guarantees two things that cost real code**, so do not simplify
+  them away. Each reaction runs inside an `async` wrapper, because
+  `Promise.allSettled` only catches a REJECTED promise and a synchronous throw
+  would otherwise escape the mapper and fail the announcer — defeating the one
+  reason the method exists. And the no-cascade guard is scoped with
+  `AsyncLocalStorage`, not a shared `Set`, because `notify` awaits: with a Set,
+  two concurrent requests refuse a cascade that is not one.
 
 **They are the EXTENSION surface, not the default tissue between modules.**
 A module is the unit of installation, and the test is whether it can be
@@ -540,8 +550,8 @@ database, an HTTP contract)? They lead to different frameworks, and the answer
 depends on whether the authors are third parties or us.
 
 Measured against the hook model while comparing: liteb has actions
-(`emit`/`@On`) but **no filter** — nothing takes a value through N contributors
-in order and returns it changed. A slot folds to one in a line
+(`notify()` over a `Reaction<T>` slot) but **no filter** — nothing takes a value
+through N contributors in order and returns it changed. A slot folds to one in a line
 (`this.all(X).reduce(...)`), so the primitive may not be needed; what IS missing
 is **declared priority**. A slot's order is module dependency order — stable
 across boots, but a contributor cannot ask to run early, and in a chained filter

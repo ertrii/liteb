@@ -58,8 +58,7 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | Nombre | Tipado | Qué es |
 | --- | --- | --- |
 | `Endpoint<B, P, Q>` | clase | Un endpoint HTTP. Los genéricos son el body, los params y el query ya validados. |
-| `Routine` | clase | Trabajo agendado. `@Cron` decide cuándo. |
-| `Listener<P>` | clase | Atiende un evento. `@On` dice cuál. |
+| `Routine` | clase | Trabajo con reloj. `@Cron` dice sobre qué horario corre y cuándo. |
 | `Provider` | clase | Responde un contrato — exactamente uno. Se marca con `@Provides`. |
 | `Strategy` | clase | Llena un punto de extensión de OTRO módulo, que es quien la corre. Se marca con `@Fills`. |
 | `DataJson` | `Record<string, any> \| Response \| Output \| null` | Lo que puede devolver el `main()` de un endpoint. |
@@ -75,14 +74,15 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `auth` | `Auth` | Quién pregunta y qué puede hacer. |
 | `db` | `Database` | La conexión, inyectada. |
 | `container` | `Container` | Los contratos que proveen otros módulos. |
-| `events` | `EventBus` | Para `emit`. |
+| `scheduler` | `Scheduler` | Para `this.schedule(Token)`: prender, parar o correr un horario. |
 | `file` / `files` | `UploadedFile` / `UploadedFile[]` o un mapa | Las subidas multipart. |
 | `request` / `response` | `Request` / `Response` de Express | El par crudo, para lo que liteb no cubre. |
 | `httpStatus` | `HttpStatus` | Asignalo para contestar algo distinto de 200. |
 | `requestId` | `string` | El id que va en el header `x-request-id` y en cada línea de log de esta petición. |
 
-`Routine` tiene `start(now: Date \| 'manual' \| 'init')`, `Listener` tiene
-`on(payload: P)`, y todas reciben `db`, `container` y `events` igual.
+`Routine` tiene `start(now: Date \| 'manual' \| 'init')` y una `Reaction<T>`
+tiene `on(payload: T)`. Todas reciben `db`, `container` y `scheduler` igual, y
+todas tienen `get()`, `all()` y `notify()`.
 
 ---
 
@@ -95,9 +95,9 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `Priority` | `(number: number) => ClassDecorator` | Orden de montaje, para una ruta literal que si no se la comería un hermano `:param`. |
 | `Use` | `(middleware: MiddlewareFn) => ClassDecorator` | Middleware de Express sólo para este endpoint. |
 | `Body` `Params` `Query` | `(Schema: new () => object) => ClassDecorator` | Valida esa parte de la petición contra un DTO de class-validator, y la tipa. |
-| `Cron` | `(expression: string, options?: ScheduleOptions) => ClassDecorator` | Cuándo corre una rutina. |
-| `On` | `<T>(token: EventToken<T>) => ClassDecorator` | Qué evento atiende un oyente. |
+| `Cron` | `(token: ScheduleToken, expression: string, options?: CronOptions) => ClassDecorator` | Sobre qué horario corre una rutina, y cuándo. `{ autostart: false }` la deja registrada y quieta. |
 | `Provides` | `<T>(token: Contract<T>) => ClassDecorator` | El contrato que responde un proveedor. |
+| `Fills` | `<T>(token: Slot<T>) => ClassDecorator` | El punto de extensión que llena una estrategia. |
 | `ApiTag` `ApiSummary` `ApiDescription` `ApiResponse` `ApiHidden` | decoradores de clase | Qué dice `/docs` de este endpoint, o que no diga nada. |
 | `MiddlewareFn` | `(req, res, next) => void` | Lo que recibe `@Use`. |
 | `GroupOptions` | interface | Lo que recibe `@Group` además del nombre. |
@@ -148,14 +148,17 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 
 | Nombre | Tipado | Qué es |
 | --- | --- | --- |
-| `token` | `<T>(id, kind) => Contract<T> \| Slot<T> \| EventToken<T>` | Declara lo único que dos módulos comparten. La clase que le pases decide qué tipo vuelve. |
-| `TokenKind` | `'contract' \| 'slot' \| 'event'` | Cuántos pueden responder, que es lo único en lo que los tres se diferencian. Vive en el token y en ningún otro lado. |
+| `token` | `<T>(id, kind) => Contract<T> \| Slot<T> \| ScheduleToken` | Declara lo único que dos módulos comparten. La clase que le pases decide qué tipo vuelve. |
+| `TokenKind` | `'contract' \| 'slot' \| 'schedule'` | Qué relación es. Vive en el token y en ningún otro lado. |
 | `Contract<T>` | interface | Una capacidad con exactamente un proveedor: `token(id, 'contract')`. |
 | `Slot<T>` | interface | Un punto de extensión al que aportan los módulos que haya: `token(id, 'slot')`. `container.all()` contesta un arreglo, y vacío es una respuesta normal. |
-| `EventToken<T>` | interface | Algo que pasó, tipado por su carga: `token(id, 'event')`. |
-| `Container` | clase | Los resuelve: `.get(contract)`, `.all(slot)`, `.has()`, `.providerOf()`, `.ids()`. Se alcanza como `this.container`. |
-| `ContractError` | clase | Nadie provee ese contrato, o lo proveen dos módulos. |
-| `EventBus` | clase | `.emit(token, payload)`, más `.ids()` y `.countFor()` para saber qué está escuchando. |
+| `Reaction<T>` | interface | La forma de un aporte cuando el anfitrión **anuncia** en vez de preguntar: un solo `on(payload)`. Es lo que acepta `notify()`. |
+| `ScheduleToken` | interface | Un reloj que se puede prender y parar: `token(id, 'schedule')`. No lleva tipo, porque no se entrega nada. |
+| `Container` | clase | Los resuelve: `.get(contract)`, `.all(slot)`, `.notify(slot, payload)`, `.has()`, `.providerOf()`, `.ids()`. Se alcanza como `this.container`. |
+| `ContractError` | clase | Nadie provee ese contrato, lo proveen dos módulos, o una reacción quiso anunciar otra cosa. |
+| `Scheduler` | clase | `.handle(token)`, `.startAll()`, `.stopAll()`, `.ids()`. Se alcanza como `app.schedule(token)` o `this.schedule(token)`. |
+| `ScheduleHandle` | interface | `.start()`, `.stop()`, `.isScheduled()`, `.isExecuting()`, `.runNow()`. |
+| `ScheduleError` | clase | Ese horario no existe, o dos clases lo reclaman. |
 
 ---
 
