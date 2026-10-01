@@ -40,8 +40,8 @@ describe('el token de un horario', () => {
 });
 
 describe('@Cron valida al importar el archivo, no al arrancar', () => {
-  it('pide un token de horario, y rechaza los otros tres por su nombre', () => {
-    for (const kind of ['contract', 'slot', 'event'] as const) {
+  it('pide un token de horario, y rechaza los otros dos por su nombre', () => {
+    for (const kind of ['contract', 'slot'] as const) {
       const otro = token<{ x: number }>(`demo.${kind}`, kind as 'contract');
 
       expect(() => {

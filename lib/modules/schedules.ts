@@ -1,7 +1,6 @@
 import cron from 'node-cron';
 import type { Database } from './database';
 import type { Container } from './container';
-import type { EventBus } from './events';
 import type { Routine } from '../templates/routine';
 import { CRON, CronMetadata } from '../decorators/cron.decorator';
 import { Logger } from '../utilities/logger';
@@ -10,10 +9,10 @@ import { Logger } from '../utilities/logger';
  * A schedule, as something that can be addressed.
  *
  * The fourth kind of token, and the only one that is not about two modules
- * meeting: a contract, a slot and an event all answer "how does another module
- * reach this". A schedule token answers "how does anybody turn this one on and
- * off", which is why it is imported by whoever controls the schedule rather
- * than by whoever implements it.
+ * meeting: a contract and a slot both answer "how does another module reach
+ * this". A schedule token answers "how does anybody turn this one on and off",
+ * which is why it is imported by whoever controls the schedule rather than by
+ * whoever implements it.
  *
  * Declared with `token(id, 'schedule')`, and the class that runs on it says so in
  * its `@Cron`.
@@ -113,14 +112,11 @@ export class Scheduler {
 
   private container?: Container;
 
-  private events?: EventBus;
-
   constructor(private readonly db: Database) {}
 
-  /** Hands the runner what a routine gets injected, like the container does. */
-  public useWiring(container?: Container, events?: EventBus): void {
+  /** Hands the scheduler what a routine gets injected, like the container does. */
+  public useWiring(container?: Container): void {
     this.container = container;
-    this.events = events;
   }
 
   /**
@@ -333,13 +329,11 @@ export class Scheduler {
     const proto = RoutineClass.prototype;
     proto.db = this.db;
     proto.container = this.container;
-    proto.events = this.events;
     proto.scheduler = this;
 
     const instance = new RoutineClass();
     instance.db = this.db;
     instance.container = this.container;
-    instance.events = this.events;
     instance.scheduler = this;
 
     return instance;

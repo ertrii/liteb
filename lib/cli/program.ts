@@ -7,7 +7,6 @@ import { createProject, GitResult, initGit, install } from './init';
 import {
   createEndpoint,
   createTable,
-  createListener,
   createMigration,
   createModule,
   createProvider,
@@ -275,19 +274,30 @@ export function buildProgram(): Command {
     program
       .command('token <module/name> <kind>')
       .description(
-        'What this module shares: contract (one answers), slot (many do) or event (nobody does)',
+        'What this module shares: contract (exactly one answers) or slot (as many as are deployed)',
+      )
+      .option(
+        '--reaction',
+        'for a slot: the host announces into it and reads nothing back',
       ),
   ).action((target, kind, flags) => {
-    if (kind !== 'contract' && kind !== 'slot' && kind !== 'event') {
-      // The same three the runtime takes, in the same order as token(id, kind),
-      // so the command reads like the call it writes.
+    if (kind !== 'contract' && kind !== 'slot') {
+      // The same two the runtime takes, in the same order as token(id, kind),
+      // so the command reads like the call it writes. A schedule's token is
+      // written beside its Routine, by `liteb routine`.
       throw new CliError(
-        `liteb token ${target} <kind>: the kind is 'contract' (exactly one provider), 'slot' (as many as are installed) or 'event' (a notification with no answer), and got "${kind}".`,
+        `liteb token ${target} <kind>: the kind is 'contract' (exactly one provider) or 'slot' (as many as are deployed), and got "${kind}". A schedule's token is written by \`liteb routine\`.`,
       );
     }
 
     report(
-      createToken({ target, kind, modulesDir: flags.dir, from: flags.from }),
+      createToken({
+        target,
+        kind,
+        reaction: flags.reaction,
+        modulesDir: flags.dir,
+        from: flags.from,
+      }),
       flags,
     );
   });
@@ -312,17 +322,6 @@ export function buildProgram(): Command {
   ).action((target, slot, flags) => {
     report(
       createStrategy({ target, slot, modulesDir: flags.dir, from: flags.from }),
-      flags,
-    );
-  });
-
-  common(
-    program
-      .command('listener <module/name>')
-      .description('Reacts to an event, without answering whoever emitted'),
-  ).action((target, flags) => {
-    report(
-      createListener({ target, modulesDir: flags.dir, from: flags.from }),
       flags,
     );
   });

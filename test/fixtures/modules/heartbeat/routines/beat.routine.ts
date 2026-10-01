@@ -7,6 +7,6 @@ export default class BeatRoutine extends Routine {
     beats.count += 1;
     beats.sawDb = !!this.db;
     beats.sawContainer = !!this.container;
-    await this.emit(Beat, { n: beats.count });
+    await this.notify(Beat, { n: beats.count });
   }
 }

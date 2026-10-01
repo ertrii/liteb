@@ -14,7 +14,6 @@ import { Database } from '../modules/database';
 import ErrorControl from '../utilities/error-control';
 import type { Container, Contract } from '../modules/container';
 import { Auth, AuthContext, AuthResolver } from './auth';
-import type { EventBus } from '../modules/events';
 import type { PermissionRegistry } from '../modules/permissions';
 import type { Scheduler } from '../modules/schedules';
 import { Output } from '../outputs/output';
@@ -25,7 +24,6 @@ export default class EndpointHandler {
     private dbSource: Database,
     private container?: Container,
     private authResolver?: AuthResolver,
-    private eventBus?: EventBus,
     private permissions?: PermissionRegistry,
     private scheduler?: Scheduler,
   ) {}
@@ -100,7 +98,6 @@ export default class EndpointHandler {
     EndpointClass.prototype.container = this.container;
     // Same rule as `db` and `container`: stable for the life of the handler, so
     // it goes on the prototype and is there before the instance exists.
-    EndpointClass.prototype.events = this.eventBus;
     // Same rule again: an endpoint is where an operator's "pause this schedule"
     // button lands, so the runner has to be reachable from `main()`.
     EndpointClass.prototype.scheduler = this.scheduler;

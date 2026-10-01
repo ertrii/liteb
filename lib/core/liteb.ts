@@ -22,12 +22,10 @@ import { resolveModules } from '../modules/resolve-modules';
 import {
   LoadedModule,
   loadModules,
-  loadModuleListeners,
   loadModuleRoutines,
 } from '../modules/module-loader';
 import { buildContainer } from '../modules/build-container';
 import { Container } from '../modules/container';
-import { EventBus } from '../modules/events';
 import {
   PermissionRegistry,
   RegisteredPermission,
@@ -166,7 +164,7 @@ export interface DocsConfig {
 
 /**
  * `3 routes`, `1 route`, and '' for none — so a summary line can drop the
- * parts that have nothing to say instead of printing `0 events`.
+ * parts that have nothing to say instead of printing `0 contracts`.
  */
 const count = (total: number, noun: string): string =>
   total === 0 ? '' : `${total} ${noun}${total === 1 ? '' : 's'}`;
@@ -181,7 +179,6 @@ export default class Liteb extends Server {
   private hostVersion?: string;
   private loadedModules: LoadedModule[] = [];
   private container?: Container;
-  private events?: EventBus;
   private permissionRegistry = new PermissionRegistry();
   private authResolver: AuthResolver;
   private moduleRoutines: Array<new () => Routine> = [];
@@ -415,7 +412,7 @@ export default class Liteb extends Server {
    * On start they go through the full cycle: their state is read from
    * `_modules`, the graph is resolved into dependency order, their pending
    * migrations run in that order, and then each one gets its routes,
-   * listeners and routines mounted.
+   * and routines mounted.
    *
    * @param modules Manifests built with `defineModule()`.
    * @param options `basePath` prefixes every module route (default `/api`);
@@ -640,19 +637,6 @@ export default class Liteb extends Server {
 
     // The bus and the container reference each other: an implementation may
     // emit, a listener may resolve a contract. Wired here, in the open.
-    this.events = new EventBus(this.dbSource);
-    this.container.useEvents(this.events);
-    this.events.useContainer(this.container);
-
-    // Every module's listeners. The class is stored, not instantiated: a
-    // listener resolves its contracts when the event fires, so nothing here
-    // depends on registration order.
-    for (const mod of active) {
-      for (const { token, ListenerClass } of await loadModuleListeners(mod)) {
-        this.events.register(token, ListenerClass, mod.id);
-      }
-    }
-
     // From every module present in the code, like the tables: a permission key
     // exists because a manifest declares it.
     this.permissionRegistry = PermissionRegistry.from(this.modules);
@@ -664,11 +648,10 @@ export default class Liteb extends Server {
     // against a half-built application. Registering early is what makes a
     // duplicate token or a missing `@Cron` a boot-time complaint.
     this.scheduler = new Scheduler(this.dbSource);
-    this.scheduler.useWiring(this.container, this.events);
-    // Both directions: a routine reaches contracts and events, and a provider, a
-    // strategy or a listener reaches a schedule.
+    this.scheduler.useWiring(this.container);
+    // Both directions: a routine reaches contracts and slots, and a provider or
+    // a strategy reaches a schedule.
     this.container.useScheduler(this.scheduler);
-    this.events.useScheduler(this.scheduler);
     this.moduleRoutines = [];
     for (const mod of active) {
       for (const RoutineClass of await loadModuleRoutines(mod)) {
@@ -688,7 +671,6 @@ export default class Liteb extends Server {
     const wiring = [
       count(this.container.ids().length, 'contract'),
       count(this.container.slotIds().length, 'extension point'),
-      count(this.events.ids().length, 'event'),
       count(this.permissionRegistry.size(), 'permission'),
     ].filter(Boolean);
 
@@ -790,7 +772,6 @@ export default class Liteb extends Server {
               this.dbSource,
               this.container,
               this.authResolver,
-              this.events,
               this.permissionRegistry,
               this.scheduler,
             );

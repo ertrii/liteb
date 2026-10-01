@@ -33,9 +33,9 @@ export function Provides<T>(target: Contract<T>) {
     );
   }
 
-  if (kind === 'event') {
+  if (kind === 'schedule') {
     throw new Error(
-      `@Provides() takes a contract, and got an event. Nothing provides an event: a module announces it with this.emit(), and a Listener reacts to it with @On().`,
+      `@Provides() takes a contract, and got a schedule. Nothing provides a schedule: a Routine runs on it, declared with @Cron(token, expression).`,
     );
   }
 

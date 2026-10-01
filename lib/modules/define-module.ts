@@ -226,7 +226,7 @@ const validatePermissions = (
  *
  * Paths are the exception: with `dir`, the standard layout
  * ({@link MODULE_LAYOUT}) is where tables, migrations, endpoints, routines and
- * listeners are found. A manifest names one of those fields only to put it
+ * strategies are found. A manifest names one of those fields only to put it
  * somewhere else, so what is left is what is particular to the module.
  *
  * @example
@@ -389,7 +389,6 @@ export function defineModule<
 
   const routes = globs('routes', manifest.routes);
   const routines = globs('routines', manifest.routines);
-  const listeners = globs('listeners', manifest.listeners);
   const providers = globs('providers', manifest.providers);
   const strategies = globs('strategies', manifest.strategies);
 
@@ -404,7 +403,6 @@ export function defineModule<
     migrations,
     routes: routes.patterns,
     routines: routines.patterns,
-    listeners: listeners.patterns,
     providers: providers.patterns,
     strategies: strategies.patterns,
     implicit,

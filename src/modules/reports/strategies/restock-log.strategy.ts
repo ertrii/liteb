@@ -1,5 +1,8 @@
-import { Listener, On } from '../../../../lib';
-import { ProductRestocked } from '@/catalog/tokens/product-restocked.token';
+import { Fills, Reaction, Strategy } from '../../../../lib';
+import {
+  ProductRestocked,
+  RestockPayload,
+} from '@/catalog/tokens/product-restocked.token';
 import { UserDirectory } from '@/identity/tokens/user-directory.token';
 
 /**
@@ -7,12 +10,13 @@ import { UserDirectory } from '@/identity/tokens/user-directory.token';
  * `identity` — without either module knowing this exists.
  *
  * Nothing in `catalog` mentions this file. Take `reports` out of
- * `Liteb.create({ modules })` and the restock still works — it just stops being
- * logged, which is what it means for an event to be a push and not a call.
+ * `Liteb.create({ modules })` and the restock still works: it just stops being
+ * logged, which is what `notify()` means. Throwing here would be logged with
+ * this module's id and the restock would still answer.
  */
-@On(ProductRestocked)
-export class RestockLogListener extends Listener<ProductRestocked> {
-  async on(payload: ProductRestocked) {
+@Fills(ProductRestocked)
+export class RestockLog extends Strategy implements Reaction<RestockPayload> {
+  async on(payload: RestockPayload) {
     const who = await this.get(UserDirectory).find(payload.userId);
     console.log(
       `[reports] ${who?.fullName ?? 'someone'} restocked #${payload.productId} ` +

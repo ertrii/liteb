@@ -14,8 +14,8 @@ import reports from './modules/reports/module';
  * Three modules on purpose:
  * - `identity` and `catalog` own tables, and the data the demo is about.
  * - `reports` owns none: it reads the other two through their contracts, fills
- *   catalog's extension point and listens to its event. It is the one shaped
- *   like an extension.
+ *   catalog's extension point and reacts to what it announces. It is the one
+ *   shaped like an extension.
  *
  * It is BUILT here and not started, so anything that needs the application
  * without a server — `liteb migrate`, a test, a one-off script — can ask for

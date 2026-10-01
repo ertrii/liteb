@@ -41,13 +41,7 @@ export type ModulePattern = string | string[];
 
 /** The fields a module describes with globs. */
 export type ModuleGlobField =
-  | 'tables'
-  | 'migrations'
-  | 'routes'
-  | 'routines'
-  | 'listeners'
-  | 'providers'
-  | 'strategies';
+  'tables' | 'migrations' | 'routes' | 'routines' | 'providers' | 'strategies';
 
 /**
  * Where liteb looks when the manifest says nothing.
@@ -69,7 +63,6 @@ export const MODULE_LAYOUT: Readonly<Record<ModuleGlobField, string>> = {
   migrations: './migrations/*.ts',
   routes: './endpoints/*.endpoint.ts',
   routines: './routines/*.routine.ts',
-  listeners: './listeners/*.listener.ts',
   providers: './providers/*.provider.ts',
   strategies: './strategies/*.strategy.ts',
 };
@@ -195,13 +188,11 @@ export interface ModuleManifest<
   migrations?: ModuleMigrations | ModulePattern;
 
   /**
-   * Globs for this module's endpoints, scheduled routines and event listeners.
-   * Default to `./endpoints/*.endpoint.ts`, `./routines/*.routine.ts` and
-   * `./listeners/*.listener.ts`.
+   * Globs for this module's endpoints and scheduled routines. Default to
+   * `./endpoints/*.endpoint.ts` and `./routines/*.routine.ts`.
    */
   routes?: ModulePattern;
   routines?: ModulePattern;
-  listeners?: ModulePattern;
 
   /**
    * Glob for this module's `Provider` classes — how it answers the contracts it
@@ -265,7 +256,6 @@ export interface ResolvedModule<K extends string = string> {
   migrations: Function[];
   routes: string[];
   routines: string[];
-  listeners: string[];
   providers: string[];
   strategies: string[];
   permissions: ModulePermission<K>[];

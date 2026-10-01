@@ -70,7 +70,7 @@ export function Cron(
 ) {
   const kind = (token as { kind?: string } | null | undefined)?.kind;
 
-  if (kind === 'contract' || kind === 'slot' || kind === 'event') {
+  if (kind === 'contract' || kind === 'slot') {
     throw new Error(
       `@Cron() takes a schedule token, and got a ${kind}. A schedule is addressed on its own: declare it with token(id, 'schedule'), which is what start() and stop() take.`,
     );

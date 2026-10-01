@@ -52,9 +52,9 @@ export class RestockProductEndpoint extends Endpoint<ProductIdDto, RestockDto> {
       return updated;
     });
 
-    // AFTER the transaction commits, never inside it: a listener reads on its
+    // AFTER the transaction commits, never inside it: a reaction reads on its
     // own connection and would not see the uncommitted rows.
-    await this.emit(ProductRestocked, {
+    await this.notify(ProductRestocked, {
       productId,
       quantity,
       stock: result.stock,

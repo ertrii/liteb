@@ -1,14 +1,11 @@
 import EndpointReader from '../core/endpoint-reader';
 import { Endpoint } from '../templates/endpoint';
-import { Listener } from '../templates/listener';
-import { ON, OnMetadata } from '../decorators/on.decorator';
 import { PROVIDES, ProvidesMetadata } from '../decorators/provides.decorator';
 import { FILLS, FillsMetadata } from '../decorators/fills.decorator';
 import { Provider } from '../templates/provider';
 import { Strategy } from '../templates/strategy';
 import type { Contract } from './container';
 import type { Slot } from './slots';
-import type { EventToken } from './events';
 import { Routine } from '../templates/routine';
 import { ResolvedModule } from './module-manifest';
 import { readExports, readFiles } from './module-files';
@@ -69,44 +66,6 @@ export async function loadModuleEndpoints(
   if (mod.routes.length === 0) return [];
   const { exported } = await readExports(mod.routes, mod.dir);
   return toEndpointReaders(exported, mod.id);
-}
-
-/** A listener class together with the event it declared. */
-export interface LoadedListener {
-  token: EventToken<unknown>;
-  ListenerClass: new () => Listener<unknown>;
-}
-
-/**
- * Reads the event listeners a module contributes.
- *
- * A `Listener` without `@On` is skipped rather than fatal, the same way an
- * endpoint without a verb is: it reads as a file being written, not as a broken
- * installation.
- */
-export async function loadModuleListeners(
-  mod: ResolvedModule,
-): Promise<LoadedListener[]> {
-  if (mod.listeners.length === 0) return [];
-
-  const { exported } = await readExports(mod.listeners, mod.dir);
-
-  return exported
-    .filter(
-      (value): value is new () => Listener<unknown> =>
-        typeof value === 'function' && value.prototype instanceof Listener,
-    )
-    .map((ListenerClass) => {
-      const metadata = Reflect.getMetadata(ON, ListenerClass) as OnMetadata;
-      if (!metadata) {
-        Logger.warn(
-          `Listener ${ListenerClass.name} in module "${mod.id}" has no @On(event) and was skipped.`,
-        );
-        return null;
-      }
-      return { token: metadata.token, ListenerClass };
-    })
-    .filter((loaded): loaded is LoadedListener => loaded !== null);
 }
 
 /** Reads the scheduled routines a module contributes. */

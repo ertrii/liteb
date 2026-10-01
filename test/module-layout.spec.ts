@@ -11,9 +11,9 @@ import {
 } from '../lib/modules/module-manifest';
 import {
   loadModuleEndpoints,
-  loadModuleListeners,
   loadModuleProviders,
   loadModuleRoutines,
+  loadModuleStrategies,
 } from '../lib/modules/module-loader';
 
 /**
@@ -44,7 +44,6 @@ describe('disposición estándar', () => {
     ]);
     expect(mod.routes).toEqual([MODULE_LAYOUT.routes]);
     expect(mod.routines).toEqual([MODULE_LAYOUT.routines]);
-    expect(mod.listeners).toEqual([MODULE_LAYOUT.listeners]);
     expect(mod.providers).toEqual([MODULE_LAYOUT.providers]);
   });
 
@@ -53,14 +52,16 @@ describe('disposición estándar', () => {
 
     const endpoints = await loadModuleEndpoints(mod);
     const routines = await loadModuleRoutines(mod);
-    const listeners = await loadModuleListeners(mod);
     const providers = await loadModuleProviders(mod);
+    const strategies = await loadModuleStrategies(mod);
 
     expect(endpoints).toHaveLength(1);
     // Sin `@Group`: el prefijo sale del id del módulo.
     expect(endpoints[0].group).toBe('layout');
     expect(routines).toHaveLength(1);
-    expect(listeners).toHaveLength(1);
+    // La reacción es una Strategy en `strategies/`, encontrada igual.
+    expect(strategies).toHaveLength(1);
+    expect(strategies[0].target.id).toBe('layout.noted');
 
     // Y el token sale del decorador de la clase, no de una lista.
     expect(providers).toHaveLength(1);
@@ -91,7 +92,6 @@ describe('disposición estándar', () => {
       'migrations',
       'routes',
       'routines',
-      'listeners',
       'providers',
       'strategies',
     ]);
@@ -107,12 +107,11 @@ describe('cuando el módulo está en otro lado', () => {
     });
 
     expect(mod.implicit).not.toContain('routes');
-    // Las otras cinco siguen saliendo de la disposición estándar.
+    // Las otras cuatro siguen saliendo de la disposición estándar.
     expect(mod.implicit).toEqual([
       'tables',
       'migrations',
       'routines',
-      'listeners',
       'providers',
       'strategies',
     ]);

@@ -1,5 +1,4 @@
 import type { Contract } from './container';
-import type { EventToken } from './events';
 import type { Slot } from './slots';
 import type { ScheduleToken } from './schedules';
 
@@ -11,11 +10,11 @@ import type { ScheduleToken } from './schedules';
  * it decides between handing back an instance and handing back a list. Nothing
  * repeats it: a second place to say it would be a second place to say it wrong.
  *
- * Three of them are about two modules meeting. `'schedule'` is the odd one: it
+ * Two of them are about two modules meeting. `'schedule'` is the odd one: it
  * names a clock the application turns on and off, and what it buys is that a
  * schedule can be addressed without importing the `Routine` that runs on it.
  */
-export type TokenKind = 'contract' | 'slot' | 'event' | 'schedule';
+export type TokenKind = 'contract' | 'slot' | 'schedule';
 
 /**
  * Declares a **contract**: a capability one module publishes and others call,
@@ -49,22 +48,6 @@ export function token<T>(id: string, kind: 'contract'): Contract<T>;
 export function token<T>(id: string, kind: 'slot'): Slot<T>;
 
 /**
- * Declares an **event**: something that happened, with the shape of what it
- * carries. Any number of listeners, and no answer.
- *
- * @example
- * export interface ChargeCreated {
- *   chargeId: number;
- *   customerId: number;
- * }
- * export const ChargeCreated = token<ChargeCreated>(
- *   'billing.charge.created',
- *   'event',
- * );
- */
-export function token<T>(id: string, kind: 'event'): EventToken<T>;
-
-/**
  * Declares a **task**: a schedule the application can start and stop.
  *
  * It carries no type, because nothing is handed over — what it identifies is a
@@ -95,7 +78,7 @@ export function token(id: string, kind: 'schedule'): ScheduleToken;
 export function token<T>(
   id: string,
   kind: TokenKind,
-): Contract<T> | Slot<T> | EventToken<T> | ScheduleToken {
+): Contract<T> | Slot<T> | ScheduleToken {
   // Runs once per token, at import time, so it costs nothing per request. Both
   // mistakes are silent otherwise: an empty id collides with the next empty
   // id, and an unknown kind produces a token that nothing ever resolves.
@@ -107,16 +90,11 @@ export function token<T>(
     );
   }
 
-  if (
-    kind !== 'contract' &&
-    kind !== 'slot' &&
-    kind !== 'event' &&
-    kind !== 'schedule'
-  ) {
+  if (kind !== 'contract' && kind !== 'slot' && kind !== 'schedule') {
     throw new Error(
-      `token("${id}"): unknown kind ${JSON.stringify(kind)}. It is 'contract' (exactly one provider), 'slot' (as many as are installed), 'event' (a notification with no answer) or 'schedule' (a clock that can be started and stopped).`,
+      `token("${id}"): unknown kind ${JSON.stringify(kind)}. It is 'contract' (exactly one provider), 'slot' (as many as are installed, read with all() or announced to with notify()) or 'schedule' (a clock that can be started and stopped).`,
     );
   }
 
-  return { id, kind } as Contract<T> | Slot<T> | EventToken<T> | ScheduleToken;
+  return { id, kind } as Contract<T> | Slot<T> | ScheduleToken;
 }

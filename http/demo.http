@@ -52,7 +52,7 @@ Content-Type: application/json
 { "name": "Router 4G", "stock": 5 }
 
 ### Two writes in one transaction: the product's stock and its movement.
-### It also emits `catalog.product.restocked`, and `reports` prints a line from
+### It also announces `catalog.product.restocked`, and `reports` prints a line from
 ### a module `catalog` knows nothing about — look at the server output.
 POST {{host}}/api/products/1/restock
 Content-Type: application/json

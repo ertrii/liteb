@@ -1,7 +1,6 @@
 import type { Database } from '../modules/database';
 import type { Container, Contract } from '../modules/container';
-import type { Slot } from '../modules/slots';
-import type { EventBus, EventToken } from '../modules/events';
+import type { Reaction, Slot } from '../modules/slots';
 import type {
   ScheduleHandle,
   Scheduler,
@@ -46,8 +45,6 @@ export abstract class Provider {
   /** Container of the application this provider belongs to. */
   public container?: Container;
 
-  /** Event bus of this application. */
-  public events?: EventBus;
   /** Scheduler of this application, injected like `db`. */
   public scheduler?: Scheduler;
 
@@ -83,15 +80,36 @@ export abstract class Provider {
   }
 
   /**
-   * Announces that something happened, for whatever modules are listening.
+   * Announces something to whoever filled an extension point, and reads nothing
+   * back.
    *
-   * Available here because this is where most of a module's work lives, and
-   * reaching for a global instead is how a second application in the same
-   * process starts seeing the first one's events.
+   * The counterpart of {@link all}: that one hands the contributions over for
+   * you to call, this one calls every one of them with what happened and
+   * discards the answers. The difference that matters is whose failure it is —
+   * a reaction that throws is logged with its module and the rest still run, so
+   * announcing something cannot break you. When the outcome matters, that is a
+   * contract.
+   *
+   * It is awaited: it resolves once every reaction settled, so a slow reaction
+   * still slows this down. It is not a queue.
+   *
+   * GOTCHA: reactions read on their own connection. Announcing inside
+   * `db.transaction()` means they cannot see the uncommitted rows — announce
+   * after it commits, or put what they need in the payload.
+   *
+   * @example
+   * await this.notify(ProductRestocked, { productId, stock });
    */
-  protected async emit<T>(token: EventToken<T>, payload: T): Promise<void> {
-    if (!this.events) return;
-    await this.events.emit(token, payload);
+  protected async notify<T>(
+    target: Slot<Reaction<T>>,
+    payload: T,
+  ): Promise<void> {
+    if (!this.container) {
+      throw new Error(
+        `Cannot announce "${target.id}": this application has no modules. Start it with Liteb.create({ modules }).`,
+      );
+    }
+    await this.container.notify(target, payload);
   }
 
   /**

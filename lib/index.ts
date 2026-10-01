@@ -56,17 +56,12 @@ export type { AppliedMigration, Migration } from './modules/module-migrator';
 export {
   loadModules,
   loadModuleEndpoints,
-  loadModuleListeners,
   loadModuleRoutines,
   loadModuleStrategies,
   toEndpointReaders,
   resolveModulePattern,
 } from './modules/module-loader';
-export type {
-  LoadedModule,
-  LoadedListener,
-  LoadedStrategy,
-} from './modules/module-loader';
+export type { LoadedModule, LoadedStrategy } from './modules/module-loader';
 export { collectModuleTables } from './modules/collect-tables';
 export type {
   Database,
@@ -77,16 +72,12 @@ export { rows, tableExists } from './modules/database';
 export { Container, ContractError } from './modules/container';
 export { token } from './modules/token';
 export type { TokenKind } from './modules/token';
-export type { Slot } from './modules/slots';
-export { EventBus } from './modules/events';
+export type { Reaction, Slot } from './modules/slots';
 export { Scheduler, ScheduleError } from './modules/schedules';
 export type { ScheduleToken, ScheduleHandle } from './modules/schedules';
 export { PermissionRegistry } from './modules/permissions';
 export type { PermissionsOf } from './modules/permissions';
 export type { RegisteredPermission } from './modules/permissions';
-export type { EventToken } from './modules/events';
-export { On } from './decorators/on.decorator';
-export * from './templates/listener';
 export type { Contract } from './modules/container';
 export { buildContainer } from './modules/build-container';
 export type {

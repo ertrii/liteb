@@ -110,14 +110,14 @@ describe('@Provides es sólo para contratos', () => {
     );
   });
 
-  it('rechaza un evento, y dice qué se hace con uno', () => {
-    const Aviso = token<{ id: string }>('demo.aviso', 'event');
+  it('rechaza un horario, y dice qué corre sobre uno', () => {
+    const Nocturno = token('demo.nocturno', 'schedule');
 
     expect(() => {
-      @Provides(Aviso as never)
+      @Provides(Nocturno as never)
       class Mal extends Provider {}
       return Mal;
-    }).toThrow(/and got an event/);
+    }).toThrow(/and got a schedule.*@Cron\(token, expression\)/);
   });
 
   it('rechaza lo que no es un token', () => {
@@ -150,14 +150,14 @@ describe('@Fills es sólo para ranuras', () => {
     }).toThrow(/@Provides\(\) on a class extending Provider/);
   });
 
-  it('rechaza un evento', () => {
-    const Aviso = token<{ id: string }>('demo.aviso.no', 'event');
+  it('rechaza un horario', () => {
+    const Nocturno = token('demo.nocturno.no', 'schedule');
 
     expect(() => {
-      @Fills(Aviso as never)
+      @Fills(Nocturno as never)
       class Mal extends Strategy {}
       return Mal;
-    }).toThrow(/Nothing fills an event/);
+    }).toThrow(/Nothing fills a schedule/);
   });
 
   it('rechaza lo que no es un token', () => {

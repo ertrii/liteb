@@ -1,9 +1,10 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { Database } from './database';
+import { Logger } from '../utilities/logger';
 import type { Provider } from '../templates/provider';
 import type { Strategy } from '../templates/strategy';
 import type { Scheduler } from './schedules';
-import type { EventBus } from './events';
-import type { Slot } from './slots';
+import type { Reaction, Slot } from './slots';
 
 /**
  * A capability one module publishes and others consume.
@@ -21,8 +22,7 @@ export interface Contract<T> {
    * Set by `token()`, and the only place this is written down. Without it the
    * three kinds of token would be structurally identical and each could be
    * passed where another goes, which is the one confusion that matters here: a
-   * contract has exactly one provider, a slot has many, an event has listeners
-   * and no answer.
+   * contract has exactly one provider and a slot has as many as are deployed.
    */
   readonly kind: 'contract';
   /** Phantom field: carries T so `get()` returns the right type. Never set. */
@@ -73,9 +73,18 @@ export class Container {
   private slots = new Map<string, SlotRegistration[]>();
   /** Built contributions per slot, cached like a contract's instance. */
   private filled = new Map<string, unknown[]>();
+  /**
+   * The slot a `notify()` is currently announcing, scoped to the async context
+   * of that call.
+   *
+   * A plain `Set` would be wrong here and it is worth saying why: `notify()`
+   * awaits, so two concurrent requests would each see the other's entry and
+   * refuse a cascade that is not one. `AsyncLocalStorage` scopes it to the one
+   * chain of calls, which is exactly what "a reaction announced something" is.
+   */
+  private readonly announcing = new AsyncLocalStorage<string>();
   private scheduler?: Scheduler;
   private resolvingSlots = new Set<string>();
-  private events?: EventBus;
 
   constructor(private readonly db: Database) {}
 
@@ -205,6 +214,65 @@ export class Container {
     }
   }
 
+  /**
+   * Announces something to whoever filled an extension point, and reads nothing
+   * back.
+   *
+   * The other way to read a slot. Where {@link all} hands the contributions over
+   * for the caller to use, this CALLS every one of them with what happened and
+   * discards the answers — and the difference that matters is whose failure it
+   * is: a reaction that throws is logged with its module id, the others still
+   * run, and whoever announced it answers normally. That guarantee is the only
+   * thing the event bus ever added over a slot, which is why it is here and the
+   * bus is gone.
+   *
+   * It resolves once every reaction settled, so it is awaited: this is not a
+   * queue, and a slow reaction still slows the request. When the work must
+   * outlive the request, that is a job and liteb does not have one yet.
+   *
+   * A slot nobody filled is a no-op, which is the normal case for an extension
+   * point nobody installed.
+   *
+   * @example
+   * await this.notify(ProductRestocked, { productId, stock });
+   */
+  public async notify<T>(target: Slot<Reaction<T>>, payload: T): Promise<void> {
+    const registrations = this.slots.get(target.id);
+    if (!registrations || registrations.length === 0) return;
+
+    // One hop, and no further. A reaction that announces something of its own
+    // is how "why was this email sent" stops having an answer: A triggers B
+    // triggers C, and the trace names none of them. Refused by name instead.
+    const from = this.announcing.getStore();
+    if (from) {
+      throw new ContractError(
+        `Extension point "${target.id}" is being announced from inside a reaction to "${from}". A reaction must not announce another one: have the host announce both, or make the second one a contract so the dependency is visible.`,
+        target.id,
+      );
+    }
+
+    const reactions = this.all(target);
+
+    const settled = await this.announcing.run(target.id, () =>
+      // `async` and not a bare call: `Promise.allSettled` only catches a
+      // REJECTED promise, so a reaction that throws synchronously would escape
+      // the mapper and fail the announcer — defeating the one guarantee this
+      // method exists for. The wrapper turns the throw into a rejection.
+      Promise.allSettled(
+        reactions.map(async (reaction) => reaction.on(payload)),
+      ),
+    );
+
+    settled.forEach((result, index) => {
+      if (result.status !== 'rejected') return;
+      const { StrategyClass, moduleId } = registrations[index];
+      Logger.error(
+        `Reaction ${StrategyClass.name} (module "${moduleId}") failed on "${target.id}"`,
+        result.reason,
+      );
+    });
+  }
+
   /** Extension points with at least one contribution, for the startup log. */
   public slotIds(): string[] {
     return [...this.slots.keys()];
@@ -215,7 +283,6 @@ export class Container {
     return this.slots.get(target.id)?.length ?? 0;
   }
 
-  /** See {@link EventBus.useContainer}: the two reference each other. */
   /**
    * Hands the container the scheduler, so a provider or a strategy can start
    * and stop a schedule. Set afterwards for the same reason as the bus: the
@@ -225,14 +292,10 @@ export class Container {
     this.scheduler = scheduler;
   }
 
-  public useEvents(events: EventBus): void {
-    this.events = events;
-  }
-
   /**
    * Builds an implementation.
    *
-   * `db`, `container` and `events` go on the PROTOTYPE first, so a field
+   * `db`, `container` and `scheduler` go on the PROTOTYPE first, so a field
    * initializer — `private readonly users = this.db.getRepository(User)` —
    * already has them when the constructor runs. Then they are copied onto the
    * instance, which pins them: a second application in the same process
@@ -242,13 +305,11 @@ export class Container {
     const proto = UnitClass.prototype;
     proto.db = this.db;
     proto.container = this;
-    proto.events = this.events;
     proto.scheduler = this.scheduler;
 
     const instance = new UnitClass();
     instance.db = this.db;
     instance.container = this;
-    instance.events = this.events;
     instance.scheduler = this.scheduler;
 
     return instance;

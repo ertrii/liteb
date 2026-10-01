@@ -1,5 +1,4 @@
 import path from 'path';
-import type { TokenKind } from '../modules/token';
 import { plan, Plan } from './plan';
 import {
   CliError,
@@ -340,7 +339,7 @@ export function createRoutine(options: RoutineOptions): Plan {
   const from = relativeFrom(options.from, 3);
   const autostart = options.autostart === false;
 
-  // TWO files, and both belong to this module: unlike an event's, a routine's
+  // TWO files, and both belong to this module: unlike a slot's, a routine's
   // token is not somebody else's — a module owns its own schedule, so the token
   // goes where the module's other tokens go.
   const tokenContent = `${importLine(['token'], from)}
@@ -370,46 +369,7 @@ export default class ${className} extends Routine {
       autostart
         ? `It is registered and NOT running: start it with this.schedule(${tokenName}).start() from an endpoint, or app.schedule(${tokenName}).start() from outside.`
         : `It starts once the server is listening and stops on shutdown. this.schedule(${tokenName}).stop() pauses it without a restart, and start() on something already running does nothing.`,
-      "`this.db`, `this.get(Contract)` and `this.emit(Event)` work here exactly as in an endpoint. `now` is a Date, or 'init' when @Cron got runOnInit.",
-    ],
-  );
-}
-
-export interface ListenerOptions extends CommonOptions {
-  target: string;
-}
-
-export function createListener(options: ListenerOptions): Plan {
-  const target = parseTarget(options.target, 'listener');
-  const dir = moduleDir(options, target.module);
-  const className = `${toPascal(target.name)}Listener`;
-  const tokenName = toPascal(target.name);
-  const from = relativeFrom(options.from, 3);
-
-  const content = `${importLine(['token', 'Listener', 'On'], from)}
-
-${tokenDeclaration({
-  constName: tokenName,
-  typeName: '{ id: number }',
-  id: `${target.module}.${target.name}`,
-  kind: 'event',
-})}
-
-@On(${tokenName})
-export default class ${className} extends Listener<{ id: number }> {
-  public async on(payload: { id: number }): Promise<void> {
-    console.log('[${target.module}] ${target.name}', payload.id);
-  }
-}
-`;
-
-  return plan(
-    [{ path: `${dir}/listeners/${target.name}.listener.ts`, content }],
-    [],
-    [
-      `The token belongs to the module that ANNOUNCES the event. Replace the declaration with: import { ${tokenName} } from '@/<module>/tokens/${target.name}.token'; — \`@/\` is the alias for your modules folder, and the token is declared here only so the file compiles on its own.`,
-      'Reacting is not answering: throwing here does not fail whoever emitted, and an event nobody listens to is normal. When the outcome matters to the caller, that is a contract, not an event.',
-      'Listeners read on their own connection: emit AFTER the transaction commits, or they cannot see the rows.',
+      "`this.db`, `this.get(Contract)` and `this.notify(Slot, payload)` work here exactly as in an endpoint. `now` is a Date, or 'init' when @Cron got runOnInit.",
     ],
   );
 }
@@ -437,7 +397,7 @@ function tokenDeclaration(args: {
   constName: string;
   typeName: string;
   id: string;
-  kind: 'contract' | 'slot' | 'event';
+  kind: 'contract' | 'slot';
 }): string {
   const { constName, typeName, id, kind } = args;
   const oneLine = `export const ${constName} = token<${typeName}>('${id}', '${kind}');`;
@@ -449,8 +409,9 @@ function tokenDeclaration(args: {
 
 export interface TokenOptions extends CommonOptions {
   target: string;
-  /** How many may answer, which is the only thing the three differ in. */
-  kind: TokenKind;
+  kind: 'contract' | 'slot';
+  /** For a slot: the host announces into it and reads nothing back. */
+  reaction?: boolean;
 }
 
 /**
@@ -458,7 +419,7 @@ export interface TokenOptions extends CommonOptions {
  *
  * All three go in `tokens/` because they are one thing — a name with a type,
  * and how many may answer it. Splitting them across `contracts/`, `slots/` and
- * `events/` asked the author to file a decision they had already made in the
+ * `schedules/` asked the author to file a decision they had already made in the
  * call itself.
  *
  * liteb does NOT glob that folder: a token is imported by name, so there is
@@ -474,7 +435,30 @@ export function createToken(options: TokenOptions): Plan {
   let body: string;
   let hints: string[];
 
-  if (options.kind === 'slot') {
+  if (options.kind === 'slot' && options.reaction) {
+    // A reaction slot: the host ANNOUNCES and reads nothing back. What the
+    // module declares is the payload; `Reaction<T>` is the method, so nobody
+    // has to invent a name for it.
+    const payload = `${name}Payload`;
+
+    body = `export interface ${payload} {
+  id: number;
+}
+
+${tokenDeclaration({
+  constName: name,
+  typeName: `Reaction<${payload}>`,
+  id,
+  kind: 'slot',
+})}`;
+
+    hints = [
+      `Announce it: await this.notify(${name}, { id }) from an endpoint, a routine, a provider or a strategy.`,
+      `React to it from any module: liteb strategy <module>/<name> ${target.name}, then implement Reaction<${payload}>.`,
+      'A reaction that throws does NOT fail whoever announced it: the failure is logged with its module. When the outcome matters to the caller, that is a contract.',
+      'Reactions read on their own connection, so they cannot see rows a transaction has not committed. Announce AFTER it commits, or put what they need in the payload.',
+    ];
+  } else if (options.kind === 'slot') {
     // A slot has TWO names: the token is the collection, the interface is ONE
     // contribution. A trailing "s" is the usual difference; rename if it
     // guessed wrong.
@@ -492,19 +476,6 @@ ${tokenDeclaration({ constName: name, typeName: item, id, kind: 'slot' })}`;
       `Fill it from another module: liteb strategy <module>/<name> ${target.name}`,
       `Note the direction: "${target.module}" opens it and knows nothing about who fills it, which is what keeps the host independent of its own extensions.`,
     ];
-  } else if (options.kind === 'event') {
-    body = `export interface ${name} {
-  id: number;
-}
-
-${tokenDeclaration({ constName: name, typeName: name, id, kind: 'event' })}`;
-
-    hints = [
-      `Announce it: await this.emit(${name}, { id }) from an endpoint, a routine or a provider.`,
-      `React to it from any module: liteb listener <module>/<name>, then import this token.`,
-      'The payload has to carry what a listener needs: listeners read on their own connection, so they cannot see rows a transaction has not committed yet.',
-      `Announced after it happened: "${target.module}" does not know or care who reacts. When it needs someone in particular to do something and has to wait for the answer, that is a contract.`,
-    ];
   } else {
     body = `export interface ${name} {
   describe(): Promise<string>;
@@ -520,7 +491,12 @@ ${tokenDeclaration({ constName: name, typeName: name, id, kind: 'contract' })}`;
     ];
   }
 
-  const content = `${importLine(['token'], from)}
+  const content = `${importLine(
+    options.kind === 'slot' && options.reaction
+      ? ['Reaction', 'token']
+      : ['token'],
+    from,
+  )}
 
 ${body}
 `;
@@ -567,7 +543,7 @@ export class ${name}Provider extends Provider implements ${name} {
     [
       'Nothing lists it: the folder is what registers it, and the decorator says which contract it answers.',
       'It is the half the consumer never sees: change how it works and nothing outside the file moves.',
-      '`this.db`, `this.get(Contract)`, `this.all(Slot)` and `this.emit(Event)` are injected BEFORE the instance is built, so a field initializer can already reach for a repository. Built the first time someone asks for it, then reused.',
+      '`this.db`, `this.get(Contract)`, `this.all(Slot)` and `this.notify(Slot, payload)` are injected BEFORE the instance is built, so a field initializer can already reach for a repository. Built the first time someone asks for it, then reused.',
     ],
   );
 }
@@ -615,8 +591,8 @@ export class ${name} extends Strategy implements ${implemented} {
     [],
     [
       'Point the import at the module that opened the slot — replace <module>: an extension imports the token, never the other way round.',
-      `Implement ${implemented} as the host declared it. The host decides what a contribution receives and what it may answer, which is where a slot has leverage an event never does.`,
-      'Throwing here FAILS the host\u2019s request: the host calls this directly. For a side effect that must not be able to break the caller, use an event and a Listener.',
+      `Implement ${implemented} as the host declared it. The host decides what a contribution receives and what it may answer, including answering null for "does not apply".`,
+      'Throwing here FAILS the host\u2019s request when the host reads the slot with all(). A slot the host announces into with notify() is isolated instead: the failure is logged and the announcer answers anyway.',
       'Built once and reused for the life of the application, so never keep per-request state in one.',
     ],
   );
@@ -730,7 +706,7 @@ export const GENERATORS = {
   routine: createRoutine,
   token: createToken,
   provider: createProvider,
-  listener: createListener,
+  strategy: createStrategy,
   table: createTable,
   migration: createMigration,
 } as const;

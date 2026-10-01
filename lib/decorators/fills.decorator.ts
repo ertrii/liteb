@@ -33,9 +33,9 @@ export function Fills<T>(target: Slot<T>) {
     );
   }
 
-  if (kind === 'event') {
+  if (kind === 'schedule') {
     throw new Error(
-      `@Fills() takes an extension point, and got an event. Nothing fills an event: a module announces it with this.emit(), and a Listener reacts to it with @On().`,
+      `@Fills() takes an extension point, and got a schedule. Nothing fills a schedule: a Routine runs on it, declared with @Cron(token, expression).`,
     );
   }
 

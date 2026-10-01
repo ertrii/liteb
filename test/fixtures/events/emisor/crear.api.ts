@@ -5,7 +5,7 @@ import { Registrado } from '../shared';
 @HttpPost('crear')
 export class CrearApi extends Endpoint {
   async main() {
-    await this.emit(Registrado, { id: 7 });
+    await this.notify(Registrado, { id: 7 });
     return { ok: true };
   }
 }

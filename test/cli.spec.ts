@@ -10,7 +10,6 @@ import request from 'supertest';
 import {
   createEndpoint,
   createTable,
-  createListener,
   createMigration,
   createModule,
   createProvider,
@@ -705,9 +704,6 @@ describe('un módulo generado y puesto a andar', () => {
       createRoutine({ target: 'inventory/nightly', modulesDir, from: 'liteb' }),
     );
     scaffold(
-      createListener({ target: 'inventory/audit', modulesDir, from: 'liteb' }),
-    );
-    scaffold(
       createMigration({
         target: 'inventory/create-items',
         modulesDir,
@@ -733,7 +729,8 @@ describe('un módulo generado y puesto a andar', () => {
     scaffold(
       createToken({
         target: 'inventory/item-added',
-        kind: 'event',
+        kind: 'slot',
+        reaction: true,
         modulesDir,
         from: 'liteb',
       }),
@@ -1068,9 +1065,15 @@ describe('un módulo generado y puesto a andar', () => {
       "token<Stock>('inventory.stock', 'contract')",
     );
 
-    expect(
-      read(`${modulesDir}/inventory/tokens/item-added.token.ts`),
-    ).toContain("token<ItemAdded>('inventory.item-added', 'event')");
+    // Una ranura DE REACCIONES: el módulo declara la carga y `Reaction<T>`
+    // aporta el método, así que nadie tiene que inventarle un nombre.
+    const reaccion = read(`${modulesDir}/inventory/tokens/item-added.token.ts`);
+    expect(reaccion).toContain('export interface ItemAddedPayload {');
+    expect(reaccion).toContain('token<Reaction<ItemAddedPayload>>(');
+    expect(reaccion).toContain("'inventory.item-added',");
+    expect(reaccion).toContain("'slot',");
+    // Y el import trae `Reaction`, o el archivo generado no compila.
+    expect(reaccion).toContain("import { Reaction, token } from 'liteb';");
 
     const ranura = read(`${modulesDir}/inventory/tokens/labels.token.ts`);
     // El token nombra la colección, la interfaz nombra UNA contribución.
@@ -1078,18 +1081,18 @@ describe('un módulo generado y puesto a andar', () => {
     expect(ranura).toContain("token<Label>('inventory.labels', 'slot')");
   });
 
-  it('rutina, oyente y migración no tocan el manifiesto', () => {
+  it('rutina, estrategia y migración no tocan el manifiesto', () => {
     // Cuatro generadores escribieron archivos y NINGUNO editó module.ts. Eso
     // es lo que hace que un módulo se pueda leer de un vistazo: lo que dice es
     // lo particular de este módulo, no la lista de carpetas que tienen todos.
     const manifest = read(`${modulesDir}/inventory/module.ts`);
 
     expect(manifest).not.toContain('routines:');
-    expect(manifest).not.toContain('listeners:');
+    expect(manifest).not.toContain('strategies:');
     expect(manifest).not.toContain('migrations');
 
     expect(inventory.routines).toEqual(['./routines/*.routine.ts']);
-    expect(inventory.listeners).toEqual(['./listeners/*.listener.ts']);
+    expect(inventory.strategies).toEqual(['./strategies/*.strategy.ts']);
     expect(inventory.migrations.map((migration) => migration.name)).toEqual([
       expect.stringMatching(/^CreateItems\d+$/),
     ]);

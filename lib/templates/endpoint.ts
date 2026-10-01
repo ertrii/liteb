@@ -3,14 +3,13 @@ import { Database } from '../modules/database';
 import { HttpStatus } from '../interfaces/http-status';
 import type { UploadedFile } from '../interfaces/uploaded-file';
 import { Auth } from '../core/auth';
-import type { EventBus, EventToken } from '../modules/events';
 import type {
   ScheduleHandle,
   Scheduler,
   ScheduleToken,
 } from '../modules/schedules';
 import type { Container, Contract } from '../modules/container';
-import type { Slot } from '../modules/slots';
+import type { Reaction, Slot } from '../modules/slots';
 import type { Output } from '../outputs/output';
 
 export type DataJson =
@@ -79,8 +78,6 @@ export abstract class Endpoint<
    */
   public container?: Container;
 
-  /** Event bus of this application, injected on the prototype like `db`. */
-  public events?: EventBus;
   /** Scheduler of this application, injected like `db`. */
   public scheduler?: Scheduler;
 
@@ -129,22 +126,36 @@ export abstract class Endpoint<
   }
 
   /**
-   * Announces that something happened, for whatever modules are listening.
+   * Announces something to whoever filled an extension point, and reads nothing
+   * back.
    *
-   * It is NOT a call: a listener that fails does not fail this request, and an
-   * event nobody listens to is normal. When the outcome matters, use a
-   * contract with {@link get} instead.
+   * The counterpart of {@link all}: that one hands the contributions over for
+   * you to call, this one calls every one of them with what happened and
+   * discards the answers. The difference that matters is whose failure it is —
+   * a reaction that throws is logged with its module and the rest still run, so
+   * announcing something cannot break you. When the outcome matters, that is a
+   * contract.
    *
-   * GOTCHA: listeners read on their own connection. Emitting inside
-   * `db.transaction()` means they cannot see the uncommitted rows — emit after
-   * it commits, or put what they need in the payload.
+   * It is awaited: it resolves once every reaction settled, so a slow reaction
+   * still slows this down. It is not a queue.
+   *
+   * GOTCHA: reactions read on their own connection. Announcing inside
+   * `db.transaction()` means they cannot see the uncommitted rows — announce
+   * after it commits, or put what they need in the payload.
    *
    * @example
-   * await this.emit(ChargeCreated, { chargeId: charge.id, customerId });
+   * await this.notify(ProductRestocked, { productId, stock });
    */
-  protected async emit<T>(token: EventToken<T>, payload: T): Promise<void> {
-    if (!this.events) return;
-    await this.events.emit(token, payload);
+  protected async notify<T>(
+    target: Slot<Reaction<T>>,
+    payload: T,
+  ): Promise<void> {
+    if (!this.container) {
+      throw new Error(
+        `Cannot announce "${target.id}": this application has no modules. Start it with Liteb.create({ modules }).`,
+      );
+    }
+    await this.container.notify(target, payload);
   }
 
   /**
