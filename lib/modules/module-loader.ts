@@ -3,7 +3,9 @@ import { Endpoint } from '../templates/endpoint';
 import { Listener } from '../templates/listener';
 import { ON, OnMetadata } from '../decorators/on.decorator';
 import { PROVIDES, ProvidesMetadata } from '../decorators/provides.decorator';
+import { FILLS, FillsMetadata } from '../decorators/fills.decorator';
 import { Provider } from '../templates/provider';
+import { Strategy } from '../templates/strategy';
 import type { Contract } from './container';
 import type { Slot } from './slots';
 import type { EventToken } from './events';
@@ -120,10 +122,16 @@ export async function loadModuleRoutines(
   );
 }
 
-/** A provider class together with the contract or slot it declared. */
+/** A provider class together with the contract it declared. */
 export interface LoadedProvider {
-  target: Contract<unknown> | Slot<unknown>;
+  target: Contract<unknown>;
   ProviderClass: new () => Provider;
+}
+
+/** A strategy class together with the extension point it declared. */
+export interface LoadedStrategy {
+  target: Slot<unknown>;
+  StrategyClass: new () => Strategy;
 }
 
 /**
@@ -159,6 +167,42 @@ export async function loadModuleProviders(
       return { target: metadata.target, ProviderClass };
     })
     .filter((loaded): loaded is LoadedProvider => loaded !== null);
+}
+
+/**
+ * Reads the `Strategy` classes a module contributes to other modules'
+ * extension points.
+ *
+ * Same tolerance as a provider: one without `@Fills` is skipped with a warning
+ * rather than refusing to start, because a half-written file is the likelier
+ * explanation than a broken installation.
+ */
+export async function loadModuleStrategies(
+  mod: ResolvedModule,
+): Promise<LoadedStrategy[]> {
+  if (mod.strategies.length === 0) return [];
+
+  const { exported } = await readExports(mod.strategies, mod.dir);
+
+  return exported
+    .filter(
+      (value): value is new () => Strategy =>
+        typeof value === 'function' && value.prototype instanceof Strategy,
+    )
+    .map((StrategyClass) => {
+      const metadata = Reflect.getMetadata(
+        FILLS,
+        StrategyClass,
+      ) as FillsMetadata;
+      if (!metadata) {
+        Logger.warn(
+          `Strategy ${StrategyClass.name} in module "${mod.id}" has no @Fills(token) and was skipped.`,
+        );
+        return null;
+      }
+      return { target: metadata.target, StrategyClass };
+    })
+    .filter((loaded): loaded is LoadedStrategy => loaded !== null);
 }
 
 /**

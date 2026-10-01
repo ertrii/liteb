@@ -1,4 +1,4 @@
-import { Provides, Provider } from '../../../../lib';
+import { Fills, Strategy } from '../../../../lib';
 import {
   ProductBadge,
   ProductBadges,
@@ -8,11 +8,12 @@ import {
  * What this module adds to catalog's product list — without catalog knowing it
  * exists, and without editing a single line of it.
  *
- * This is what an extension looks like: the badge appears because the module is
- * deployed, and `catalog` never learns the word "low stock".
+ * `ProductBadge` is catalog's domain interface: it decides that a badge answers
+ * per product and may answer `null`. This class is one implementation of it,
+ * and `catalog` is the only one that runs it.
  */
-@Provides(ProductBadges)
-export class LowStockBadge extends Provider implements ProductBadge {
+@Fills(ProductBadges)
+export class LowStockBadge extends Strategy implements ProductBadge {
   public readonly id = 'low-stock';
 
   public for(product: { stock: number }): string | null {

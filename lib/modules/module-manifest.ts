@@ -41,7 +41,13 @@ export type ModulePattern = string | string[];
 
 /** The fields a module describes with globs. */
 export type ModuleGlobField =
-  'tables' | 'migrations' | 'routes' | 'routines' | 'listeners' | 'providers';
+  | 'tables'
+  | 'migrations'
+  | 'routes'
+  | 'routines'
+  | 'listeners'
+  | 'providers'
+  | 'strategies';
 
 /**
  * Where liteb looks when the manifest says nothing.
@@ -65,6 +71,7 @@ export const MODULE_LAYOUT: Readonly<Record<ModuleGlobField, string>> = {
   routines: './routines/*.routine.ts',
   listeners: './listeners/*.listener.ts',
   providers: './providers/*.provider.ts',
+  strategies: './strategies/*.strategy.ts',
 };
 
 /**
@@ -197,9 +204,8 @@ export interface ModuleManifest<
   listeners?: ModulePattern;
 
   /**
-   * Glob for this module's `Provider` classes — what it answers for a contract
-   * and what it contributes to someone else's extension point. Defaults to
-   * `./providers/*.provider.ts`.
+   * Glob for this module's `Provider` classes — how it answers the contracts it
+   * owns. Defaults to `./providers/*.provider.ts`.
    *
    * There is no glob for the TOKENS themselves: one is imported by name, so
    * there is nothing to discover. `tokens/` is still where all three kinds
@@ -207,6 +213,18 @@ export interface ModuleManifest<
    * a glob.
    */
   providers?: ModulePattern;
+
+  /**
+   * Glob for this module's `Strategy` classes — what it contributes to
+   * extension points OTHER modules opened. Defaults to
+   * `./strategies/*.strategy.ts`.
+   *
+   * A separate folder from `providers/` because it is a separate relationship:
+   * a provider is this module's own public face, answering a contract it owns,
+   * while a strategy implements somebody else's domain interface and is run by
+   * them. Keeping them apart is what makes the two legible in a file tree.
+   */
+  strategies?: ModulePattern;
 
   /**
    * What this module can gate: the keys, as they will be asserted.
@@ -249,6 +267,7 @@ export interface ResolvedModule<K extends string = string> {
   routines: string[];
   listeners: string[];
   providers: string[];
+  strategies: string[];
   permissions: ModulePermission<K>[];
   /**
    * Just the keys, for granting everything one module has.

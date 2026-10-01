@@ -87,7 +87,8 @@ código lo escribís vos.
 | `endpoint <module>/<name>` | Un endpoint (`--method`, `--path`, `--group`, `--public`) |
 | `routine <module>/<name>` | Trabajo con horario (`--cron`) |
 | `contract <module>/<name>` | Una capacidad que este módulo publica: token y forma |
-| `provider <module>/<name>` | La clase que la responde (`--slot` para llenar un punto de extensión) |
+| `provider <module>/<name>` | La clase que la responde |
+| `strategy <module>/<name> <slot>` | Lo que este módulo aporta a un punto de extensión ajeno |
 | `event <module>/<name>` | Algo que este módulo anuncia |
 | `slot <module>/<name>` | Un punto de extensión que otros pueden llenar |
 | `listener <module>/<name>` | Un oyente |
@@ -335,7 +336,8 @@ lo que tiene de particular **este** módulo. Las carpetas se encuentran desde
 | `endpoints/*.endpoint.ts` | los endpoints, montados bajo el id del módulo |
 | `routines/*.routine.ts` | las rutinas programadas |
 | `listeners/*.listener.ts` | los oyentes de eventos |
-| `providers/*.provider.ts` | las clases `Provider`: qué responde, qué aporta |
+| `providers/*.provider.ts` | las clases `Provider`: los contratos que este módulo responde |
+| `strategies/*.strategy.ts` | las clases `Strategy`: lo que aporta a puntos de extensión ajenos |
 
 Escribir el archivo es todo lo que hay que hacer. `liteb table billing/charge`
 escribe `tables/charge.table.ts` y no edita **nada**: la carpeta es lo que lo
@@ -716,9 +718,9 @@ export const ProductBadges = token<ProductBadge>(
 ```
 
 ```typescript
-// cualquier módulo lo llena, sin que catalog cambie — providers/low-stock-badge.provider.ts
-@Provides(ProductBadges)
-export class LowStockBadge extends Provider implements ProductBadge {
+// cualquier módulo lo llena, sin que catalog cambie — strategies/low-stock-badge.strategy.ts
+@Fills(ProductBadges)
+export class LowStockBadge extends Strategy implements ProductBadge {
   readonly id = 'low-stock';
   for(product) {
     return product.stock < 10 ? 'Low stock' : null;
@@ -736,10 +738,11 @@ extensiones: `catalog` no sabe nada de quién lo llena, mientras que un
 contribuyente importa su token. Al revés, el anfitrión dependería de sus propias
 extensiones y ninguna se podría quitar.
 
-- Una contribución es un `Provider` como cualquier otro — misma carpeta, mismo
-  decorador, misma inyección. `@Provides` sirve para los dos, porque el token ya
-  dice cuál es: un contrato tiene un proveedor, un slot acepta los que haya. Un
-  token de evento se rechaza, porque un evento no lo provee nadie.
+- Un aporte es una **`Strategy`**, no un `Provider`: carpeta propia
+  (`strategies/`), decorador propio (`@Fills`) y clase base propia. La interfaz
+  que `implements` es del **anfitrión**, y el anfitrión es el único que la corre.
+  Un `Provider` es otra cosa: la cara pública de tu módulo respondiendo un
+  contrato que es tuyo.
   lo que agregó.
 - Un arreglo vacío es una respuesta normal: un slot que nadie llenó es una función
   que nadie instaló.

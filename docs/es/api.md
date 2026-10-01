@@ -60,7 +60,8 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | `Endpoint<B, P, Q>` | clase | Un endpoint HTTP. Los genéricos son el body, los params y el query ya validados. |
 | `Routine` | clase | Trabajo agendado. `@Cron` decide cuándo. |
 | `Listener<P>` | clase | Atiende un evento. `@On` dice cuál. |
-| `Provider` | clase | Responde un contrato o llena un slot. Se marca con `@Provides`. |
+| `Provider` | clase | Responde un contrato — exactamente uno. Se marca con `@Provides`. |
+| `Strategy` | clase | Llena un punto de extensión de OTRO módulo, que es quien la corre. Se marca con `@Fills`. |
 | `DataJson` | `Record<string, any> \| Response \| Output \| null` | Lo que puede devolver el `main()` de un endpoint. |
 | `UploadedFile` | interface | Un archivo de una petición multipart. Tipo propio de liteb, no un global. |
 

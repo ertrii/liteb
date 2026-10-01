@@ -14,6 +14,7 @@ import {
   createMigration,
   createModule,
   createProvider,
+  createStrategy,
   createRoutine,
   createToken,
 } from '../lib/cli/generators';
@@ -222,7 +223,7 @@ describe('lo generado entra en el ancho de prettier', () => {
 
     // El import de una ranura trae DOS nombres y una ruta con el alias: es el
     // que se pasa de largo.
-    const largo = createProvider({
+    const largo = createStrategy({
       target: 'reports/low-stock',
       slot: 'product-badges',
       modulesDir: 'src/modules',
@@ -1008,11 +1009,11 @@ describe('un módulo generado y puesto a andar', () => {
     );
   });
 
-  it('un proveedor con --slot implementa la INTERFAZ, no el token', () => {
+  it('una estrategia implementa la INTERFAZ, no el token', () => {
     // Una ranura tiene dos nombres: el token es la colección y la interfaz es
     // UNA contribución. Implementar el token no compila, así que la plantilla
     // no puede confundirlos.
-    const plan = createProvider({
+    const plan = createStrategy({
       target: 'reports/low-stock',
       modulesDir,
       from: 'liteb',
@@ -1020,12 +1021,14 @@ describe('un módulo generado y puesto a andar', () => {
     });
     const archivo = plan.files[0];
 
+    // Carpeta y sufijo propios: en el árbol de archivos se ve que no es un
+    // proveedor, que es la mitad de para qué está separado.
     expect(archivo.path).toBe(
-      `${modulesDir}/reports/providers/low-stock.provider.ts`,
+      `${modulesDir}/reports/strategies/low-stock.strategy.ts`,
     );
-    expect(archivo.content).toContain('@Provides(ProductBadges)');
+    expect(archivo.content).toContain('@Fills(ProductBadges)');
     expect(archivo.content).toContain(
-      'extends Provider implements ProductBadge',
+      'extends Strategy implements ProductBadge',
     );
     // Y el import trae las dos mitades, con el alias. Va partido porque en una
     // línea se pasa de 80 columnas — el ancho lo cubre su propia prueba.
@@ -1036,6 +1039,24 @@ describe('un módulo generado y puesto a andar', () => {
     // El cuerpo es el de una contribución, no el de un contrato.
     expect(archivo.content).toContain("public readonly id = 'low-stock';");
     expect(archivo.content).not.toContain('describe()');
+    // Y no habla de proveedores en ninguna parte.
+    expect(archivo.content).not.toContain('Provider');
+  });
+
+  it('un proveedor ya no sabe llenar ranuras: para eso está la estrategia', () => {
+    // La señal de que la división es real: el generador de proveedores escribe
+    // SIEMPRE la implementación de un contrato.
+    const archivo = createProvider({
+      target: 'reports/flag',
+      modulesDir,
+      from: 'liteb',
+    }).files[0];
+
+    expect(archivo.path).toBe(
+      `${modulesDir}/reports/providers/flag.provider.ts`,
+    );
+    expect(archivo.content).toContain('@Provides(Flag)');
+    expect(archivo.content).not.toContain('Fills');
   });
 
   it('los tres tipos de token caen en la MISMA carpeta', () => {

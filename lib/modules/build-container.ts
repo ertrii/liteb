@@ -1,6 +1,6 @@
 import { Database } from './database';
 import { Container, ContractError } from './container';
-import { loadModuleProviders } from './module-loader';
+import { loadModuleProviders, loadModuleStrategies } from './module-loader';
 import { ResolvedModule } from './module-manifest';
 
 /**
@@ -22,15 +22,15 @@ export async function buildContainer(
   const container = new Container(db);
 
   for (const mod of modules) {
-    // What the module's `providers/` folder holds: a class per contract it
-    // answers, or per extension point it fills. The token comes from the
-    // class's own decorator, so nothing lists them.
+    // Two folders, two relationships. `providers/` is how the module answers
+    // the contracts it owns; `strategies/` is what it contributes to extension
+    // points somebody else opened. The token comes from each class's own
+    // decorator, so nothing lists them.
     for (const { target, ProviderClass } of await loadModuleProviders(mod)) {
-      if (target.kind === 'contract') {
-        container.register(mod.id, target, ProviderClass);
-      } else {
-        container.contribute(mod.id, target, ProviderClass);
-      }
+      container.register(mod.id, target, ProviderClass);
+    }
+    for (const { target, StrategyClass } of await loadModuleStrategies(mod)) {
+      container.contribute(mod.id, target, StrategyClass);
     }
   }
 

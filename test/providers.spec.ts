@@ -6,7 +6,9 @@ import { defineModule } from '../lib/modules/define-module';
 import { ContractError } from '../lib/modules/container';
 import { token } from '../lib/modules/token';
 import { Provider } from '../lib/templates/provider';
+import { Strategy } from '../lib/templates/strategy';
 import { Provides } from '../lib/decorators/provides.decorator';
+import { Fills } from '../lib/decorators/fills.decorator';
 import { Badges, built, Greeter } from './fixtures/proveedores/shared';
 import type { Database } from '../lib';
 
@@ -69,7 +71,7 @@ describe('proveedores por carpeta', () => {
     expect(built.clock).toBe(1);
   });
 
-  it('@Provides llena la ranura de otro módulo', async () => {
+  it('@Fills llena la ranura de otro módulo', async () => {
     const container = await buildContainer([demo], fakeDb);
 
     expect(container.all(Badges).map((badge) => badge.id)).toEqual(['loud']);
@@ -83,20 +85,29 @@ describe('proveedores por carpeta', () => {
   });
 });
 
-describe('@Provides toma los dos tokens que se proveen, y ningún otro', () => {
-  it('acepta un contrato y acepta una ranura: el token dice cuál es', () => {
+describe('@Provides es sólo para contratos', () => {
+  it('acepta un contrato', () => {
     const Contrato = token<{ id: string }>('demo.contrato', 'contract');
-    const Ranura = token<{ id: string }>('demo.ranura', 'slot');
 
     expect(() => {
       @Provides(Contrato)
       class Uno extends Provider {}
-
-      @Provides(Ranura)
-      class Otro extends Provider {}
-
-      return [Uno, Otro];
+      return Uno;
     }).not.toThrow();
+  });
+
+  it('rechaza una ranura, y manda a @Fills con su carpeta', () => {
+    // El error tiene que decir las tres cosas que hay que cambiar: el
+    // decorador, la clase base y la carpeta.
+    const Ranura = token<{ id: string }>('demo.ranura', 'slot');
+
+    expect(() => {
+      @Provides(Ranura as never)
+      class Mal extends Provider {}
+      return Mal;
+    }).toThrow(
+      /@Fills\(\) on a class extending Strategy, in the module's strategies\//,
+    );
   });
 
   it('rechaza un evento, y dice qué se hace con uno', () => {
@@ -113,6 +124,46 @@ describe('@Provides toma los dos tokens que se proveen, y ningún otro', () => {
     expect(() => {
       @Provides({ id: 'demo.mano' } as never)
       class Mal extends Provider {}
+      return Mal;
+    }).toThrow(/something that is not a token/);
+  });
+});
+
+describe('@Fills es sólo para ranuras', () => {
+  it('acepta una ranura', () => {
+    const Ranura = token<{ id: string }>('demo.ranura.ok', 'slot');
+
+    expect(() => {
+      @Fills(Ranura)
+      class Uno extends Strategy {}
+      return Uno;
+    }).not.toThrow();
+  });
+
+  it('rechaza un contrato, y manda a @Provides', () => {
+    const Contrato = token<{ id: string }>('demo.contrato.no', 'contract');
+
+    expect(() => {
+      @Fills(Contrato as never)
+      class Mal extends Strategy {}
+      return Mal;
+    }).toThrow(/@Provides\(\) on a class extending Provider/);
+  });
+
+  it('rechaza un evento', () => {
+    const Aviso = token<{ id: string }>('demo.aviso.no', 'event');
+
+    expect(() => {
+      @Fills(Aviso as never)
+      class Mal extends Strategy {}
+      return Mal;
+    }).toThrow(/Nothing fills an event/);
+  });
+
+  it('rechaza lo que no es un token', () => {
+    expect(() => {
+      @Fills({ id: 'demo.mano' } as never)
+      class Mal extends Strategy {}
       return Mal;
     }).toThrow(/something that is not a token/);
   });

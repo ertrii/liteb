@@ -1,5 +1,6 @@
 import { Database } from './database';
 import type { Provider } from '../templates/provider';
+import type { Strategy } from '../templates/strategy';
 import type { EventBus } from './events';
 import type { Slot } from './slots';
 
@@ -27,8 +28,11 @@ export interface Contract<T> {
   readonly __type?: T;
 }
 
-/** A class that implements a contract, or fills an extension point. */
+/** A class that implements a contract. */
 export type ProviderClass = new () => Provider;
+
+/** A class that fills an extension point. */
+export type StrategyClass = new () => Strategy;
 
 export class ContractError extends Error {
   constructor(
@@ -48,7 +52,7 @@ interface Registration {
 }
 
 interface SlotRegistration {
-  ProviderClass: ProviderClass;
+  StrategyClass: StrategyClass;
   moduleId: string;
 }
 
@@ -156,10 +160,10 @@ export class Container {
   public contribute(
     moduleId: string,
     target: Slot<unknown>,
-    ProviderClass: ProviderClass,
+    StrategyClass: StrategyClass,
   ): void {
     const current = this.slots.get(target.id) ?? [];
-    current.push({ ProviderClass, moduleId });
+    current.push({ StrategyClass, moduleId });
     this.slots.set(target.id, current);
   }
 
@@ -189,8 +193,8 @@ export class Container {
 
     this.resolvingSlots.add(target.id);
     try {
-      const built = registrations.map(({ ProviderClass }) =>
-        this.build(ProviderClass),
+      const built = registrations.map(({ StrategyClass }) =>
+        this.build(StrategyClass),
       );
       this.filled.set(target.id, built);
       return built as T[];
@@ -223,13 +227,13 @@ export class Container {
    * instance, which pins them: a second application in the same process
    * registering the same class cannot change what this one already built.
    */
-  private build(ProviderClass: ProviderClass): unknown {
-    const proto = ProviderClass.prototype;
+  private build(UnitClass: ProviderClass | StrategyClass): unknown {
+    const proto = UnitClass.prototype;
     proto.db = this.db;
     proto.container = this;
     proto.events = this.events;
 
-    const instance = new ProviderClass();
+    const instance = new UnitClass();
     instance.db = this.db;
     instance.container = this;
     instance.events = this.events;

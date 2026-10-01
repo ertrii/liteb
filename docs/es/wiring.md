@@ -161,10 +161,9 @@ Lo que lleva el token:
 
 Los tres se declaran con **una sola función**, porque se diferencian en una sola
 cosa: cuántos pueden responder. Nombrarlo en la llamada lo convierte en una
-propiedad del token, que es de donde lo lee todo lo demás — `@Provides` para
-saber si registra la única implementación o una de varias, y el contenedor para
-decidir entre devolver una instancia y devolver una lista. Nada lo repite: un
-segundo lugar donde decirlo sería un segundo lugar donde decirlo mal.
+propiedad del token, que es de donde lo lee todo lo demás — el contenedor para
+decidir entre devolver una instancia y devolver una lista, y cada decorador para
+rechazar el token que no le toca.
 
 ```typescript
 token<BillingService>('billing.service', 'contract'); // exactamente uno
@@ -177,11 +176,13 @@ Dónde vive cada archivo, y qué comando lo escribe:
 | Carpeta | Qué hay | Comando |
 | --- | --- | --- |
 | `tokens/*.token.ts` | los tres: contratos, slots y eventos | [`liteb token`](./cli.md#liteb-token-modulename-kind) |
-| `providers/*.provider.ts` | lo que responde un contrato o llena un slot | [`liteb provider`](./cli.md#liteb-provider-modulename) |
+| `providers/*.provider.ts` | lo que responde **un contrato propio** | [`liteb provider`](./cli.md#liteb-provider-modulename) |
+| `strategies/*.strategy.ts` | lo que llena **el slot de otro módulo** | [`liteb strategy`](./cli.md#liteb-strategy-modulename-slot) |
 | `listeners/*.listener.ts` | lo que reacciona a un evento | [`liteb listener`](./cli.md#liteb-listener-modulename) |
 
-`providers/` y `listeners/` son globs: la carpeta es lo que los registra, y el
-decorador dice a qué token responden. `tokens/` **no** es un glob — un token se
+Las tres son globs: la carpeta es lo que los registra, y el decorador dice a qué
+token responden. Y son **tres** carpetas porque son tres relaciones distintas —
+en un árbol de archivos se ve de qué tipo es cada clase antes de abrirla. `tokens/` **no** es un glob — un token se
 importa por nombre, así que no hay nada que descubrir. Es una convención para
 las personas, y es donde el CLI los escribe.
 
@@ -213,9 +214,9 @@ export class BillingServiceProvider
 Nada lista esta clase. La carpeta la encuentra, `@Provides` dice qué contrato
 responde, y el nombre del archivo no importa mientras termine en `.provider.ts`.
 
-Lo mismo vale para un aporte a un slot: misma clase base, misma carpeta y el
-mismo decorador — ver
-[El contribuyente es un `Provider`](#el-contribuyente-es-un-provider).
+Un aporte a un slot **no** es esto: tiene su propia carpeta, su propio decorador
+y su propia clase base — ver
+[El contribuyente es una `Strategy`](#el-contribuyente-es-una-strategy).
 
 Un `Provider` sin `@Provides` se saltea con un aviso en vez de detener el
 arranque, igual que un endpoint sin verbo: un archivo a medio escribir no es una
@@ -388,9 +389,9 @@ export const ProductBadges = token<ProductBadge>(
 ```
 
 ```typescript
-// reports/providers/low-stock-badge.provider.ts
-@Provides(ProductBadges)
-export class LowStockBadge extends Provider implements ProductBadge {
+// reports/strategies/low-stock-badge.strategy.ts
+@Fills(ProductBadges)
+export class LowStockBadge extends Strategy implements ProductBadge {
   readonly id = 'low-stock';
 
   for(product) {
@@ -424,63 +425,64 @@ típico:
 | | Qué es | Quién lo usa |
 | --- | --- | --- |
 | `ProductBadge` | la forma de **un** aporte | lo `implements` un contribuyente |
-| `ProductBadges` | el token de la **colección** | va en `@Provides` y en `this.all()` |
+| `ProductBadges` | el token de la **colección** | va en `@Fills` y en `this.all()` |
 
 El plural en el token de la colección es una convención, no una regla: lo que
 liteb chequea es `kind`, no el nombre.
 
-### El contribuyente es un `Provider`
+### El contribuyente es una `Strategy`
 
-Un aporte no es una clase nueva que haya que aprender: es un
-[`Provider`](#4-contratos) como el que responde un contrato, y todo lo de la
-sección anterior vale igual.
+Un aporte **no** es un proveedor. Un proveedor es la cara pública de tu módulo
+respondiendo un contrato que es tuyo; un aporte es una implementación de la
+**interfaz de dominio de otro**, que ese otro corre cuando quiere. Son dos
+relaciones distintas y en liteb se escriben distinto:
 
 | | Responder un contrato | Llenar un slot |
 | --- | --- | --- |
-| Clase base | `extends Provider` | `extends Provider` |
-| Carpeta | `providers/*.provider.ts` | `providers/*.provider.ts` |
-| Decorador | `@Provides(Contrato)` | `@Provides(Slot)` — el mismo |
-| Qué `implements` | la interfaz del contrato | la interfaz de **un** aporte |
+| Clase base | `extends Provider` | `extends Strategy` |
+| Carpeta | `providers/*.provider.ts` | `strategies/*.strategy.ts` |
+| Decorador | `@Provides(Contrato)` | `@Fills(Slot)` |
+| Qué `implements` | tu propia interfaz | la interfaz de **un** aporte, del anfitrión |
 | Cuántos por token | exactamente uno | los que haya |
+| Quién la llama | quien la resolvió, y espera | **el anfitrión, y nadie más** |
 | Se construye | en el primer `this.get()` | en el primer `this.all()` |
+| Si tira excepción | falla la petición de quien llamó | falla la petición del **anfitrión** |
 | Inyecciones | `db`, `get()`, `all()`, `emit()` | las mismas |
-| Comando | `liteb provider <mod>/<name>` | el mismo con `--slot <name>` |
+| Comando | `liteb provider <mod>/<name>` | `liteb strategy <mod>/<name> <slot>` |
 
-No hay una carpeta `contributions/`, ni una clase `Contribution`, ni un segundo
-decorador. `@Provides` sirve para los dos porque es **una sola pregunta** —de qué
-token es la implementación esta clase— y el token ya dice si tiene un proveedor o
-muchos: el contenedor decide entre una instancia y una lista mirando `kind`, no
-mirando cómo se declaró la clase.
-
-Lo único que `@Provides` rechaza es un token de evento, porque un evento no lo
-provee nadie:
+Cada decorador rechaza el token del otro, y el error dice las tres cosas que hay
+que cambiar — decorador, clase base y carpeta:
 
 ```
-@Provides() takes a contract or an extension point, and got an event. Nothing
-provides an event: a module announces it with this.emit(), and a Listener
-reacts to it with @On().
+@Provides() takes a contract, and got an extension point. An extension point
+takes as many answers as are deployed: use @Fills() on a class extending
+Strategy, in the module's strategies/ folder.
 ```
 
-> Antes había dos decoradores, y `@Contributes` existía para atajar el caso de
-> pasar un slot donde iba un contrato. Ese error desapareció solo al mover el
-> `kind` al token: se afirmaba en dos lugares —el token y el nombre del
-> decorador— y dos lugares que pueden discrepar son la única razón por la que
-> hacía falta un error de "los cruzaste".
+> **Esto cambió en 2.0.0-alpha.5, y antes decía lo contrario.** Hubo una versión
+> con un solo decorador para los dos casos, con el argumento de que el `kind` del
+> token ya lo decía y un segundo lugar donde afirmarlo era un segundo lugar donde
+> equivocarse. Lo que se pasó por alto es quién paga ese ahorro: el `kind` vive
+> en **otro archivo**, así que un diff con `@Provides(X) extends Provider` no
+> decía si eso respondía un contrato o aportaba a un punto de extensión ajeno —
+> y son cosas con consecuencias distintas, empezando por de quién es la falla
+> cuando revienta. La legibilidad en un code review ganó contra la economía de
+> conceptos.
 
 **Lo único que importás es el archivo del slot**, del módulo que lo abrió. Ese
 import te da las dos mitades a la vez — la interfaz que vas a `implements` y el
 token que va en el decorador:
 
 ```typescript
-// reports/providers/low-stock-badge.provider.ts
-import { Provider, Provides } from 'liteb';
+// reports/strategies/low-stock-badge.strategy.ts
+import { Fills, Strategy } from 'liteb';
 import {
   ProductBadge,
   ProductBadges,
 } from '@/catalog/tokens/product-badges.token';
 
-@Provides(ProductBadges)
-export class LowStockBadge extends Provider implements ProductBadge {
+@Fills(ProductBadges)
+export class LowStockBadge extends Strategy implements ProductBadge {
   readonly id = 'low-stock';
 
   for(product: { id: number; stock: number }) {
@@ -493,10 +495,10 @@ El comando lo escribe con ese import como marcador, para que reemplaces
 `<module>` por el módulo que abrió el slot:
 
 ```bash
-npx liteb provider reports/low-stock --slot product-badges
+npx liteb strategy reports/low-stock product-badges
 ```
 
-- **`--slot` es el nombre del slot, no el del aporte.** De ahí salen el archivo
+- **El segundo argumento es el nombre del slot, no el del aporte.** De ahí salen el archivo
   (`tokens/product-badges.token`), el token (`ProductBadges`) y la interfaz
   (`ProductBadge`); el `<module>/<name>` de adelante sigue siendo tu módulo y tu
   clase.
@@ -689,7 +691,7 @@ ellas.
 
 | No aparece | Significa |
 | --- | --- |
-| `contracts` | ningún módulo encendido tiene un `Provider` con `@Provides` |
+| `contracts` | ningún módulo tiene un `Provider` con `@Provides` |
 | `extension points` | nadie aportó a ningún slot — no que no haya slots |
 | `events` | nadie escucha nada; los `emit()` vuelven enseguida |
 
@@ -733,11 +735,14 @@ Esa última fila es la que importa: quitar código nunca borra datos.
 | `Contract "y" is provided by both "a" and "b". Exactly one module can provide it.` | al arrancar | quitar uno de los dos, o partir el contrato en dos |
 | `Contract "y" is being resolved while it is still being built: its implementation depends on itself.` | primera resolución | romper el ciclo: tercer módulo, evento, o slot |
 | `Extension point "z" is being filled while it is still being filled: a contribution asks for the slot it belongs to.` | primera lectura | un aporte no puede leer su propio slot |
-| `@Provides() takes a contract or an extension point, and got an event. …` | al importar el archivo | un evento no se provee: se emite, y se escucha con `@On` |
+| `@Provides() takes a contract, and got an extension point. …` | al importar el archivo | un slot se llena con `@Fills` sobre una `Strategy`, en `strategies/` |
+| `@Fills() takes an extension point, and got a contract. …` | al importar el archivo | un contrato se responde con `@Provides` sobre un `Provider`, en `providers/` |
+| `@Provides() takes a contract, and got an event. …` | al importar el archivo | un evento no se provee ni se llena: se emite, y se escucha con `@On` |
 | `token(): the id must be a non-empty string …` | al importar el archivo | el id va con el prefijo del módulo |
 | `token("x"): unknown kind "…"` | al importar el archivo | es `'contract'`, `'slot'` o `'event'` |
 | `Cannot resolve the contract "y": this application has no modules. Start it with Liteb.create({ modules }).` | fuera de una aplicación | construir la aplicación con sus módulos |
 | `Provider X in module "m" has no @Provides(token) and was skipped.` | aviso al arrancar | falta el decorador — el archivo no quedó registrado |
+| `Strategy X in module "m" has no @Fills(token) and was skipped.` | aviso al arrancar | lo mismo, del lado del slot |
 | `Listener X in module "m" has no @On(event) and was skipped.` | aviso al arrancar | falta `@On` |
 | `Listener X (module "m") failed on "e"` | en tiempo de ejecución | el oyente lanzó; quien emitió no se enteró |
 
@@ -787,7 +792,7 @@ src/modules/
 │   ├── endpoints/create-sale.endpoint.ts        this.get() · this.emit()
 │   └── module.ts                                consumes: [BillingService]
 ├── cash/
-│   └── providers/cash-method.provider.ts        @Provides(PaymentMethods)
+│   └── strategies/cash-method.strategy.ts      @Fills(PaymentMethods)
 └── reports/
     └── listeners/sale-log.listener.ts           @On(SaleClosed)
 ```

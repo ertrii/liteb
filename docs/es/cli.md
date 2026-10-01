@@ -67,7 +67,7 @@ billing/
 ├── module.ts                   ← el cableado, y las claves de permiso
 ├── tables/*.table.ts           migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts     listeners/*.listener.ts
-├── providers/*.provider.ts
+├── providers/*.provider.ts     strategies/*.strategy.ts
 └── tokens/*.token.ts           (contratos, slots y eventos)
 ```
 
@@ -109,7 +109,7 @@ $ npx liteb token catalog/product-badges slot
 
   next     ProductBadge is the shape of ONE contribution; ProductBadges is the collection.
   next     Read it: const filled = this.all(ProductBadges). An empty array is a normal answer — a slot nobody filled is a feature nobody installed.
-  next     Fill it from another module: liteb provider <module>/<name> --slot product-badges
+  next     Fill it from another module: liteb strategy <module>/<name> product-badges
   next     Note the direction: "catalog" opens it and knows nothing about who fills it, which is what keeps the host independent of its own extensions.
 ```
 
@@ -631,16 +631,14 @@ archivo, en el segundo argumento.
 ## `liteb provider <module>/<name>`
 
 ```bash
-npx liteb provider identity/directory              # responde un contrato
-npx liteb provider reports/low-stock --slot badges # llena un punto de extensión
+npx liteb provider identity/directory
 ```
 
-| Bandera | Efecto |
-| --- | --- |
-| `--slot <name>` | llenar un punto de extensión en vez de responder un contrato |
+La clase que cumple la promesa de un contrato. Escribe
+`providers/<name>.provider.ts` con `@Provides(Token)`.
 
-La clase que cumple la promesa. Escribe `providers/<name>.provider.ts` con
-`@Provides(Token)` — el mismo decorador, sea el token un contrato o, con `--slot`, un punto de extensión.
+Llenar el punto de extensión de otro módulo es
+[otro comando](#liteb-strategy-modulename-slot), porque es otra relación.
 
 `this.db`, `this.get(Contract)`, `this.all(Slot)` y `this.emit(Event)` se
 inyectan **antes** de construir la instancia, así que un inicializador de campo
@@ -656,9 +654,39 @@ export class UserDirectoryProvider extends Provider implements UserDirectory {
 Se construye la primera vez que alguien lo pide, y después se reutiliza — un
 contrato que nadie llama no cuesta nada.
 
-Con `--slot`, el import generado es un marcador que apunta a
-`@/<module>/tokens/…`: el slot pertenece al módulo que lo **abrió**, y una
-extensión importa ese token, nunca al revés.
+---
+
+## `liteb strategy <module>/<name> <slot>`
+
+```bash
+npx liteb strategy reports/low-stock product-badges
+```
+
+Una implementación de la interfaz de dominio que **otro** módulo abrió. Escribe
+`strategies/<name>.strategy.ts` con `@Fills(Token)` sobre una clase que extiende
+`Strategy`.
+
+Carpeta propia, decorador propio y clase base propia, porque no es la cara
+pública de tu módulo: nadie la pide por nombre, el anfitrión es el que la corre, y
+la interfaz que `implements` es de él.
+
+```typescript
+@Fills(ProductBadges)
+export class LowStock extends Strategy implements ProductBadge {
+  public readonly id = 'low-stock';
+}
+```
+
+- **El segundo argumento es el nombre del SLOT, no el del aporte.** De ahí salen
+  el archivo (`tokens/product-badges.token`), el token (`ProductBadges`) y la
+  interfaz (`ProductBadge`); el `<module>/<name>` de adelante sigue siendo tu
+  módulo y tu clase.
+- El import generado es un marcador que apunta a `@/<module>/tokens/…`: el slot
+  pertenece al módulo que lo **abrió**, y una extensión importa ese token, nunca
+  al revés.
+- **Tirar una excepción acá voltea la petición del anfitrión**, porque te llama
+  derecho. Para un efecto que no pueda romper a quien lo dispara, eso es un
+  evento y un `Listener`.
 
 ---
 

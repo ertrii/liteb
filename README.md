@@ -73,8 +73,8 @@ billing/
 ├── module.ts
 ├── tables/*.table.ts           migrations/*.ts
 ├── endpoints/*.endpoint.ts     routines/*.routine.ts   listeners/*.listener.ts
-├── contracts/*.contract.ts     providers/*.provider.ts
-│   events/*.event.ts           slots/*.slot.ts
+├── providers/*.provider.ts     strategies/*.strategy.ts
+└── tokens/*.token.ts           (contracts, slots and events)
 ```
 
 Name a field — `routes: './apis/*.api.ts'` — only to say something else; it
@@ -130,7 +130,7 @@ declares its own.
 | --- | --- | --- |
 | **Contract** — `token(id, 'contract')` / `this.get()` | exactly one; a second provider is an error | the caller, and it waits |
 | **Event** — `token(id, 'event')` / `this.emit()` / `@On` | any number of listeners | nobody: there is no answer |
-| **Slot** — `token(id, 'slot')` / `@Provides` / `this.all()` | any number of contributors | the module that opened it |
+| **Slot** — `token(id, 'slot')` / `@Fills` / `this.all()` | any number of contributors | the module that opened it, and only it |
 
 They are not interchangeable, and the types refuse to mix them.
 
@@ -144,6 +144,7 @@ npx liteb table billing/charge        # found by its folder
 npx liteb migration billing/create-charges
 npx liteb contract billing/service
 npx liteb provider billing/service
+npx liteb strategy billing/cash payment-methods      # fills someone else's slot
 npx liteb routine billing/nightly --cron "0 7 * * *"
 npx liteb listener billing/audit
 

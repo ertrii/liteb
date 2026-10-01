@@ -73,7 +73,8 @@ writes the shape; you write the code.
 | `endpoint <module>/<name>` | An endpoint (`--method`, `--path`, `--group`, `--public`) |
 | `routine <module>/<name>` | Work on a schedule (`--cron`) |
 | `contract <module>/<name>` | A capability this module publishes: token and shape |
-| `provider <module>/<name>` | The class that answers it (`--slot` to fill an extension point) |
+| `provider <module>/<name>` | The class that answers it |
+| `strategy <module>/<name> <slot>` | What this module contributes to someone else's extension point |
 | `event <module>/<name>` | Something this module announces |
 | `slot <module>/<name>` | An extension point others may fill |
 | `listener <module>/<name>` | A listener |
@@ -291,7 +292,8 @@ is particular to **this** module. The folders are found from `dir`:
 | `endpoints/*.endpoint.ts` | the endpoints, mounted under the module id |
 | `routines/*.routine.ts` | the scheduled routines |
 | `listeners/*.listener.ts` | the event listeners |
-| `providers/*.provider.ts` | the `Provider` classes: what it answers, what it contributes |
+| `providers/*.provider.ts` | the `Provider` classes: the contracts this module answers |
+| `strategies/*.strategy.ts` | the `Strategy` classes: what it contributes to other modules' extension points |
 
 Writing the file is all there is to do. `liteb table billing/charge`
 writes `tables/charge.table.ts` and edits **nothing**: the folder is what
@@ -660,9 +662,9 @@ export const ProductBadges = token<ProductBadge>(
 ```
 
 ```typescript
-// any module fills it, without catalog changing — providers/low-stock-badge.provider.ts
-@Provides(ProductBadges)
-export class LowStockBadge extends Provider implements ProductBadge {
+// any module fills it, without catalog changing — strategies/low-stock-badge.strategy.ts
+@Fills(ProductBadges)
+export class LowStockBadge extends Strategy implements ProductBadge {
   readonly id = 'low-stock';
   for(product) { return product.stock < 10 ? 'Low stock' : null; }
 }
@@ -678,10 +680,11 @@ depend on: `catalog` knows nothing about who fills it, while a contributor
 imports its token. Backwards, the host would depend on its own extensions and
 none of them could be removed.
 
-- A contribution is a `Provider` like any other — same folder, same decorator,
-  same injection. `@Provides` covers both, because the token already says which
-  it is: a contract has one provider, a slot takes as many as are installed. An
-  event token is refused, since nothing provides an event.
+- A contribution is a **`Strategy`**, not a `Provider`: its own folder
+  (`strategies/`), its own decorator (`@Fills`) and its own base class. The
+  interface it implements belongs to the **host**, and the host is the only one
+  that runs it. A `Provider` is the other thing entirely: your module's public
+  face answering a contract that is yours.
 - An empty array is a normal answer: a slot nobody filled is a feature nobody
   installed.
 - They are built on first read and cached, and a contribution that asks for its

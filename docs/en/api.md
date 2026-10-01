@@ -61,7 +61,8 @@ Four base classes. A file exporting one is found by the folder it is in — see
 | `Endpoint<B, P, Q>` | class | One HTTP endpoint. Generics are the validated body, params and query. |
 | `Routine` | class | Scheduled work. `@Cron` decides when. |
 | `Listener<P>` | class | Handles one event. `@On` says which. |
-| `Provider` | class | Answers a contract or fills a slot. Marked with `@Provides`. |
+| `Provider` | class | Answers a contract — exactly one. Marked with `@Provides`. |
+| `Strategy` | class | Fills ANOTHER module's extension point, and that module runs it. Marked with `@Fills`. |
 | `DataJson` | `Record<string, any> \| Response \| Output \| null` | What an endpoint's `main()` may return. |
 | `UploadedFile` | interface | One file off a multipart request. liteb's own type, not a global. |
 

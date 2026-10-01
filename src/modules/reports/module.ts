@@ -23,7 +23,7 @@ export default defineModule({
   // Declaring what it calls turns a missing provider into a refusal to start,
   // instead of a 500 on whichever request happened to need it first. This is a
   // declaration, not logic, which is why it belongs here — what FILLS catalog's
-  // extension point is a class in ./providers.
+  // extension point is a class in ./strategies, and nothing lists it either.
   consumes: [UserDirectory, ProductCatalog],
 
   permissions: ['reports.view'],

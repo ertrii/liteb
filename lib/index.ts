@@ -58,10 +58,15 @@ export {
   loadModuleEndpoints,
   loadModuleListeners,
   loadModuleRoutines,
+  loadModuleStrategies,
   toEndpointReaders,
   resolveModulePattern,
 } from './modules/module-loader';
-export type { LoadedModule, LoadedListener } from './modules/module-loader';
+export type {
+  LoadedModule,
+  LoadedListener,
+  LoadedStrategy,
+} from './modules/module-loader';
 export { collectModuleTables } from './modules/collect-tables';
 export type {
   Database,
@@ -133,8 +138,11 @@ export type {
 export * from './templates/endpoint';
 export * from './templates/routine';
 export * from './templates/provider';
+export * from './templates/strategy';
 export { Provides } from './decorators/provides.decorator';
 export type { ProvidesMetadata } from './decorators/provides.decorator';
+export { Fills } from './decorators/fills.decorator';
+export type { FillsMetadata } from './decorators/fills.decorator';
 export * from './utilities/logger';
 export type { LogFiles, LoggerOptions } from './services/log4js';
 export * from './utilities/errors';

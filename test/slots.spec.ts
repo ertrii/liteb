@@ -7,6 +7,7 @@ import {
   Database,
   defineModule,
   Provider,
+  Strategy,
   token,
 } from '../lib';
 import { PaymentMethod, PaymentMethods } from './fixtures/pagos/shared';
@@ -47,8 +48,8 @@ describe('ranuras de extensión', () => {
     ]);
   });
 
-  it('un módulo apagado no aporta: buildContainer solo ve los activos', async () => {
-    // Apagar la extensión retira lo que agregó.
+  it('un módulo que no está no aporta nada', async () => {
+    // Quitar la extensión del despliegue retira lo que agregó.
     const efectivo = defineModule({
       id: 'cash',
       version: '1.0.0',
@@ -61,13 +62,13 @@ describe('ranuras de extensión', () => {
     ).toHaveLength(1);
   });
 
-  it('una contribución resuelve contratos como cualquier proveedor', () => {
+  it('una estrategia resuelve contratos, como un proveedor', () => {
     const Tasa = token<{ valor: number }>('fx.rate', 'contract');
 
     class TasaProvider extends Provider {
       public readonly valor = 3.7;
     }
-    class EnDolares extends Provider implements PaymentMethod {
+    class EnDolares extends Strategy implements PaymentMethod {
       public readonly id = 'usd';
       public readonly label = `Dólares a ${this.get(Tasa).valor}`;
     }
@@ -81,7 +82,7 @@ describe('ranuras de extensión', () => {
 
   it('se construye una sola vez y se cachea', () => {
     let veces = 0;
-    class Contada extends Provider implements PaymentMethod {
+    class Contada extends Strategy implements PaymentMethod {
       public readonly id = 'x';
       public readonly label = 'X';
       constructor() {
@@ -100,7 +101,7 @@ describe('ranuras de extensión', () => {
   });
 
   it('una contribución que pide su propia ranura se reporta, no revienta la pila', () => {
-    class SePideASiMisma extends Provider implements PaymentMethod {
+    class SePideASiMisma extends Strategy implements PaymentMethod {
       public readonly id = 'x';
       public readonly label = 'X';
       private readonly otras = this.all(PaymentMethods);

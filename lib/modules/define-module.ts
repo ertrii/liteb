@@ -391,6 +391,7 @@ export function defineModule<
   const routines = globs('routines', manifest.routines);
   const listeners = globs('listeners', manifest.listeners);
   const providers = globs('providers', manifest.providers);
+  const strategies = globs('strategies', manifest.strategies);
 
   return {
     id,
@@ -405,6 +406,7 @@ export function defineModule<
     routines: routines.patterns,
     listeners: listeners.patterns,
     providers: providers.patterns,
+    strategies: strategies.patterns,
     implicit,
     permissions,
     permissionKeys: permissions.map((permission) => permission.key),

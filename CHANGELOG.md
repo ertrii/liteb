@@ -190,6 +190,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already writes one and `src/index.ts` already passes it, so a scaffolded
   project needs no change.
 
+- **A slot is filled by a `Strategy` with `@Fills`, not by a `Provider` with
+  `@Provides`.** [BREAKING]
+
+  A provider is the module's own public face, answering a contract it owns, and
+  exactly one answers. A contribution to an extension point is the other
+  relationship: it implements a domain interface the HOST declared, the host is
+  the only one that runs it, and as many answer as are deployed. They were one
+  decorator and one base class, on the argument that the token's `kind` already
+  said which was which. The flaw in that argument is where the `kind` lives: in
+  another file. A diff showing `@Provides(X) extends Provider` could not say
+  whether the class answered a contract or plugged into somebody else's
+  extension point, and those differ in consequence — starting with whose request
+  dies when the class throws. Legibility in review beat economy of concepts.
+
+  ```typescript
+  // before
+  @Provides(ProductBadges)
+  export class LowStockBadge extends Provider implements ProductBadge {}
+
+  // after — providers/ → strategies/, *.provider.ts → *.strategy.ts
+  @Fills(ProductBadges)
+  export class LowStockBadge extends Strategy implements ProductBadge {}
+  ```
+
+  New: the `Strategy` base class, the `@Fills` decorator, the `strategies` field
+  in a manifest (default glob `./strategies/*.strategy.ts`),
+  `loadModuleStrategies()` and `liteb strategy <module>/<name> <slot>`.
+
+  **Migrating:** move each slot contribution from `providers/` to `strategies/`,
+  rename `*.provider.ts` to `*.strategy.ts`, and swap `@Provides` for `@Fills`
+  and `extends Provider` for `extends Strategy`. Nothing to change in a manifest
+  unless it named `providers` by hand. `@Provides` now REFUSES a slot token, and
+  `@Fills` refuses a contract or an event, each naming the three things to
+  change — so a contribution left behind fails when its file is imported, not
+  quietly.
+
+  `liteb provider --slot <name>` is gone; `liteb strategy <module>/<name> <slot>`
+  replaces it, and takes the slot as an argument because a strategy without one
+  means nothing.
+
 - **A module cannot be enabled or disabled any more: the concept is gone.**
   [BREAKING]
 

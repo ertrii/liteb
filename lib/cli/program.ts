@@ -11,6 +11,7 @@ import {
   createMigration,
   createModule,
   createProvider,
+  createStrategy,
   createRoutine,
   createToken,
 } from './generators';
@@ -289,19 +290,23 @@ export function buildProgram(): Command {
   common(
     program
       .command('provider <module/name>')
-      .description('The class that answers a contract, found by its folder')
-      .option(
-        '--slot <name>',
-        'fill an extension point instead of answering a contract',
-      ),
+      .description('The class that answers a contract, found by its folder'),
   ).action((target, flags) => {
     report(
-      createProvider({
-        target,
-        modulesDir: flags.dir,
-        from: flags.from,
-        slot: flags.slot,
-      }),
+      createProvider({ target, modulesDir: flags.dir, from: flags.from }),
+      flags,
+    );
+  });
+
+  common(
+    program
+      .command('strategy <module/name> <slot>')
+      .description(
+        "One implementation of another module's extension point, run by them",
+      ),
+  ).action((target, slot, flags) => {
+    report(
+      createStrategy({ target, slot, modulesDir: flags.dir, from: flags.from }),
       flags,
     );
   });

@@ -471,7 +471,7 @@ ${tokenDeclaration({ constName: name, typeName: item, id, kind: 'slot' })}`;
     hints = [
       `${item} is the shape of ONE contribution; ${name} is the collection.`,
       `Read it: const filled = this.all(${name}). An empty array is a normal answer — a slot nobody filled is a feature nobody installed.`,
-      `Fill it from another module: liteb provider <module>/<name> --slot ${target.name}`,
+      `Fill it from another module: liteb strategy <module>/<name> ${target.name}`,
       `Note the direction: "${target.module}" opens it and knows nothing about who fills it, which is what keeps the host independent of its own extensions.`,
     ];
   } else if (options.kind === 'event') {
@@ -516,51 +516,30 @@ ${body}
 
 export interface ProviderOptions extends CommonOptions {
   target: string;
-  /** Fills an extension point instead of answering a contract. */
-  slot?: string;
 }
 
+/**
+ * The class that answers a contract this module owns.
+ *
+ * Filling somebody ELSE's extension point is a different command, because it is
+ * a different relationship: see {@link createStrategy}.
+ */
 export function createProvider(options: ProviderOptions): Plan {
   const target = parseTarget(options.target, 'provider');
   const dir = moduleDir(options, target.module);
   const name = toPascal(target.name);
   const from = relativeFrom(options.from, 3);
 
-  const fillsSlot = options.slot !== undefined;
-
-  let tokenImport: string;
-  let token: string;
-  let implemented: string;
-  let body: string;
-
-  if (fillsSlot) {
-    // A slot has TWO names: the token is the collection, the interface is one
-    // contribution. A contributor implements the interface and is registered
-    // under the token — mixing them up does not compile, so the template must
-    // not.
-    const slotFile = toKebab(options.slot as string);
-    token = toPascal(options.slot as string);
-    implemented = token.endsWith('s') ? token.slice(0, -1) : `${token}Entry`;
-    tokenImport = importLine(
-      [implemented, token],
-      `@/<module>/tokens/${slotFile}.token`,
-    );
-    body = `  public readonly id = '${target.name}';`;
-  } else {
-    token = name;
-    implemented = name;
-    tokenImport = importLine([token], `../tokens/${target.name}.token`);
-    body = `  public async describe(): Promise<string> {
-    return '${target.module}';
-  }`;
-  }
+  const tokenImport = importLine([name], `../tokens/${target.name}.token`);
 
   const content = `${importLine(['Provides', 'Provider'], from)}
 ${tokenImport}
 
-@Provides(${token})
-export class ${name}Provider extends Provider implements ${implemented} {
-${body}
+@Provides(${name})
+export class ${name}Provider extends Provider implements ${name} {
+  public async describe(): Promise<string> {
+    return '${target.module}';
+  }
 }
 `;
 
@@ -568,11 +547,59 @@ ${body}
     [{ path: `${dir}/providers/${target.name}.provider.ts`, content }],
     [],
     [
-      fillsSlot
-        ? 'Point the import at the module that opened the slot — replace <module>: an extension imports the token, never the other way round.'
-        : 'Nothing lists it: the folder is what registers it, and the decorator says which contract it answers.',
+      'Nothing lists it: the folder is what registers it, and the decorator says which contract it answers.',
       'It is the half the consumer never sees: change how it works and nothing outside the file moves.',
       '`this.db`, `this.get(Contract)`, `this.all(Slot)` and `this.emit(Event)` are injected BEFORE the instance is built, so a field initializer can already reach for a repository. Built the first time someone asks for it, then reused.',
+    ],
+  );
+}
+
+export interface StrategyOptions extends CommonOptions {
+  target: string;
+  /** The extension point it fills, as the host named it. */
+  slot: string;
+}
+
+/**
+ * One implementation of a domain interface another module opened.
+ *
+ * Its own command, and its own folder, because it is not this module's public
+ * face: nobody asks for it by name, the host runs it, and the interface it
+ * implements belongs to the host. A `Provider` answering a contract is the
+ * other relationship entirely.
+ */
+export function createStrategy(options: StrategyOptions): Plan {
+  const target = parseTarget(options.target, 'strategy');
+  const dir = moduleDir(options, target.module);
+  const name = toPascal(target.name);
+  const from = relativeFrom(options.from, 3);
+
+  // A slot has TWO names: the token is the collection, the interface is ONE
+  // contribution. A strategy implements the interface and is registered under
+  // the token — mixing them up does not compile, so the template must not.
+  const slotFile = toKebab(options.slot);
+  const token = toPascal(options.slot);
+  const implemented = token.endsWith('s')
+    ? token.slice(0, -1)
+    : `${token}Entry`;
+
+  const content = `${importLine(['Fills', 'Strategy'], from)}
+${importLine([implemented, token], `@/<module>/tokens/${slotFile}.token`)}
+
+@Fills(${token})
+export class ${name} extends Strategy implements ${implemented} {
+  public readonly id = '${target.name}';
+}
+`;
+
+  return plan(
+    [{ path: `${dir}/strategies/${target.name}.strategy.ts`, content }],
+    [],
+    [
+      'Point the import at the module that opened the slot — replace <module>: an extension imports the token, never the other way round.',
+      `Implement ${implemented} as the host declared it. The host decides what a contribution receives and what it may answer, which is where a slot has leverage an event never does.`,
+      'Throwing here FAILS the host\u2019s request: the host calls this directly. For a side effect that must not be able to break the caller, use an event and a Listener.',
+      'Built once and reused for the life of the application, so never keep per-request state in one.',
     ],
   );
 }

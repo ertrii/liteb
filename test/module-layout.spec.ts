@@ -93,6 +93,7 @@ describe('disposición estándar', () => {
       'routines',
       'listeners',
       'providers',
+      'strategies',
     ]);
   });
 });
@@ -106,13 +107,14 @@ describe('cuando el módulo está en otro lado', () => {
     });
 
     expect(mod.implicit).not.toContain('routes');
-    // Las otras cuatro siguen saliendo de la disposición estándar.
+    // Las otras cinco siguen saliendo de la disposición estándar.
     expect(mod.implicit).toEqual([
       'tables',
       'migrations',
       'routines',
       'listeners',
       'providers',
+      'strategies',
     ]);
   });
 

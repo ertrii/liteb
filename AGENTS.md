@@ -213,9 +213,9 @@ Packaging and licensing stay OUT of liteb: MIT framework, product problem.
 | `module-store.ts` | `_modules` I/O |
 | `module-migrator.ts` | Per-module migrations + `_module_migrations` |
 | `module-loader.ts` | Reads endpoints/tasks from a module's globs, any extension |
-| `container.ts` / `build-container.ts` | Contracts between modules |
+| `container.ts` / `build-container.ts` | Contracts (`register`) and slot contributions (`contribute`) |
 | `events.ts` | Event bus: `event()`, `EventBus`, listeners |
-| `slots.ts` | Extension points: `slot()`, filled via `contributes` |
+| `slots.ts` | Extension points: `token(id, 'slot')`, filled by a `Strategy` |
 | `permissions.ts` | Registry of what the modules declare |
 | `collect-tables.ts` | Union of every module's tables, as one schema |
 
@@ -238,6 +238,14 @@ Decisions that are easy to undo by accident, so do not:
 - **A module whose code vanished is reported, never deleted.**
 - **A slot accepts many contributions; a contract refuses a second provider.**
   That asymmetry IS the difference between them. Do not "fix" either one.
+- **A contract and a slot are answered by different classes, on purpose.**
+  `@Provides` on a `Provider` in `providers/` answers a contract this module
+  owns; `@Fills` on a `Strategy` in `strategies/` implements another module's
+  domain interface, which that module runs. One decorator covered both until
+  2.0.0-alpha.5, and the cost was that a diff could not tell them apart without
+  opening the token's file — while the consequences differ, starting with whose
+  request dies when the class throws. Each decorator now refuses the other's
+  token and names the three things to change.
 - **The module that opens a slot must not depend on its contributors.**
   Extensions import the host's token, never the reverse — otherwise core
   depends on its own extensions and none can be removed.
@@ -406,13 +414,20 @@ Keep them distinct; collapsing any two is the easiest way to ruin this design.
 
 | | Answers | Read by | Refuses |
 | --- | --- | --- | --- |
-| `contract` / `get` | exactly one | the caller, waiting | a second provider |
-| `event` / `emit` | any number | nobody | nothing; failures are logged |
-| `slot` / `all` | any number | the module that opened it | nothing |
+| `contract` / `get` / `@Provides` on a `Provider` | exactly one | the caller, waiting | a second provider |
+| `event` / `emit` / `@On` on a `Listener` | any number | nobody | nothing; failures are logged |
+| `slot` / `all` / `@Fills` on a `Strategy` | any number | the module that opened it | nothing |
 
 `Contract` and `Slot` each carry a `kind` literal so neither can be passed where
 the other goes. They are otherwise structurally identical, and that one
 confusion is the one that matters: one provider versus many.
+
+What separates a slot from an event is NOT only the return value, it is **who
+runs the code and whose failure it is**. The host calls a strategy directly, so
+a strategy that throws fails the host's request; the bus runs listeners under
+`Promise.allSettled`, so a listener that throws is logged and the emitter
+answers anyway. That is the asymmetry to reach for when a third party writes the
+code.
 
 **They are the EXTENSION surface, not the default tissue between modules.**
 A module is the unit of installation, and the test is whether it can be
