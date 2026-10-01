@@ -6,9 +6,9 @@ import { UserDirectory } from '@/identity/tokens/user-directory.token';
  * Reacts to something `catalog` announced, and enriches it with data owned by
  * `identity` — without either module knowing this exists.
  *
- * Because `reports` installs DISABLED, nothing here runs until someone turns
- * the module on. Disabling it stops the reaction too: a module that is off must
- * not keep having side effects.
+ * Nothing in `catalog` mentions this file. Take `reports` out of
+ * `Liteb.create({ modules })` and the restock still works — it just stops being
+ * logged, which is what it means for an event to be a push and not a call.
  */
 @On(ProductRestocked)
 export class RestockLogListener extends Listener<ProductRestocked> {

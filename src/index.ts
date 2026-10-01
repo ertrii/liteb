@@ -12,9 +12,10 @@ import reports from './modules/reports/module';
  * flow request by request.
  *
  * Three modules on purpose:
- * - `identity` and `catalog` are CORE: they cannot be turned off.
- * - `reports` is optional, so it installs DISABLED and stays out until someone
- *   turns it on.
+ * - `identity` and `catalog` own tables, and the data the demo is about.
+ * - `reports` owns none: it reads the other two through their contracts, fills
+ *   catalog's extension point and listens to its event. It is the one shaped
+ *   like an extension.
  *
  * It is BUILT here and not started, so anything that needs the application
  * without a server — `liteb migrate`, a test, a one-off script — can ask for

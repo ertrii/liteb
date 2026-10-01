@@ -2,9 +2,9 @@ import { Cron, Routine } from '../../../../lib';
 import { ProductCatalog } from '@/catalog/tokens/product-catalog.token';
 
 /**
- * A module's routines start only while the module is ENABLED. Disabling
- * `reports` unmounts its route and stops this schedule, without touching any
- * data.
+ * The third way into an application: nobody calls a routine, the clock does.
+ * It reaches `catalog` through the same contract the endpoints use — the
+ * schedule decides WHEN the work happens, never what it may reach.
  */
 @Cron('0 7 * * *')
 export class DailySummaryRoutine extends Routine {

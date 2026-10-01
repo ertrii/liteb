@@ -16,9 +16,9 @@ export const GRANT_ALL = '*';
  * mistake the framework could see — it was a 403 in production, sending whoever
  * debugged it to look at roles instead of at a typo.
  *
- * Built from every module PRESENT, for the same reason
- * entities are: turning a module off must not change what a key means. It
- * decides what runs, never what exists.
+ * Built from every module present in the code, for the same reason the schema
+ * is: a key exists because a manifest declares it. What limits who reaches it
+ * is the role or the plan — the application's policy, not this list.
  */
 export class PermissionRegistry {
   private readonly byKey = new Map<string, RegisteredPermission>();

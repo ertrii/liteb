@@ -269,8 +269,8 @@ export default class Liteb extends Server {
    * every module contributes, which the application cannot assemble by hand
    * without knowing each module's internals. So liteb builds it.
    *
-   * Tables come from every module present in the code, enabled or not:
-   * disabling a module decides what runs, never whether its data is reachable.
+   * Tables come from every module present in the code: the schema is exactly
+   * the union of what the modules declare, and nothing else decides it.
    *
    * A connection can still be passed instead of options, for an application
    * that already owns one. Its schema is then its own business, and liteb does
@@ -352,8 +352,8 @@ export default class Liteb extends Server {
    *
    * This is what a "who may do what" screen is built from: the catalog comes
    * from the modules, so adding a feature adds its permission without editing
-   * a central list somebody has to remember. Modules that are installed but
-   * DISABLED are included — turning one off decides what runs, not what exists.
+   * a central list somebody has to remember. A key exists because a manifest
+   * declares it; what limits who reaches it is the role, not the deployment.
    *
    * Populated during `start()`, so call it after.
    */
@@ -389,7 +389,8 @@ export default class Liteb extends Server {
    *
    * On start they go through the full cycle: their state is read from
    * `_modules`, the graph is resolved into dependency order, their pending
-   * migrations run, and only the enabled ones get their routes mounted.
+   * migrations run in that order, and then each one gets its routes,
+   * listeners and routines mounted.
    *
    * @param modules Manifests built with `defineModule()`.
    * @param options `basePath` prefixes every module route (default `/api`);
@@ -618,23 +619,24 @@ export default class Liteb extends Server {
     this.container.useEvents(this.events);
     this.events.useContainer(this.container);
 
-    // Listeners follow the same rule as routes and tasks: only ENABLED modules
-    // react. Turning a module off has to stop its side effects too, or
-    // disabling it would be a lie.
+    // Every module's listeners. The class is stored, not instantiated: a
+    // listener resolves its contracts when the event fires, so nothing here
+    // depends on registration order.
     for (const mod of active) {
       for (const { token, ListenerClass } of await loadModuleListeners(mod)) {
         this.events.register(token, ListenerClass, mod.id);
       }
     }
 
-    // From every module PRESENT, enabled or not — like entities. Turning a
-    // module off must not change what a permission key means.
+    // From every module present in the code, like the tables: a permission key
+    // exists because a manifest declares it.
     this.permissionRegistry = PermissionRegistry.from(this.modules);
 
     this.loadedModules = await loadModules(active);
 
-    // Scheduled routines follow the same rule as routes: only enabled modules
-    // get theirs started. A disabled module must not keep a cron running.
+    // Routines are only COLLECTED here. They get scheduled at the end of
+    // `start()`, after `listen`, so a boot that fails on the way there never
+    // leaves a cron ticking against a half-built application.
     this.moduleRoutines = [];
     for (const mod of active) {
       this.moduleRoutines.push(...(await loadModuleRoutines(mod)));
@@ -704,8 +706,8 @@ export default class Liteb extends Server {
     }
 
     // Every route belongs to a module. Grouping by module keeps each one's
-    // routers, OpenAPI spec and logging together, and lets a disabled module
-    // contribute nothing at all.
+    // routers, OpenAPI spec and logging together, so a route can always be
+    // traced back to the module that owns it.
     const resolvedGroups: Array<{
       basePath: string;
       endpointReaders: EndpointReader[];

@@ -9,11 +9,10 @@ import {
 /**
  * Gathers what every module puts in the schema, as the one object Drizzle takes.
  *
- * Note it takes **every module present in the code**. That is
- * deliberate: if a disabled module's tables were left out, they would fall out
- * of the schema and turning the module back on would be a gamble. Disabling
- * decides what *runs*, never what data exists — the tables and their contents
- * stay reachable throughout.
+ * Note it takes **every module present in the code**: the schema is exactly
+ * the union of what the modules declare. A module whose code is gone stops
+ * contributing here, and its tables stay in the database untouched — removing
+ * code never removes data.
  *
  * Keyed by position and not by name because Drizzle reads the table's own name
  * out of the object; the keys of this record are never SQL. Inventing names

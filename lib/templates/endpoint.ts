@@ -104,8 +104,9 @@ export abstract class Endpoint<
    * showed up. An empty array is a normal answer: a slot nobody filled is a
    * feature nobody installed.
    *
-   * Contributions come only from ENABLED modules, so turning an extension off
-   * removes what it added — a payment method, a channel, a report.
+   * Contributions come from whatever modules are present, so a deployment
+   * without that module answers one item short — a payment method, a channel,
+   * a report.
    *
    * @example
    * const methods = this.all(PaymentMethods);

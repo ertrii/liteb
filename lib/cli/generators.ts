@@ -351,7 +351,7 @@ export default class ${className} extends Routine {
     [],
     [
       `Cron expression: '${cron}' — change it in the @Cron decorator. Set a timezone there too, or it follows the server's.`,
-      `It runs only while the module is ENABLED: turning "${target.module}" off stops this schedule without touching any data.`,
+      `The schedule starts once the server is listening and is cleared on shutdown, so a restart is what picks up a changed expression.`,
       "`this.db`, `this.get(Contract)` and `this.emit(Event)` work here exactly as in an endpoint. `now` is a Date, or 'init' when @Cron got runOnInit.",
     ],
   );

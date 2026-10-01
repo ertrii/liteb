@@ -36,9 +36,9 @@ import { BillingServiceProvider } from '../../billing/providers/billing-service.
 
 Compila, anda, y a partir de ahí:
 
-- **`billing` no se puede apagar.** Apagarlo no saca el import, así que `sales`
-  sigue construyendo ese proveedor a mano y usando una implementación que la
-  aplicación cree desactivada.
+- **`sales` ya no puede existir sin `billing`.** Sacar `billing` del despliegue
+  no saca el import: deja de compilar. Puede ser exactamente lo que querés —
+  pero lo decidiste acá, adentro de un `import`, y no en el manifiesto.
 - **No se puede reemplazar.** Cambiar de proveedor implica editar a todos los que
   lo llaman, y si `billing` es un módulo que instalaste, editar código que no es
   tuyo.
@@ -68,13 +68,13 @@ una división del código para que la gente se oriente. Las dos cosas se declara
 igual en liteb —`defineModule()`— y ahí está la trampa: la palabra hace dos
 trabajos.
 
-Para una aplicación donde **ningún módulo se apaga** (todos `core: true`, y quién
-ve qué lo deciden los permisos, no la instalación), de los cinco costos de arriba
+Para una aplicación donde **todos los módulos están siempre presentes** (quién ve
+qué lo deciden los permisos, no el despliegue), de los cinco costos de arriba
 sobreviven dos y medio:
 
 | Costo del import directo | ¿Sigue valiendo con módulos siempre presentes? |
 | --- | --- |
-| no se puede apagar | **no** — nada se apaga |
+| uno no puede existir sin el otro | **no** — nunca van a estar separados |
 | el CLI no puede instalar uno sin el otro | **no** — se instalan juntos siempre |
 | no se puede reemplazar | **a medias** — es disciplina, no necesidad, si el código es tuyo |
 | arrastra su árbol entero al arrancar | **sí** — el import carga todo aunque la petición nunca pase |
@@ -97,7 +97,7 @@ Un cableado bien puesto es la excepción visible, y por eso se lee con atención
 Cuando es el tejido por defecto, deja de decir nada: si todo pasa por un token,
 el token dejó de señalar un límite.
 
-Dónde sigue valiendo la pena aunque nada se apague:
+Dónde sigue valiendo la pena aunque ningún módulo falte nunca:
 
 - Cuando de verdad querés poder **cambiar la implementación** sin tocar a quien
   llama — una pasarela, un proveedor de mensajería, un almacenamiento.
@@ -261,7 +261,7 @@ que compra la comprobación al arrancar:
 
 ```
 ContractError: Module "sales" consumes the contract "billing.service",
-which no enabled module provides.
+which no module provides.
 ```
 
 Sin `consumes`, esa misma falta aparece en la primera petición que la necesitó —
@@ -269,7 +269,7 @@ en producción, en el endpoint al que llegó el primer usuario, como un 500:
 
 ```
 ContractError: No module provides the contract "billing.service". Check that
-the module providing it is installed and enabled.
+the module providing it is installed.
 ```
 
 Es lo mismo, reportado en dos momentos muy distintos. `consumes` es una
@@ -527,11 +527,10 @@ que no está se reporta al arrancar, antes de que falle el import del token:
 
 ```
 ModuleResolutionError: Module "reports" requires "catalog", which is not installed.
-ModuleResolutionError: Module "reports" requires "catalog", which is not installed.
 ```
 
-Sin `requires`, apagar `catalog` deja a `reports` registrando un aporte que
-nadie lee — inofensivo, pero silencioso.
+Sin `requires`, un `catalog` que no está deja a `reports` registrando un aporte
+que nadie lee — inofensivo, pero silencioso.
 
 ### Vacío es una respuesta
 
@@ -828,9 +827,10 @@ export default class ListPaymentMethods extends Endpoint {
 
 Lo que este armado te deja hacer:
 
-- **Apagar `cash`** y la vitrina queda sin efectivo, sin tocar `billing`.
-- **Apagar `reports`** y la venta se cierra igual, sin su log.
-- **Apagar `billing`** y `sales` no arranca, con el nombre del contrato que falta
+- **Quitar `cash`** del despliegue y la vitrina queda sin efectivo, sin tocar
+  `billing`.
+- **Quitar `reports`** y la venta se cierra igual, sin su log.
+- **Quitar `billing`** y `sales` no arranca, con el nombre del contrato que falta
   — porque lo declaró en `consumes`.
 - **Instalar `card`** mañana, que llena `PaymentMethods`, y que aparezca en la
   vitrina sin que `billing` cambie.

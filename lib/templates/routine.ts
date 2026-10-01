@@ -14,8 +14,9 @@ import type { EventBus, EventToken } from '../modules/events';
  *
  * The WHEN is the `@Cron` decorator; this class is the WHAT.
  *
- * A routine belongs to its module: it runs only while that module is ENABLED,
- * so turning a module off stops its clock without touching any data.
+ * A routine belongs to its module: it is discovered under that module's
+ * `routines/`, scheduled once the HTTP server is listening, and cleared on
+ * shutdown. A boot that failed never leaves a clock running.
  *
  * @example
  * \@Cron('0 7 * * *')
@@ -55,8 +56,9 @@ export abstract class Routine {
    * showed up. An empty array is a normal answer: a slot nobody filled is a
    * feature nobody installed.
    *
-   * Contributions come only from ENABLED modules, so turning an extension off
-   * removes what it added — a payment method, a channel, a report.
+   * Contributions come from whatever modules are present, so a deployment
+   * without that module answers one item short — a payment method, a channel,
+   * a report.
    *
    * @example
    * const methods = this.all(PaymentMethods);
