@@ -149,9 +149,8 @@ The catalog of every declared key is `app.permissions()`:
 To grant everything one module has, spread its keys instead of listing them —
 `[...tasks.permissionKeys]` — so a role stays right when the module gains a key.
 
-It is built from every module **present, enabled or not**. Turning a module off
-decides what runs, never what a key means — otherwise roles already assigned
-would point at keys that momentarily do not exist.
+It is built from every module **present in the code**. A key exists because a
+manifest declares it, and that depends on nothing else.
 
 ## 3. Turn a request into an actor
 
@@ -649,5 +648,5 @@ segment, so a consistent namespace makes the error message useful.
 | 403 for everybody, always | The resolver returns `permissions: []`, or the role map has no entry for that role (`undefined` reaches the check as empty). |
 | 401 while signed in | The resolver returned `null`: the session has no `userId`, or the user row is gone. |
 | Everything passes, nothing is gated | The scaffold resolver in `src/config/auth.ts` is still there: it grants `*` to everyone. It warns once in the log the first time it does. |
-| A key vanished from the roles screen | You are listing from somewhere other than `app.permissions()`. That list includes disabled modules on purpose. |
+| A key vanished from the roles screen | You are listing from somewhere other than `app.permissions()`, which reads the manifests. |
 | Works for the owner, not for anyone else | `*` holds everything. Test with a role that should be refused. |

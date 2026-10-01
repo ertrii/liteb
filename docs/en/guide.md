@@ -242,10 +242,15 @@ export class CreateUserApi extends Endpoint<null, CreateUserDto> {
 
 ## Modules
 
-A module is a unit that can be installed, enabled and disabled: it declares its
-own entities, migrations, routes, routines, permissions and the contracts it
-publishes. `_modules` records what is installed and what is on, so turning a
-module off removes its routes and stops its routines **without touching its data**.
+A module declares its own tables, migrations, routes, routines, permissions and
+the contracts it publishes, and `_modules` records what is installed and at what
+version.
+
+**Every module present in the code runs.** There is no on and off: what limits
+who reaches what is permissions — a role, a plan, whatever the business says —
+which is the application's policy and has nothing to do with what is deployed.
+Deciding it twice, once by deployment and once by permission, is how an
+installation ends up in a state nobody can explain.
 
 ```typescript
 // modules/billing/module.ts
@@ -262,7 +267,6 @@ export const BillingService = token<BillingService>(
 export default defineModule({
   id: 'billing',
   version: '1.0.0',
-  core: true,                 // a core module cannot be disabled
   engine: '^2.0.0',           // host range it supports
   requires: ['identity'],     // checked at startup
   dir: __dirname,             // the folder everything is found from
@@ -489,8 +493,8 @@ answer to give either way.
 
 On boot it reads `_modules`, resolves the dependency graph, runs each module's
 pending migrations **in dependency order**, registers the contracts, and mounts
-only what is enabled. Any failure there stops the boot: serving half-mounted is
-worse than not starting.
+the routes. Any failure there stops the boot: serving half-mounted is worse than
+not starting.
 
 ### Shipping a module compiled, or as a package
 
@@ -671,15 +675,13 @@ const badges = this.all(ProductBadges);
 
 **Watch the direction.** The module that OPENS the slot is the one extensions
 depend on: `catalog` knows nothing about who fills it, while a contributor
-imports its token. Backwards, core would depend on its own extensions and none
-of them could be removed.
+imports its token. Backwards, the host would depend on its own extensions and
+none of them could be removed.
 
 - A contribution is a `Provider` like any other — same folder, same decorator,
   same injection. `@Provides` covers both, because the token already says which
   it is: a contract has one provider, a slot takes as many as are installed. An
   event token is refused, since nothing provides an event.
-- **Only enabled modules contribute**, so turning an extension off removes what
-  it added.
 - An empty array is a normal answer: a slot nobody filled is a feature nobody
   installed.
 - They are built on first read and cached, and a contribution that asks for its
@@ -733,9 +735,7 @@ Did you mean: billing.view, billing.void?
 ```
 
 The check runs **before** the 401, so an undeclared key surfaces on the first
-request even while you are still anonymous. Modules that are installed but
-disabled still contribute their keys: disabling decides what runs, not what
-exists.
+request even while you are still anonymous.
 
 ### Events between modules
 
@@ -779,8 +779,6 @@ The rules that keep an event from turning into a call with extra steps:
   the caller, it wants a contract, not an event.
 - **An event nobody listens to is normal**, not an error.
 - Listeners run in parallel and `emit()` resolves once they have all settled.
-- **Only enabled modules react.** Turning a module off stops its side effects
-  too, or "disabled" would be a lie.
 - A listener that **declares** its payload parameter is checked against the
   token, so a renamed field cannot quietly reach a handler still expecting the
   old one. (One that ignores the payload compiles against any token — it cannot
@@ -789,18 +787,6 @@ The rules that keep an event from turning into a call with extra steps:
 **GOTCHA:** listeners read on their own connection. Emitting inside
 `db.transaction()` means they will not see the uncommitted rows — emit *after*
 it commits, or put what they need in the payload.
-
-### Enabling and disabling
-
-A new module installs **disabled** unless it is core, so an upgrade never turns
-on something nobody asked for.
-
-```typescript
-const store = new ModuleStore(db);
-await store.enable('inventory');   // takes effect on the next boot
-await store.disable('inventory');
-await store.list();
-```
 
 ## Trying a local build
 
@@ -997,7 +983,7 @@ An origin that is not on the list simply does not get the header, and the reques
 
 ### API versioning
 
-There is no version decorator. Version by **module**: a `billing-v2` module with its own `@Group('billing/v2')` endpoints runs beside `billing`, and can be enabled or disabled on its own.
+There is no version decorator. Version by **module**: a `billing-v2` module with its own `@Group('billing/v2')` endpoints runs beside `billing`, with its own routes, migrations and permissions.
 
 ## Swagger / OpenAPI
 
@@ -1262,8 +1248,7 @@ export class HourlyReport extends Routine {
 ```
 
 The file goes in the module's `routines/` folder and that is all it takes.
-Only **enabled** modules get their routines started, and everything is stopped
-on graceful shutdown.
+Everything is stopped on graceful shutdown.
 
 Two things worth knowing:
 
@@ -1297,21 +1282,19 @@ The variables your app needs (database host, credentials, port, etc.) are yours 
 [`src/`](https://github.com/ertrii/liteb/tree/main/src) is a small but complete
 2.x application, and [`http/demo.http`](https://github.com/ertrii/liteb/tree/main/http/demo.http)
 walks the whole flow request by request — 401 vs 403, validation, transactions,
-an optional module that starts disabled.
+and a module extending another one without either knowing.
 
 Three modules, on purpose:
 
 | Module | | What it shows |
 | --- | --- | --- |
-| `identity` | core | Entity + migration with seed data, login/logout/me, a contract other modules consume, permissions |
-| `catalog` | core | `requires`, validation DTOs, `@Priority` done right, a page with `view()`, an export with `csv()`, `db.transaction()` for two writes that must land together |
-| `reports` | optional | Installs **disabled**; consumes two contracts without importing either module; a routine that only runs while enabled |
+| `identity` | | Table + migration with seed data, login/logout/me, a contract other modules consume, permissions, a projection so the password never leaves |
+| `catalog` | | `requires`, validation DTOs, `@Priority` done right, a page with `view()`, an export with `csv()`, `db.transaction()` for two writes that must land together |
+| `reports` | | Owns no table: it reads the other two through their contracts, fills catalog's extension point and listens to its event — the shape an extension has |
 
 ```bash
 cp .env.template .env      # fill in DB_* and SECRET_KEY
 npm run dev                # migrations run on boot; two users are seeded
-npm run modules -- list    # what is installed and enabled
-npm run modules -- enable reports
 ```
 
 It is covered by `test/demo-app.spec.ts`, which boots those same three modules

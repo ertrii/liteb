@@ -285,10 +285,15 @@ poner cabeceras y elegir el estado, y por eso no hay una clase base para eso.
 
 ## Módulos
 
-Un módulo es una unidad que se puede instalar, encender y apagar: declara sus
-propias entidades, migraciones, rutas, rutinas, permisos y los contratos que
-publica. `_modules` registra qué está instalado y qué está encendido, así que
-apagar un módulo quita sus rutas y detiene sus rutinas **sin tocar sus datos**.
+Un módulo declara sus propias tablas, migraciones, rutas, rutinas, permisos y
+los contratos que publica, y `_modules` registra qué está instalado y en qué
+versión.
+
+**Todo módulo presente en el código corre.** No hay encender ni apagar: lo que
+limita quién alcanza qué son los **permisos** —un rol, un plan, lo que diga el
+negocio—, que son política de la aplicación y no tienen nada que ver con lo
+desplegado. Decidirlo dos veces, una por despliegue y otra por permiso, es como
+una instalación termina en un estado que nadie sabe explicar.
 
 ```typescript
 // modules/billing/module.ts
@@ -305,7 +310,6 @@ export const BillingService = token<BillingService>(
 export default defineModule({
   id: 'billing',
   version: '1.0.0',
-  core: true, // un módulo core no se puede apagar
   engine: '^2.0.0', // rango de host que soporta
   requires: ['identity'], // se comprueba al arrancar
   dir: __dirname, // la carpeta desde la que se encuentra todo
@@ -543,7 +547,7 @@ dar en cualquiera de los dos casos.
 
 Al arrancar lee `_modules`, resuelve el grafo de dependencias, corre las
 migraciones pendientes de cada módulo **en orden de dependencias**, registra los
-contratos, y monta sólo lo que está encendido. Cualquier fallo ahí detiene el
+contratos, y monta las rutas. Cualquier fallo ahí detiene el
 arranque: servir a medio montar es peor que no arrancar.
 
 ### Enviar un módulo compilado, o como paquete
@@ -729,14 +733,13 @@ const badges = this.all(ProductBadges);
 
 **Mirá la dirección.** El módulo que ABRE el slot es del que dependen las
 extensiones: `catalog` no sabe nada de quién lo llena, mientras que un
-contribuyente importa su token. Al revés, el core dependería de sus propias
+contribuyente importa su token. Al revés, el anfitrión dependería de sus propias
 extensiones y ninguna se podría quitar.
 
 - Una contribución es un `Provider` como cualquier otro — misma carpeta, mismo
   decorador, misma inyección. `@Provides` sirve para los dos, porque el token ya
   dice cuál es: un contrato tiene un proveedor, un slot acepta los que haya. Un
   token de evento se rechaza, porque un evento no lo provee nadie.
-- **Sólo los módulos encendidos contribuyen**, así que apagar una extensión quita
   lo que agregó.
 - Un arreglo vacío es una respuesta normal: un slot que nadie llenó es una función
   que nadie instaló.
@@ -791,8 +794,7 @@ Did you mean: billing.view, billing.void?
 ```
 
 La comprobación corre **antes** del 401, así que una clave no declarada aparece
-en la primera petición aunque sigas siendo anónimo. Los módulos instalados pero
-apagados igual aportan sus claves: apagar decide qué corre, no qué existe.
+en la primera petición aunque sigas siendo anónimo.
 
 ### Eventos entre módulos
 
@@ -837,8 +839,6 @@ más:
   llama, lo que quiere es un contrato, no un evento.
 - **Un evento que nadie escucha es normal**, no un error.
 - Los oyentes corren en paralelo y `emit()` resuelve cuando todos terminaron.
-- **Sólo los módulos encendidos reaccionan.** Apagar un módulo detiene también
-  sus efectos secundarios, o "apagado" sería mentira.
 - Un oyente que **declara** su parámetro de carga se chequea contra el token, así
   que un campo renombrado no puede llegar en silencio a un manejador que todavía
   espera el viejo. (Uno que ignora la carga compila contra cualquier token — no
@@ -847,18 +847,6 @@ más:
 **OJO:** los oyentes leen en su propia conexión. Emitir dentro de
 `db.transaction()` significa que no van a ver las filas sin confirmar — emitá
 *después* de que confirme, o poné lo que necesitan en la carga.
-
-### Encender y apagar
-
-Un módulo nuevo se instala **apagado** salvo que sea core, así que una
-actualización nunca enciende algo que nadie pidió.
-
-```typescript
-const store = new ModuleStore(dataSource);
-await store.enable('inventory'); // tiene efecto en el próximo arranque
-await store.disable('inventory');
-await store.list();
-```
 
 ## Probar una compilación local
 
@@ -1079,7 +1067,7 @@ en una respuesta con error.
 
 No hay decorador de versión. Versioná por **módulo**: un módulo `billing-v2` con
 sus propios endpoints `@Group('billing/v2')` corre al lado de `billing`, y se
-puede encender o apagar por su cuenta.
+tiene sus propias rutas, migraciones y permisos.
 
 ## Swagger / OpenAPI
 
@@ -1357,9 +1345,8 @@ export class HourlyReport extends Routine {
 }
 ```
 
-El archivo va en la carpeta `routines/` del módulo y eso es todo. Sólo los
-módulos **encendidos** arrancan sus rutinas, y todo se detiene en el apagado
-ordenado.
+El archivo va en la carpeta `routines/` del módulo y eso es todo. Todo se
+detiene en el apagado ordenado.
 
 Dos cosas que conviene saber:
 
@@ -1398,21 +1385,19 @@ nombre en particular más allá de los de logging de arriba.
 chica pero completa, y
 [`http/demo.http`](https://github.com/ertrii/liteb/tree/main/http/demo.http)
 recorre todo el flujo petición por petición — 401 vs 403, validación,
-transacciones, un módulo opcional que arranca apagado.
+transacciones, y un módulo extendiendo a otro sin que ninguno se entere.
 
 Tres módulos, a propósito:
 
 | Módulo | | Qué muestra |
 | --- | --- | --- |
-| `identity` | core | Entidad + migración con datos de siembra, login/logout/me, un contrato que otros módulos consumen, permisos |
-| `catalog` | core | `requires`, DTO de validación, `@Priority` bien usado, una página con `view()`, una exportación con `csv()`, `db.transaction()` para dos escrituras que tienen que caer juntas |
-| `reports` | opcional | Se instala **apagado**; consume dos contratos sin importar ninguno de los dos módulos; una rutina que sólo corre mientras está encendido |
+| `identity` | | Tabla + migración con datos de siembra, login/logout/me, un contrato que otros módulos consumen, permisos, y una proyección para que la contraseña no salga |
+| `catalog` | | `requires`, DTO de validación, `@Priority` bien usado, una página con `view()`, una exportación con `csv()`, `db.transaction()` para dos escrituras que tienen que caer juntas |
+| `reports` | | No tiene tabla propia: lee a los otros dos por sus contratos, llena el punto de extensión de catalog y escucha su evento — la forma que tiene una extensión |
 
 ```bash
 cp .env.template .env      # completá DB_* y SECRET_KEY
 npm run dev                # las migraciones corren al arrancar; se siembran dos usuarios
-npm run modules -- list    # qué está instalado y encendido
-npm run modules -- enable reports
 ```
 
 Está cubierta por `test/demo-app.spec.ts`, que arranca esos mismos tres módulos

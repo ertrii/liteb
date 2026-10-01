@@ -56,8 +56,6 @@ import {
 /** One module's migrations, and which of them already ran. */
 export interface ModuleMigrationStatus {
   module: string;
-  /** Disabled modules do not migrate: that is why they are reported. */
-  enabled: boolean;
   migrations: Array<{ name: string; applied: boolean }>;
 }
 
@@ -435,9 +433,7 @@ export default class Liteb extends Server {
 
     if (write) {
       for (const entry of reconciliation.install) {
-        Logger.info(
-          `Module "${entry.id}" installed${entry.enabled ? '' : ' (disabled)'}`,
-        );
+        Logger.info(`Module "${entry.id}" installed`);
       }
       for (const entry of reconciliation.upgrade) {
         const direction = entry.downgrade ? 'DOWNGRADED' : 'upgraded';
@@ -453,7 +449,6 @@ export default class Liteb extends Server {
     }
 
     return resolveModules(this.modules, {
-      enabled: reconciliation.enabledIds,
       hostVersion: this.hostVersion,
     });
   };
@@ -590,14 +585,13 @@ export default class Liteb extends Server {
   public migrationStatus = async (): Promise<ModuleMigrationStatus[]> => {
     await this.connect();
 
+    // Ordered the way they will migrate, which is the order worth reading.
     const active = await this.prepareModules(false);
-    const activeIds = new Set(active.map((mod) => mod.id));
     // No `ensureTable()`: reading the state must not create anything.
     const applied = await new ModuleMigrator(this.dbSource).applied();
 
-    return this.modules.map((mod) => ({
+    return active.map((mod) => ({
       module: mod.id,
-      enabled: activeIds.has(mod.id),
       migrations: mod.migrations.map((migration) => ({
         name: migration.name,
         applied: applied.has(`${mod.id}:${migration.name}`),

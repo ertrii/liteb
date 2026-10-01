@@ -16,7 +16,6 @@ const billing = () =>
   defineModule({
     id: 'billing',
     version: '1.0.0',
-    core: true,
     // Su proveedor está en ./providers: el manifiesto no lo nombra.
     dir: billingDir,
     routes: './controllers/*.controller.ts',
@@ -26,7 +25,6 @@ const sales = () =>
   defineModule({
     id: 'sales',
     version: '1.0.0',
-    core: true,
     dir: salesDir,
     requires: ['billing'],
     consumes: [BillingService],
@@ -64,27 +62,19 @@ describe('contratos entre módulos', () => {
     expect(res.body).toEqual({ venta: 'v1', cargoId: 'cargo-c1-120' });
   });
 
-  it('no arranca si el proveedor del contrato está apagado', async () => {
+  it('no arranca si falta el módulo que provee', async () => {
     db = await createTestDb();
-
-    // billing deja de ser core: entra instalado pero apagado.
-    const billingOpcional = defineModule({
-      id: 'billing',
-      version: '1.0.0',
-      dir: billingDir,
-      routes: './controllers/*.controller.ts',
-    });
 
     app = await Liteb.create({
       auth: cualquiera,
       db: db,
-      modules: [billingOpcional, sales()],
+      modules: [sales()],
       version: '2.0.0-dev.0',
     });
 
     // sales lo requiere, así que la falla llega antes: el grafo no resuelve.
     await expect(app.start(0)).rejects.toThrow(
-      /requires "billing", which is disabled/,
+      /requires "billing", which is not installed/,
     );
   });
 
@@ -96,7 +86,6 @@ describe('contratos entre módulos', () => {
     const billingMudo = defineModule({
       id: 'billing',
       version: '1.0.0',
-      core: true,
     });
 
     app = await Liteb.create({
@@ -107,7 +96,7 @@ describe('contratos entre módulos', () => {
     });
 
     await expect(app.start(0)).rejects.toThrow(
-      /consumes the contract "billing.service", which no enabled module provides/,
+      /consumes the contract "billing.service", which no module provides/,
     );
   });
 

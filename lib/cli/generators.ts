@@ -68,13 +68,6 @@ export interface ModuleOptions extends CommonOptions {
    * "my routes are 404".
    */
   entry?: string;
-  /**
-   * An optional module installs DISABLED and has to be turned on. The default
-   * is a core module, because the first one someone generates is part of their
-   * own application, not an extension to it — and a scaffold that answers 404
-   * until you find the right CLI command is a bad first five minutes.
-   */
-  optional?: boolean;
 }
 
 export function createModule(options: ModuleOptions): Plan {
@@ -92,7 +85,6 @@ export default defineModule({
   id: '${id}',
   version: '1.0.0',
   label: '${label}',
-  core: ${options.optional ? 'false' : 'true'},
   engine: '^1.0.0',
   dir: __dirname,
 
@@ -148,9 +140,6 @@ export default defineModule({
       },
     ],
     [
-      options.optional
-        ? 'It installs DISABLED (core: false): an extension is turned on on purpose.'
-        : 'It is a core module: it cannot be turned off. Pass --optional for an extension that installs disabled.',
       "`engine` is which versions of YOUR APPLICATION this module plugs into — the `version` passed to Liteb.create(), not liteb's own.",
       'The manifest names no paths: entities/, migrations/, endpoints/, routines/, listeners/ and providers/ are found from `dir`. Name a field only to say something else.',
       `Everything this module can gate is spelled once, in \`permissions\`. Give a key a { key, label } when it does not say it on its own — the label is what a roles screen shows.`,
@@ -483,7 +472,7 @@ ${tokenDeclaration({ constName: name, typeName: item, id, kind: 'slot' })}`;
       `${item} is the shape of ONE contribution; ${name} is the collection.`,
       `Read it: const filled = this.all(${name}). An empty array is a normal answer — a slot nobody filled is a feature nobody installed.`,
       `Fill it from another module: liteb provider <module>/<name> --slot ${target.name}`,
-      `Note the direction: "${target.module}" opens it and knows nothing about who fills it, which is what lets it be core while every contributor stays removable.`,
+      `Note the direction: "${target.module}" opens it and knows nothing about who fills it, which is what keeps the host independent of its own extensions.`,
     ];
   } else if (options.kind === 'event') {
     body = `export interface ${name} {

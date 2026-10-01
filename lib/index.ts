@@ -96,8 +96,6 @@ export type {
   ModulePermission,
   PermissionDeclaration,
   PermissionKeysOf,
-  ModuleContext,
-  ModuleHook,
   ModuleTable,
   ModuleMigrations,
   ModulePattern,

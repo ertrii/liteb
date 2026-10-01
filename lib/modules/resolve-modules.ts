@@ -19,15 +19,6 @@ export interface ResolveModulesOptions {
    * the check is skipped, which is what tests and embedded uses want.
    */
   hostVersion?: string;
-
-  /**
-   * Ids that are enabled, normally read from the `_modules` table. When
-   * omitted, every module is enabled — the state of an installation that has
-   * not been set up yet.
-   *
-   * Core modules are always enabled, listed or not: they cannot be turned off.
-   */
-  enabled?: string[];
 }
 
 /**
@@ -35,10 +26,10 @@ export interface ResolveModulesOptions {
  * on, and refuses the set when it cannot be started safely.
  *
  * It checks what only becomes visible with every module in hand — duplicate
- * ids, missing dependencies, cycles, host compatibility and disabled
- * dependencies — while `defineModule()` already checked each manifest on its
- * own. Everything here is a startup error: the process must fail before
- * serving a request, never halfway through mounting routes.
+ * ids, missing dependencies, cycles and host compatibility — while
+ * `defineModule()` already checked each manifest on its own. Everything here is
+ * a startup error: the process must fail before serving a request, never
+ * halfway through mounting routes.
  *
  * The order is deterministic: modules with no relation between them keep the
  * order they were given, so two runs of the same installation migrate and mount
@@ -61,8 +52,7 @@ export function resolveModules(
 
   assertHostCompatibility(modules, options.hostVersion);
 
-  const active = selectEnabled(modules, byId, options.enabled);
-  return sortByDependency(active);
+  return sortByDependency(modules);
 }
 
 /**
@@ -101,46 +91,14 @@ function assertHostCompatibility(
 }
 
 /**
- * Keeps the enabled modules, plus every core module. A disabled module is not
- * an error; depending on one is, because the dependent would run against
- * contracts and tables that were never mounted.
- */
-function selectEnabled(
-  modules: ResolvedModule[],
-  byId: Map<string, ResolvedModule>,
-  enabled: string[] | undefined,
-): ResolvedModule[] {
-  if (enabled === undefined) return modules;
-
-  const enabledIds = new Set(enabled);
-  const active = modules.filter((mod) => mod.core || enabledIds.has(mod.id));
-  const activeIds = new Set(active.map((mod) => mod.id));
-
-  for (const mod of active) {
-    for (const dependency of mod.requires) {
-      if (activeIds.has(dependency)) continue;
-
-      // Distinguish "not installed" from "installed but off": they are
-      // different problems for whoever has to fix it.
-      const reason = byId.has(dependency) ? 'is disabled' : 'is not installed';
-      throw new ModuleResolutionError(
-        `Module "${mod.id}" requires "${dependency}", which ${reason}.`,
-        mod.id,
-      );
-    }
-  }
-
-  return active;
-}
-
-/**
  * Depth-first topological sort. DFS over Kahn's algorithm because it can name
  * the cycle it found: "a -> b -> c -> a" is actionable, "there is a cycle" is
  * not.
+ *
+ * It is also what refuses a module whose dependency is not there: the edge has
+ * to be followed to be sorted, so a missing one cannot slip past.
  */
 function sortByDependency(modules: ResolvedModule[]): ResolvedModule[] {
-  // Resolved against the active set only, so a module that was filtered out
-  // can never be pulled back in by a dependency edge.
   const byId = new Map(modules.map((mod) => [mod.id, mod]));
   const sorted: ResolvedModule[] = [];
   const done = new Set<string>();

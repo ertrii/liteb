@@ -86,7 +86,6 @@ Y lo que **no** aparece:
 | --- | --- |
 | `@ApiHidden()` | pedido explícito: se monta y contesta, pero queda fuera del documento |
 | `@HttpQuery` | OpenAPI 3 no define `QUERY` como operación; incluirla haría inválido el documento |
-| un módulo apagado | no está montado, así que no hay nada que documentar |
 
 La inferencia de `:foo` está porque OpenAPI **exige** que cada `{placeholder}`
 de una ruta tenga su parámetro declarado: sin eso el documento no valida. Si no
@@ -333,9 +332,9 @@ los módulos que quedaron montados, y se guarda en memoria.
 
 De ahí salen tres cosas:
 
-- **Un módulo apagado no aparece.** Encender uno cambia la documentación, y eso
-  pide reiniciar: no hay forma de regenerar el documento con la aplicación
-  arriba.
+- **Se arma una sola vez, al arrancar.** Agregar un endpoint cambia la
+  documentación y eso pide reiniciar: no hay forma de regenerar el documento con
+  la aplicación arriba.
 - **El JSON es el mismo objeto en cada petición a `/docs.json`**, así que pedirlo
   es barato.
 - **No hay un comando que lo emita.** Para tener el JSON en un archivo hay que

@@ -40,7 +40,6 @@ const billing = () =>
   defineModule({
     id: 'billing',
     version: '1.0.0',
-    core: true,
     dir,
     routes: './controllers/*.controller.ts',
     migrations: [CrearCargos1000],
@@ -60,7 +59,6 @@ const sinMigraciones = () =>
   defineModule({
     id: 'vacio',
     version: '1.0.0',
-    core: true,
     dir,
     migrations: {},
   });
@@ -102,14 +100,14 @@ describe('app.migrate()', () => {
     expect(await application.migrate()).toEqual([]);
   });
 
-  it('un módulo APAGADO no migra: apagarlo también apaga su esquema', async () => {
+  it('migra TODOS los módulos del código, en orden de dependencias', async () => {
     db = await createTestDb();
     const application = await build([billing(), news()]);
 
     const ran = await application.migrate();
 
-    expect(ran.map((entry) => entry.module)).toEqual(['billing']);
-    expect(await tableNames(db)).not.toContain('notas_demo');
+    expect(ran.map((entry) => entry.module)).toEqual(['billing', 'news']);
+    expect(await tableNames(db)).toContain('notas_demo');
   });
 
   it('--dry-run dice qué correría y no toca la base', async () => {
@@ -159,12 +157,10 @@ describe('app.migrationStatus()', () => {
     expect(await app.migrationStatus()).toEqual([
       {
         module: 'billing',
-        enabled: true,
         migrations: [{ name: 'CrearCargos1000', applied: false }],
       },
       {
         module: 'news',
-        enabled: false,
         migrations: [{ name: 'CrearNotas2000', applied: false }],
       },
     ]);
@@ -173,8 +169,7 @@ describe('app.migrationStatus()', () => {
 
     const despues = await app.migrationStatus();
     expect(despues[0].migrations[0].applied).toBe(true);
-    // El apagado sigue pendiente: por eso se informa `enabled`.
-    expect(despues[1].migrations[0].applied).toBe(false);
+    expect(despues[1].migrations[0].applied).toBe(true);
   });
 
   it('un módulo sin migraciones declaradas se ve como tal', async () => {
@@ -189,7 +184,7 @@ describe('app.migrationStatus()', () => {
     });
 
     expect(await app.migrationStatus()).toEqual([
-      { module: 'vacio', enabled: true, migrations: [] },
+      { module: 'vacio', migrations: [] },
     ]);
   });
 });

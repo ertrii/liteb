@@ -53,7 +53,7 @@ interface SlotRegistration {
 }
 
 /**
- * Holds the contracts the enabled modules publish, and hands them out.
+ * Holds the contracts the modules publish, and hands them out.
  *
  * One container per application rather than a process-wide singleton: two
  * applications in one process — a test suite, a worker beside a server — must
@@ -117,7 +117,7 @@ export class Container {
 
     if (!registration) {
       throw new ContractError(
-        `No module provides the contract "${token.id}". Check that the module providing it is installed and enabled.`,
+        `No module provides the contract "${token.id}". Check that the module providing it is installed.`,
         token.id,
       );
     }
@@ -164,7 +164,7 @@ export class Container {
   }
 
   /**
-   * Everything the enabled modules contributed to an extension point.
+   * Everything the modules contributed to an extension point.
    *
    * An empty array is a normal answer: an extension point nobody filled is a
    * feature nobody installed, not an error.

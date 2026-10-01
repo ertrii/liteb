@@ -396,7 +396,6 @@ export function defineModule<
     id,
     version: manifest.version,
     label: manifest.label?.trim() || id,
-    core: manifest.core ?? false,
     engine: manifest.engine ?? null,
     requires,
     dir,
@@ -410,9 +409,5 @@ export function defineModule<
     permissions,
     permissionKeys: permissions.map((permission) => permission.key),
     consumes,
-    onInstall: manifest.onInstall ?? null,
-    onEnable: manifest.onEnable ?? null,
-    onDisable: manifest.onDisable ?? null,
-    onUninstall: manifest.onUninstall ?? null,
   };
 }

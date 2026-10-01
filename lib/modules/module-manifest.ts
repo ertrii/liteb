@@ -6,7 +6,6 @@ import type {
   PgTable,
   PgView,
 } from 'drizzle-orm/pg-core';
-import type { Database } from './database';
 import type { Contract } from './container';
 
 /**
@@ -123,14 +122,6 @@ export type PermissionKeysOf<P> = P extends readonly (infer E)[]
   ? KeyOfDeclaration<E>
   : never;
 
-/** What a lifecycle hook receives. */
-export interface ModuleContext {
-  /** The open connection, the same one every endpoint and routine gets. */
-  db: Database;
-}
-
-export type ModuleHook = (ctx: ModuleContext) => void | Promise<void>;
-
 /**
  * What a module declares about itself. This is the module's public face: the
  * registry reads it to resolve dependencies, run migrations and mount routes,
@@ -150,9 +141,6 @@ export interface ModuleManifest<
 
   /** Human-readable name, shown wherever modules are listed. */
   label?: string;
-
-  /** A core module cannot be disabled or uninstalled. Defaults to `false`. */
-  core?: boolean;
 
   /**
    * Host version range this module supports, e.g. `^3.0.0`. Checked at startup:
@@ -241,11 +229,6 @@ export interface ModuleManifest<
    * by reading its code.
    */
   consumes?: Contract<any>[];
-
-  onInstall?: ModuleHook;
-  onEnable?: ModuleHook;
-  onDisable?: ModuleHook;
-  onUninstall?: ModuleHook;
 }
 
 /**
@@ -257,7 +240,6 @@ export interface ResolvedModule<K extends string = string> {
   id: string;
   version: string;
   label: string;
-  core: boolean;
   engine: string | null;
   requires: string[];
   dir: string | null;
@@ -276,10 +258,6 @@ export interface ResolvedModule<K extends string = string> {
    */
   permissionKeys: K[];
   consumes: Contract<any>[];
-  onInstall: ModuleHook | null;
-  onEnable: ModuleHook | null;
-  onDisable: ModuleHook | null;
-  onUninstall: ModuleHook | null;
 
   /**
    * Fields that came from {@link MODULE_LAYOUT} instead of the manifest.

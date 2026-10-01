@@ -16,7 +16,7 @@ export const GRANT_ALL = '*';
  * mistake the framework could see — it was a 403 in production, sending whoever
  * debugged it to look at roles instead of at a typo.
  *
- * Built from every module PRESENT, enabled or not, for the same reason
+ * Built from every module PRESENT, for the same reason
  * entities are: turning a module off must not change what a key means. It
  * decides what runs, never what exists.
  */

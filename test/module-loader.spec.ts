@@ -293,7 +293,6 @@ module.exports = { ChargesApi };
     const mod = defineModule({
       id: 'billing-pkg',
       version: '1.0.0',
-      core: true,
       dir: paquete,
       // Tal cual lo escribió el autor, en TypeScript.
       routes: './apis/*.api.ts',

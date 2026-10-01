@@ -110,12 +110,10 @@ está — ver [la disposición estándar](./cli.md#por-qué-casi-ningún-comando
 | Nombre | Tipado | Qué es |
 | --- | --- | --- |
 | `defineModule` | `<const P>(manifest: ModuleManifest<P>) => ResolvedModule<PermissionKeysOf<P>>` | Declara un módulo y lo valida al importarse. El parámetro `const` es lo que mantiene las claves de permiso como literales. |
-| `ModuleManifest<P>` | interface | Lo que un módulo dice de sí mismo: `id`, `version`, `label`, `core`, `engine`, `requires`, `dir`, `permissions`, `consumes`, los campos de glob, y los cuatro ganchos de ciclo de vida. |
+| `ModuleManifest<P>` | interface | Lo que un módulo dice de sí mismo: `id`, `version`, `label`, `engine`, `requires`, `dir`, `permissions`, `consumes` y los campos de glob. |
 | `ResolvedModule<K>` | interface | El manifiesto con todos los defaults aplicados. Trae además `permissionKeys: K[]`. |
 | `ModulePermission<K>` | interface | `{ key, label? }`. El label es opcional porque una clave normalmente ya lo dice. |
 | `PermissionDeclaration<K>` | `K \| ModulePermission<K>` | Una entrada de `permissions`: una clave, o una clave con texto. |
-| `ModuleHook` | `(ctx: ModuleContext) => void \| Promise<void>` | `onInstall`, `onEnable`, `onDisable`, `onUninstall`. |
-| `ModuleContext` | interface | `{ db }` — lo que recibe un gancho. |
 | `ModulePattern` | `string \| string[]` | El valor de un campo de glob. |
 | `ModuleTable` | `PgTable \| PgEnum \| PgSequence \| PgView \| ...` | Algo que el módulo pone en el esquema. Un enum va en esta lista: sin él, una tabla con columna de enum genera DDL que referencia un tipo que nada crea. |
 | `ModuleMigrations` | `Function[] \| Record<string, unknown>` | Una lista de clases de migración, o un import de namespace de ellas. |

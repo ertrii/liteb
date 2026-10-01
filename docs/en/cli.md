@@ -110,7 +110,7 @@ $ npx liteb token catalog/product-badges slot
   next     ProductBadge is the shape of ONE contribution; ProductBadges is the collection.
   next     Read it: const filled = this.all(ProductBadges). An empty array is a normal answer — a slot nobody filled is a feature nobody installed.
   next     Fill it from another module: liteb provider <module>/<name> --slot product-badges
-  next     Note the direction: "catalog" opens it and knows nothing about who fills it, which is what lets it be core while every contributor stays removable.
+  next     Note the direction: "catalog" opens it and knows nothing about who fills it, which is what keeps the host independent of its own extensions.
 ```
 
 And the reasoning lives on this page and in the guide: one place, which can be
@@ -386,7 +386,6 @@ npx liteb module reports --optional --label "Reports"
 | Flag | Effect |
 | --- | --- |
 | `--label <text>` | human name, for a "modules" screen |
-| `--optional` | installs **disabled**, and is turned on on purpose |
 | `--entry <file>` | the file holding `Liteb.create({ modules: [...] })` (default `src/index.ts`) |
 
 Writes `module.ts` and a first endpoint that answers at `/api/<name>`, then
@@ -397,11 +396,6 @@ The keys live in the manifest, as strings: `permissions: ['billing.view']`. A
 key can carry text for a roles screen when it cannot say it alone —
 `{ key: 'billing.void', label: 'Void a charge already collected' }` — and the
 `label` is optional precisely because most keys can.
-
-**`--optional` is the difference between a feature and an update that turns
-itself on.** A module without `core: true` installs disabled: it is in the
-code, its tables exist, its permissions are in the catalog, and nothing of it
-runs until someone enables it. Core modules cannot be turned off at all.
 
 The generated endpoint carries its `this.auth.assert(...)` line **live**. It
 works from the first request because `init` wrote a resolver that lets everyone
@@ -456,7 +450,7 @@ npx liteb routine billing/hourly --cron "0 * * * *"
 | `--cron <expression>` | node-cron expression (default `0 7 * * *`) |
 
 Work the application does on its own, on a clock. It runs only while the module
-is **enabled**, so turning a module off stops its schedule without touching any
+is deployed, so a routine lives and dies with the module that declares it
 data.
 
 Two things the generated file reminds you of: set a `timezone` in `@Cron`, or
@@ -616,8 +610,8 @@ consumer imports this file and nothing else from your module.
 With **`slot`** there are **two** names: the interface is the shape of ONE
 contribution and the token names the collection. And watch the direction — the
 module that opens the slot is the one extensions depend on: it knows nothing
-about who fills it, which is what lets it be core while every contributor stays
-removable.
+about who fills it, which is what keeps the host independent of its own
+extensions.
 
 With **`event`**, the payload has to carry what a listener needs: listeners read
 on their own connection, so they cannot see rows a transaction has not committed
@@ -680,7 +674,7 @@ replace it with the real import from the module that announces the event:
 import { ChargeIssued } from '@/billing/tokens/charge-issued.token';
 ```
 
-Listeners run only while their module is **enabled**, and they read on their
+Listeners read on their
 own connection: emit **after** the transaction commits, or they cannot see the
 rows.
 
@@ -699,7 +693,7 @@ npx liteb migrate --entry src/main.ts
 | `--entry <file>` | file exporting `createApp()` (default `src/index.ts`) |
 | `--dry-run` | say what would run, change nothing |
 
-Runs the pending migrations of every **enabled** module, in dependency order,
+Runs the pending migrations of every module, in dependency order,
 without starting a server. The CLI never needs to know where your database is:
 it asks **your** entry point for the application, which is why the `init`
 template separates `createApp()` from `main()`.
@@ -718,8 +712,8 @@ npx liteb migrate:status
 | --- | --- |
 | `--entry <file>` | file exporting `createApp()` |
 
-Lists what each module declares and what of it already ran, marking disabled
-modules — whose migrations do not run — as such.
+Lists what each module declares and what of it already ran, in the order they
+will migrate.
 
 Reading the state never creates anything: on a database that has never
 migrated, the registry table does not exist and the answer is simply that

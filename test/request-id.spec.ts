@@ -21,7 +21,6 @@ describe('x-request-id', () => {
   const site = defineModule({
     id: 'site',
     version: '1.0.0',
-    core: true,
     dir: path.join(__dirname, 'fixtures/modules/site'),
   });
 

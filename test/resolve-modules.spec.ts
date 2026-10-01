@@ -152,61 +152,25 @@ describe('resolveModules — compatibilidad con el anfitrión', () => {
   });
 });
 
-describe('resolveModules — habilitados', () => {
-  it('sin lista, todos entran', () => {
+describe('resolveModules — todos los módulos entran', () => {
+  it('no hay nada que filtrar: lo que está en el código, corre', () => {
+    // No existe encender ni apagar. Quién alcanza qué lo deciden los permisos,
+    // que son política de la aplicación y no tienen que ver con lo desplegado.
     expect(ids(resolveModules([mod('a'), mod('b')]))).toEqual(['a', 'b']);
   });
 
-  it('deja fuera lo que no está habilitado', () => {
-    const order = resolveModules([mod('a'), mod('b')], { enabled: ['a'] });
-    expect(ids(order)).toEqual(['a']);
-  });
-
-  it('un módulo core entra aunque no esté en la lista', () => {
-    const order = resolveModules(
-      [mod('billing', { core: true }), mod('news')],
-      {
-        enabled: ['news'],
-      },
-    );
-
-    expect(ids(order)).toEqual(['billing', 'news']);
-  });
-
-  it('una lista vacía deja solo los core', () => {
-    const order = resolveModules(
-      [mod('billing', { core: true }), mod('news')],
-      {
-        enabled: [],
-      },
-    );
-
-    expect(ids(order)).toEqual(['billing']);
-  });
-
-  it('rechaza depender de un módulo instalado pero apagado', () => {
-    const support = mod('support', { requires: ['inventory'] });
-    const inventory = mod('inventory');
-
-    expect(() =>
-      resolveModules([support, inventory], { enabled: ['support'] }),
-    ).toThrow(/requires "inventory", which is disabled/);
-  });
-
-  it('distingue apagado de no instalado', () => {
+  it('rechaza depender de algo que no está', () => {
     const support = mod('support', { requires: ['ghost'] });
 
-    expect(() => resolveModules([support], { enabled: ['support'] })).toThrow(
+    expect(() => resolveModules([support])).toThrow(
       /requires "ghost", which is not installed/,
     );
   });
 
-  it('un módulo apagado que depende de uno encendido simplemente se omite', () => {
-    const identity = mod('identity');
+  it('la dependencia entra en el orden aunque venga después', () => {
     const news = mod('news', { requires: ['identity'] });
+    const identity = mod('identity');
 
-    expect(
-      ids(resolveModules([identity, news], { enabled: ['identity'] })),
-    ).toEqual(['identity']);
+    expect(ids(resolveModules([news, identity]))).toEqual(['identity', 'news']);
   });
 });

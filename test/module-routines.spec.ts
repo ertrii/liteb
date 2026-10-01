@@ -2,7 +2,6 @@ import path from 'path';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import Liteb from '../lib/core/liteb';
 import { defineModule } from '../lib/modules/define-module';
-import { ModuleStore } from '../lib/modules/module-store';
 import { beats, heard } from './fixtures/modules/heartbeat/shared';
 import { closeTestDb, createTestDb } from './helpers/test-db';
 import { cualquiera } from './helpers/auth';
@@ -10,11 +9,10 @@ import type { Database } from '../lib';
 
 const heartbeatDir = path.join(__dirname, 'fixtures/modules/heartbeat');
 
-const heartbeat = (core: boolean) =>
+const heartbeat = () =>
   defineModule({
     id: 'heartbeat',
     version: '1.0.0',
-    core,
     dir: heartbeatDir,
     // Sin globs: `routines/` y `listeners/` son la disposición estándar.
   });
@@ -51,7 +49,7 @@ describe('rutinas de los módulos', () => {
     app = await Liteb.create({
       auth: cualquiera,
       db: db,
-      modules: [heartbeat(true)],
+      modules: [heartbeat()],
       version: '2.0.0-dev.0',
     });
     await app.start(0);
@@ -67,7 +65,7 @@ describe('rutinas de los módulos', () => {
     app = await Liteb.create({
       auth: cualquiera,
       db: db,
-      modules: [heartbeat(true)],
+      modules: [heartbeat()],
       version: '2.0.0-dev.0',
     });
     await app.start(0);
@@ -80,7 +78,7 @@ describe('rutinas de los módulos', () => {
     app = await Liteb.create({
       auth: cualquiera,
       db: db,
-      modules: [heartbeat(true)],
+      modules: [heartbeat()],
       version: '2.0.0-dev.0',
     });
     await app.start(0);
@@ -91,51 +89,12 @@ describe('rutinas de los módulos', () => {
     expect(beats.sawContainer).toBe(true);
   });
 
-  it('NO arranca la rutina de un módulo apagado', async () => {
-    db = await createTestDb();
-    app = await Liteb.create({
-      auth: cualquiera,
-      db: db,
-      modules: [heartbeat(false)],
-      version: '2.0.0-dev.0',
-    });
-    await app.start(0);
-
-    // Un módulo apagado no puede dejar un cron corriendo.
-    const corrio = await waitFor(() => beats.count > 0, 1800);
-    expect(corrio).toBe(false);
-  });
-
-  it('una vez encendido, su rutina sí corre', async () => {
-    db = await createTestDb();
-
-    app = await Liteb.create({
-      auth: cualquiera,
-      db: db,
-      modules: [heartbeat(false)],
-      version: '2.0.0-dev.0',
-    });
-    await app.start(0);
-    await new ModuleStore(db).enable('heartbeat');
-    await app.close({ database: false });
-
-    app = await Liteb.create({
-      auth: cualquiera,
-      db: db,
-      modules: [heartbeat(false)],
-      version: '2.0.0-dev.0',
-    });
-    await app.start(0);
-
-    expect(await waitFor(() => beats.count > 0)).toBe(true);
-  });
-
   it('cerrar la aplicación detiene la rutina', async () => {
     db = await createTestDb();
     app = await Liteb.create({
       auth: cualquiera,
       db: db,
-      modules: [heartbeat(true)],
+      modules: [heartbeat()],
       version: '2.0.0-dev.0',
     });
     await app.start(0);

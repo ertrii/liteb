@@ -32,7 +32,6 @@ const catalog = () =>
   defineModule({
     id: 'catalog',
     version: '1.0.0',
-    core: true,
     dir: catalogDir,
     tables: [productos],
     migrations: [CrearProductos1000],

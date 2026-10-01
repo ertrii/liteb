@@ -36,9 +36,10 @@ Content-Type: application/json
 GET {{host}}/api/auth/me
 
 ### ---------------------------------------------------------------- 4. Permissions
-### staff may view and manage products. Note `badges: []` on every product:
-### that is an extension point with nothing installed. Enable `reports`
-### (step 7) and a "Low stock" badge appears, without catalog changing.
+### staff may view and manage products. Note `badges` on each one: the seeded
+### products have stock to spare, so the extension point answers nothing for
+### them. Create the one below (stock 5) and a "Low stock" badge appears —
+### contributed by `reports`, without catalog changing or knowing.
 GET {{host}}/api/products
 
 ### ...and only enabled ones, filtered by query string (a STRING: 'true').
@@ -51,9 +52,8 @@ Content-Type: application/json
 { "name": "Router 4G", "stock": 5 }
 
 ### Two writes in one transaction: the product's stock and its movement.
-### It also emits `catalog.product.restocked`. Nobody reacts yet — `reports` is
-### still disabled (step 7). Enable it and this same request prints a line from
-### a module `catalog` knows nothing about.
+### It also emits `catalog.product.restocked`, and `reports` prints a line from
+### a module `catalog` knows nothing about — look at the server output.
 POST {{host}}/api/products/1/restock
 Content-Type: application/json
 
@@ -99,16 +99,10 @@ GET {{host}}/products/page
 ### accented filename sent twice, sanitized and as UTF-8.
 GET {{host}}/api/products/export
 
-### ---------------------------------------------------------------- 7. An optional module
-### `reports` is not core, so it installed DISABLED: this is 404, the route was
-### never mounted.
-GET {{host}}/api/reports/summary
-
-### Turn it on and restart the server:
-###   npm run modules -- list
-###   npm run modules -- enable reports
-### Then the same request answers, reading data from identity AND catalog
-### through their contracts — without importing either.
+### ---------------------------------------------------------------- 7. A module shaped like an extension
+### `reports` owns no table. It reads identity AND catalog through their
+### contracts, without importing either, and answers under its own id because
+### it declares no @Group.
 GET {{host}}/api/reports/summary
 
 ### ---------------------------------------------------------------- 8. Docs

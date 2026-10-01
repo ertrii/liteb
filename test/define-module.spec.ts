@@ -12,14 +12,12 @@ describe('defineModule — identidad', () => {
     expect(mod.id).toBe('billing');
     expect(mod.version).toBe('1.0.0');
     expect(mod.label).toBe('billing');
-    expect(mod.core).toBe(false);
     expect(mod.engine).toBeNull();
     expect(mod.requires).toEqual([]);
     expect(mod.tables).toEqual([]);
     expect(mod.migrations).toEqual([]);
     expect(mod.routes).toEqual([]);
     expect(mod.permissions).toEqual([]);
-    expect(mod.onEnable).toBeNull();
   });
 
   it('exige un id', () => {

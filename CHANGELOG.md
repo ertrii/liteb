@@ -190,6 +190,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already writes one and `src/index.ts` already passes it, so a scaffolded
   project needs no change.
 
+- **A module cannot be enabled or disabled any more: the concept is gone.**
+  [BREAKING]
+
+  Every module present in the code runs. What limits who reaches what is
+  **permissions** — a role, a plan, whatever the business says — which is the
+  application's policy and has nothing to do with what is deployed. Deciding it
+  twice, once by deployment and once by permission, is how an installation
+  reaches a state nobody can explain, and a framework that offers a concept
+  nobody applies teaches the confusion to whoever reads it first.
+
+  Removed: the manifest's `core` field, `ModuleStore.enable()` / `.disable()`,
+  the `enabled` column of `_modules`, `Reconciliation.enabledIds`,
+  `ResolveModulesOptions.enabled`, `ModuleMigrationStatus.enabled`, and
+  `liteb module --optional`. `_modules` stays as the installation ledger — what
+  is deployed, at what version, since when — and a module whose code vanished is
+  still reported and never deleted.
+
+  **Also removed: the four lifecycle hooks** `onInstall`, `onEnable`,
+  `onDisable`, `onUninstall`, with `ModuleHook` and `ModuleContext`. Two of them
+  named a concept that no longer exists; all four were declared, typed,
+  exported and documented while **nothing ever called them**, so a module that
+  wrote one got silence.
+
+  **Migrating:** delete `core:` from every manifest — nothing replaces it — and
+  drop the column with
+  `alter table _modules drop column if exists enabled;`. An installation that
+  kept a module off has to notice: that module now serves.
+
+  What this gives up is the ability to ship a feature dark and turn it on per
+  deployment. That is a real capability, and it is gone on purpose: it was
+  available and unused, and the cost of keeping it was every reader having to
+  learn a rule that never applied.
+
 - **The boot log is three lines, not fourteen.** [BREAKING]
 
   ```

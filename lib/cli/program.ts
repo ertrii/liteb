@@ -204,10 +204,6 @@ export function buildProgram(): Command {
         '--entry <file>',
         'file holding Liteb.create({ modules: [...] })',
         'src/index.ts',
-      )
-      .option(
-        '--optional',
-        'an extension: installs DISABLED and is turned on on purpose',
       ),
   ).action((name, flags) => {
     report(
@@ -217,7 +213,6 @@ export function buildProgram(): Command {
         from: flags.from,
         label: flags.label,
         entry: flags.entry,
-        optional: flags.optional,
       }),
       flags,
     );
@@ -256,9 +251,7 @@ export function buildProgram(): Command {
   common(
     program
       .command('routine <module/name>')
-      .description(
-        'Work on a schedule, started only while the module is enabled',
-      )
+      .description('Work on a schedule, started with the application')
       .option('--cron <expression>', 'node-cron expression', '0 7 * * *'),
   ).action((target, flags) => {
     report(
@@ -403,7 +396,9 @@ export function buildProgram(): Command {
 
   program
     .command('migrate')
-    .description('Runs the pending migrations of every enabled module')
+    .description(
+      'Runs the pending migrations of every module, in dependency order',
+    )
     .option('--entry <file>', 'file exporting createApp()')
     .option('--dry-run', 'say what would run, change nothing')
     .action(async (flags) => {
@@ -448,11 +443,8 @@ ${ran.length} migration(s) ${verb}.`);
         }
 
         for (const mod of status) {
-          const state = mod.enabled
-            ? 'enabled'
-            : 'DISABLED — its migrations do not run';
           console.log(`
-${mod.module}  (${state})`);
+${mod.module}`);
 
           if (mod.migrations.length === 0) {
             // The one failure that looks identical from the database: the

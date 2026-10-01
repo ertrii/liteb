@@ -28,8 +28,8 @@ is **not** an application. Dual layout:
   **Edit here.**
 - **`src/`** — a sample app that dogfoods the framework (`npm run dev`). It
   imports `lib/` by relative path, never by package name. Not published.
-  Three modules (`identity`, `catalog` core; `reports` optional and installed
-  disabled), with per-module migrations and `synchronize: false`.
+  Three modules — `identity` and `catalog` own tables, `reports` owns none and
+  is the one shaped like an extension — with per-module migrations.
   **`test/demo-app.spec.ts` boots it against PGlite** — keep it that way. The
   previous demo had rotted unnoticed: `@Priority` was backwards so the literal
   route resolved to `:id`, and the endpoint rendering a page could never do it
@@ -98,7 +98,6 @@ npm test        # jest, with --experimental-vm-modules (PGlite needs it)
 npm run lint    # eslint . --ext .ts  (formatting included, see below)
 npm run lint:fix
 npm run format  # prettier --write .  (json, css, html too)
-npm run modules -- list | enable <id> | disable <id>   # ModuleStore CLI (demo)
 npm pack        # tarball, to install into a consumer project
 ```
 
@@ -143,19 +142,18 @@ Node **>=20**.
 `Liteb.create(options)` builds the DataSource; `start(port)` runs the cycle. The
 order is not incidental — each step depends on the one before:
 
-1. **DataSource** — built with the entities of **every module present in the
-   code**, enabled or not, then initialized. An already-initialized DataSource is
-   adopted rather than re-initialized.
+1. **DataSource** — built with the tables of **every module present in the
+   code**, then initialized. An already-initialized DataSource is adopted rather
+   than re-initialized.
 2. **`_modules`** — `ModuleStore.sync()` reconciles code against what the
    installation recorded: what to install, what changed version, what is
    recorded but gone.
 3. **Resolve** — `resolveModules()` orders the graph by dependency and refuses
-   duplicate ids, missing dependencies, cycles, host incompatibility, or
-   depending on something disabled.
+   duplicate ids, missing dependencies, cycles and host incompatibility.
 4. **Migrate** — `ModuleMigrator.run()`, per module, in that order.
 5. **Contracts** — `buildContainer()` registers what modules provide and refuses
    a consumed contract nobody provides.
-6. **Mount** — routes and tasks, only for enabled modules. Then `listen`.
+6. **Mount** — routes and tasks. Then `listen`.
 
 Any failure in 2–5 aborts the boot. Serving half-mounted is worse than not
 starting.
@@ -167,8 +165,7 @@ are private — and there is no glob-mounting API. `setApis`/`addApis`/`setTasks
 were removed: they let an application define routes outside any module, which
 made the manifest optional and the module system a second-class path. The
 consequence is deliberate: **anything that serves a request lives in a module**,
-so a route can always be traced to something installable, disableable and
-versioned.
+so a route can always be traced to something named, versioned and declared.
 
 Practical fallout for tests: a route-level test needs a real database now,
 because booting modules touches `_modules`. Use the PGlite harness. That is a
@@ -211,7 +208,7 @@ Packaging and licensing stay OUT of liteb: MIT framework, product problem.
 | --- | --- |
 | `module-manifest.ts` | Types + `ModuleDefinitionError` |
 | `define-module.ts` | Declares a module; validates what it knows alone |
-| `resolve-modules.ts` | Graph: order, cycles, `engine`, enabled |
+| `resolve-modules.ts` | Graph: order, cycles, `engine` |
 | `reconcile-modules.ts` | Code vs. recorded state (**pure**) |
 | `module-store.ts` | `_modules` I/O |
 | `module-migrator.ts` | Per-module migrations + `_module_migrations` |
@@ -224,9 +221,13 @@ Packaging and licensing stay OUT of liteb: MIT framework, product problem.
 
 Decisions that are easy to undo by accident, so do not:
 
-- **Disabled modules still contribute tables.** Leaving them out would drop
-  them from the schema and make re-enabling a gamble. Disabling decides what
-  *runs*, never whether data is reachable.
+- **There is no enable/disable, and that is a decision.** Removed in
+  2.0.0-alpha.5: every module present in the code runs, and what limits who
+  reaches what is permissions — a role, a plan — which is the application's
+  policy. Deciding it twice, once by deployment and once by permission, is how
+  an installation reaches a state nobody can explain. The four lifecycle hooks
+  (`onInstall`, `onEnable`, `onDisable`, `onUninstall`) went with it: they were
+  declared, typed and documented, and **nothing ever called them**.
 - **An ENUM is collected like a table.** A table with an enum column emits DDL
   that references the type, so a schema without the enum generates a migration
   that fails when it runs. Measured, not assumed.
@@ -234,7 +235,6 @@ Decisions that are easy to undo by accident, so do not:
   ORM's runner sorts globally, so an older module would migrate before the
   dependency it needs. Stamps compare as **numbers** (`"9000"` sorts after
   `"10000"` as text).
-- **A new module installs disabled** unless `core: true`.
 - **A module whose code vanished is reported, never deleted.**
 - **A slot accepts many contributions; a contract refuses a second provider.**
   That asymmetry IS the difference between them. Do not "fix" either one.
@@ -247,8 +247,8 @@ Decisions that are easy to undo by accident, so do not:
   check runs BEFORE the 401 for the same reason: in development the first
   request is usually anonymous, which is exactly when the author should hear
   about it.
-- **The registry is built from every module present, enabled or not** — like
-  entities. Disabling must not change what a key means.
+- **The registry is built from every module present in the code** — like
+  tables. A key exists because a manifest declares it.
 - **`this.get(Token)`, not a free `inject()`.** Resolving without an explicit
   receiver needs a process-wide container, and two apps in one process would see
   each other's implementations. The container is per application.

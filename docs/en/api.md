@@ -112,12 +112,10 @@ way.
 | Name | Type | What it is |
 | --- | --- | --- |
 | `defineModule` | `<const P>(manifest: ModuleManifest<P>) => ResolvedModule<PermissionKeysOf<P>>` | Declares a module and validates it at import time. The `const` parameter is what keeps the permission keys as literals. |
-| `ModuleManifest<P>` | interface | What a module says about itself: `id`, `version`, `label`, `core`, `engine`, `requires`, `dir`, `permissions`, `consumes`, the glob fields, and the four lifecycle hooks. |
+| `ModuleManifest<P>` | interface | What a module says about itself: `id`, `version`, `label`, `engine`, `requires`, `dir`, `permissions`, `consumes` and the glob fields. |
 | `ResolvedModule<K>` | interface | The manifest with every default applied. Also carries `permissionKeys: K[]`. |
 | `ModulePermission<K>` | interface | `{ key, label? }`. The label is optional because a key usually says it. |
 | `PermissionDeclaration<K>` | `K \| ModulePermission<K>` | One entry of `permissions`: a key, or a key with text. |
-| `ModuleHook` | `(ctx: ModuleContext) => void \| Promise<void>` | `onInstall`, `onEnable`, `onDisable`, `onUninstall`. |
-| `ModuleContext` | interface | `{ db }` — what a hook receives. |
 | `ModulePattern` | `string \| string[]` | A glob field's value. |
 | `ModuleTable` | `PgTable \| PgEnum \| PgSequence \| PgView \| ...` | Something the module puts in the schema. An enum belongs in this list: without it, a table with an enum column generates DDL that references a type nothing creates. |
 | `ModuleMigrations` | `Function[] \| Record<string, unknown>` | A list of migration classes, or a namespace import of them. |

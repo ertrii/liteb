@@ -18,7 +18,7 @@ por qué de cada regla, y lo que pasa en los bordes.
 | [6. Eventos](#6-eventos) | un anuncio, sin respuesta |
 | [7. Quién alcanza qué](#7-quién-alcanza-qué) | la tabla de inyecciones |
 | [8. Qué se ve al arrancar](#8-qué-se-ve-al-arrancar) | y qué significa el silencio |
-| [9. Apagar un módulo](#9-apagar-un-módulo) | qué desaparece con él |
+| [9. Quitar un módulo](#9-quitar-un-módulo) | qué desaparece con él |
 | [10. Los errores](#10-los-errores-palabra-por-palabra) | palabra por palabra |
 | [11. Antipatrones](#11-antipatrones) | lo que parece funcionar |
 | [12. Un flujo completo](#12-un-flujo-completo) | los tres mecanismos juntos |
@@ -522,12 +522,11 @@ existe sólo para llenar ese punto:
 requires: ['catalog'],
 ```
 
-Es lo más cercano a un `consumes` que hay para un slot. Con eso, `catalog`
-apagado o desinstalado se reporta al arrancar y con la causa distinguida, antes
-de que falle el import del token:
+Es lo más cercano a un `consumes` que hay para un slot. Con eso, un `catalog`
+que no está se reporta al arrancar, antes de que falle el import del token:
 
 ```
-ModuleResolutionError: Module "reports" requires "catalog", which is disabled.
+ModuleResolutionError: Module "reports" requires "catalog", which is not installed.
 ModuleResolutionError: Module "reports" requires "catalog", which is not installed.
 ```
 
@@ -708,29 +707,31 @@ Y `routes` en cero es la falla que solía parecer un arranque sano: un glob que
 no encontró nada, la aplicación contestando 404 a todo, y el log diciendo
 `Done!`.
 
-## 9. Apagar un módulo
+## 9. Quitar un módulo
 
-Apagar decide qué corre. Por mecanismo:
+No hay encender ni apagar: lo que está en el código, corre. Lo que sí pasa es
+que un módulo **deje de estar** — lo sacaste del despliegue, o del `modules` de
+`Liteb.create()`. Por mecanismo:
 
-| Mecanismo | Qué pasa al apagar el módulo |
+| Mecanismo | Qué pasa cuando el módulo ya no está |
 | --- | --- |
-| Contrato que provee | deja de estar registrado. Un consumidor que lo declaró en `consumes` no arranca; uno que no, falla en la petición |
+| Contrato que provee | nadie lo registra. Un consumidor que lo declaró en `consumes` no arranca; uno que no, falla en la petición |
 | Contrato que consume | nada: nadie lo llama |
 | Slot que llena | su aporte desaparece de `this.all()` — el método de pago, el canal, el badge |
 | Slot que abre | el slot deja de leerse, porque nadie lo lee |
-| Oyentes | no reaccionan más. Apagar tiene que detener los efectos secundarios, o «apagado» sería mentira |
-| Permisos | **siguen existiendo**: apagar decide qué corre, no qué significa una clave |
+| Oyentes | no reaccionan más |
+| Permisos | **desaparecen del catálogo**, porque salen de los manifiestos presentes |
+| Sus datos | **intactos**. La fila en `_modules` tampoco se borra: se reporta como huérfana, y qué hacer con esas tablas lo decide quien opera la instalación |
 
-La asimetría entre la última fila y el resto es a propósito, y está explicada en
-[Autorización](./authorization.md).
+Esa última fila es la que importa: quitar código nunca borra datos.
 
 ## 10. Los errores, palabra por palabra
 
 | Mensaje | Cuándo | Qué hacer |
 | --- | --- | --- |
-| `Module "x" consumes the contract "y", which no enabled module provides.` | al arrancar | instalar y encender el módulo que lo provee, o sacarlo de `consumes` |
-| `No module provides the contract "y". Check that the module providing it is installed and enabled.` | en una petición | lo mismo, y declararlo en `consumes` para que la próxima vez sea al arrancar |
-| `Contract "y" is provided by both "a" and "b". Exactly one module can provide it.` | al arrancar | apagar uno de los dos |
+| `Module "x" consumes the contract "y", which no module provides.` | al arrancar | agregar el módulo que lo provee, o sacarlo de `consumes` |
+| `No module provides the contract "y". Check that the module providing it is installed.` | en una petición | lo mismo, y declararlo en `consumes` para que la próxima vez sea al arrancar |
+| `Contract "y" is provided by both "a" and "b". Exactly one module can provide it.` | al arrancar | quitar uno de los dos, o partir el contrato en dos |
 | `Contract "y" is being resolved while it is still being built: its implementation depends on itself.` | primera resolución | romper el ciclo: tercer módulo, evento, o slot |
 | `Extension point "z" is being filled while it is still being filled: a contribution asks for the slot it belongs to.` | primera lectura | un aporte no puede leer su propio slot |
 | `@Provides() takes a contract or an extension point, and got an event. …` | al importar el archivo | un evento no se provee: se emite, y se escucha con `@On` |

@@ -11,7 +11,6 @@ export default defineModule({
   id: 'catalog',
   version: '1.0.0',
   label: 'Catalog',
-  core: true,
   engine: '^2.0.0',
   dir: __dirname,
 

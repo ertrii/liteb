@@ -8,8 +8,8 @@ import {
  * What this module adds to catalog's product list — without catalog knowing it
  * exists, and without editing a single line of it.
  *
- * Because `reports` installs disabled, the badge only appears once someone
- * turns the module on. Turning it off removes it again.
+ * This is what an extension looks like: the badge appears because the module is
+ * deployed, and `catalog` never learns the word "low stock".
  */
 @Provides(ProductBadges)
 export class LowStockBadge extends Provider implements ProductBadge {

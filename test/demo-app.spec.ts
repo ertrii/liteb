@@ -94,15 +94,19 @@ describe('la app de ejemplo (src/)', () => {
       label: 'Create and restock products',
       moduleId: 'catalog',
     });
-    // `reports` está APAGADO y sus permisos igual figuran: apagar decide qué
-    // corre, no qué existe.
     expect(permisos.map((p) => p.key)).toContain('reports.view');
   });
 
-  it('un módulo opcional instala APAGADO: su ruta no existe', async () => {
-    const res = await request(server()).get('/api/reports/summary');
+  it('sin @Group, el módulo sirve bajo su propio id', async () => {
+    // `reports` no declara @Group, así que `summary` cuelga de /api/reports:
+    // el id del módulo, sin repetirlo en el decorador.
+    const res = await request(server())
+      .get('/api/reports/summary')
+      .set('x-user', '1')
+      .set('x-perms', '*');
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ userCount: 2, productCount: 2 });
   });
 
   it('sin actor, un endpoint gateado responde 401', async () => {
@@ -130,15 +134,17 @@ describe('la app de ejemplo (src/)', () => {
     expect(res.body).toHaveLength(2);
   });
 
-  it('una ranura sin extensiones instaladas devuelve vacío', async () => {
-    // `reports` aporta el badge "low stock" pero está APAGADO, así que el
-    // endpoint no ve ninguna contribución — y no se entera de que existe.
+  it('la contribución mira cada producto y puede decir que no', async () => {
     const res = await request(server())
       .get('/api/products')
       .set('x-user', '2')
       .set('x-perms', STAFF.join(','));
 
-    expect(res.body[0].badges).toEqual([]);
+    // Los sembrados tienen 12 y 40 de stock. El que sí califica se crea más
+    // abajo, y ahí se ve el otro lado.
+    expect(
+      res.body.every((p: { badges: string[] }) => p.badges.length === 0),
+    ).toBe(true);
   });
 
   it('"*" concede todo, que es lo que significa owner', async () => {
@@ -228,6 +234,20 @@ describe('la app de ejemplo (src/)', () => {
 
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ name: 'Router 4G', stock: 5 });
+  });
+
+  it('la ranura la llena otro módulo, sin que el anfitrión lo sepa', async () => {
+    // "Router 4G" se creó con stock 5 en la prueba anterior. El badge lo pone
+    // `reports`; `catalog` nunca nombra "Low stock" ni sabe que existe.
+    const res = await request(server())
+      .get('/api/products')
+      .set('x-user', '2')
+      .set('x-perms', STAFF.join(','));
+
+    const router = res.body.find(
+      (p: { name: string }) => p.name === 'Router 4G',
+    );
+    expect(router.badges).toEqual(['Low stock']);
   });
 
   it('el restock escribe producto y movimiento en una transacción', async () => {

@@ -117,7 +117,6 @@ describe('Auth (extremo a extremo)', () => {
   const fixtures = defineModule({
     id: 'secretos',
     version: '1.0.0',
-    core: true,
     dir: path.join(__dirname, 'fixtures/auth'),
     routes: './*.api.ts',
     // Declarado: desde el registro de permisos, exigir una clave que ningún
@@ -233,7 +232,6 @@ describe('el resolutor recibe db y contratos', () => {
   const grantsModule = defineModule({
     id: 'grants',
     version: '1.0.0',
-    core: true,
     // Su proveedor está en ./providers, y el token en ./contracts.
     dir: path.join(__dirname, 'fixtures/grants'),
   });
@@ -241,7 +239,6 @@ describe('el resolutor recibe db y contratos', () => {
   const fixtures = defineModule({
     id: 'secretos',
     version: '1.0.0',
-    core: true,
     requires: ['grants'],
     dir: path.join(__dirname, 'fixtures/auth'),
     routes: './*.api.ts',

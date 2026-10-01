@@ -23,7 +23,6 @@ const billing = () =>
   defineModule({
     id: 'billing',
     version: '1.0.0',
-    core: true,
     dir: billingDir,
     routes: './controllers/*.controller.ts',
     migrations: [CrearCargos1000],
@@ -45,7 +44,6 @@ const site = () =>
   defineModule({
     id: 'site',
     version: '1.0.0',
-    core: true,
     dir: siteDir,
     routes: './endpoints/*.endpoint.ts',
   });
@@ -114,7 +112,7 @@ describe('arranque con módulos', () => {
     await closeTestDb();
   });
 
-  it('monta las rutas de un módulo core y responde', async () => {
+  it('monta las rutas del módulo y responde', async () => {
     db = await createTestDb();
     const server = await boot([billing()]);
 
@@ -136,39 +134,16 @@ describe('arranque con módulos', () => {
     await boot([billing()]);
 
     const stored = await new ModuleStore(db).list();
-    expect(stored).toEqual([
-      { id: 'billing', version: '1.0.0', enabled: true },
-    ]);
+    expect(stored).toEqual([{ id: 'billing', version: '1.0.0' }]);
   });
 
-  it('un módulo opcional llega apagado y NO responde', async () => {
+  it('un módulo presente en el código responde desde el primer arranque', async () => {
+    // No hay instalación en dos tiempos: lo que está desplegado, sirve.
     db = await createTestDb();
     const server = await boot([news()]);
 
     const res = await request(server).get('/api/facturacion/cargos');
 
-    expect(res.status).toBe(404);
-    expect(res.body.code).toBe('not_found');
-  });
-
-  it('una vez encendido, el mismo módulo sí responde', async () => {
-    db = await createTestDb();
-
-    // Primer arranque: se instala apagado.
-    await boot([news()]);
-    await new ModuleStore(db).enable('news');
-    await app.close({ database: false });
-
-    // Segundo arranque, misma base: ahora monta.
-    app = await Liteb.create({
-      auth: cualquiera,
-      db: db,
-      modules: [news()],
-      version: '2.0.0-dev.0',
-    });
-    await app.start(0);
-
-    const res = await request(app.getApp()).get('/api/facturacion/cargos');
     expect(res.status).toBe(200);
   });
 
@@ -193,7 +168,6 @@ describe('arranque con módulos', () => {
     const futuro = defineModule({
       id: 'billing',
       version: '1.0.0',
-      core: true,
       engine: '^9.0.0',
     });
 
@@ -212,7 +186,6 @@ describe('arranque con módulos', () => {
     const huerfano = defineModule({
       id: 'billing',
       version: '1.0.0',
-      core: true,
       requires: ['fantasma'],
     });
 

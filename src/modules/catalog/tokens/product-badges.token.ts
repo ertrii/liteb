@@ -5,9 +5,9 @@ import { token } from '../../../../lib';
  * it declares the shape and shows whatever is installed.
  *
  * Note the direction. The module that OPENS the slot is the one extensions
- * depend on — `catalog` is core and knows nothing about who fills it, while a
- * contributor imports this token. Backwards, core would depend on its own
- * extensions and none of them could be removed.
+ * depend on — `catalog` knows nothing about who fills it, while a contributor
+ * imports this token. Backwards, the host would depend on its own extensions
+ * and none of them could be removed.
  */
 export interface ProductBadge {
   id: string;

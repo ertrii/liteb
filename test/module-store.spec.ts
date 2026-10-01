@@ -56,19 +56,19 @@ describe('ModuleStore', () => {
 
   describe('sync', () => {
     it('registra los módulos nuevos', async () => {
-      await store.sync([mod('identity', { core: true }), mod('news')]);
+      await store.sync([mod('identity'), mod('news')]);
 
       const stored = await store.list();
       expect(stored).toEqual(
         expect.arrayContaining([
-          { id: 'identity', version: '1.0.0', enabled: true },
-          { id: 'news', version: '1.0.0', enabled: false },
+          { id: 'identity', version: '1.0.0' },
+          { id: 'news', version: '1.0.0' },
         ]),
       );
     });
 
     it('correrlo dos veces no cambia nada', async () => {
-      const modules = [mod('identity', { core: true }), mod('news')];
+      const modules = [mod('identity'), mod('news')];
 
       await store.sync(modules);
       const segunda = await store.sync(modules);
@@ -88,21 +88,6 @@ describe('ModuleStore', () => {
       expect((await store.list())[0].version).toBe('2.0.0');
     });
 
-    it('actualizar no reenciende lo que estaba apagado', async () => {
-      await store.sync([mod('news')]);
-      await store.sync([mod('news', { version: '2.0.0' })]);
-
-      expect((await store.list())[0].enabled).toBe(false);
-    });
-
-    it('conserva lo encendido al actualizar', async () => {
-      await store.sync([mod('news')]);
-      await store.enable('news');
-      await store.sync([mod('news', { version: '2.0.0' })]);
-
-      expect((await store.list())[0].enabled).toBe(true);
-    });
-
     it('no borra el registro de un módulo cuyo código ya no está', async () => {
       await store.sync([mod('news'), mod('legacy-thing')]);
       const result = await store.sync([mod('news')]);
@@ -114,41 +99,16 @@ describe('ModuleStore', () => {
       ]);
     });
 
-    it('informa qué encender, listo para resolveModules', async () => {
-      await store.sync([mod('identity', { core: true }), mod('news')]);
-      await store.enable('news');
+    it('informa sólo lo que entró nuevo', async () => {
+      await store.sync([mod('identity'), mod('news')]);
 
       const result = await store.sync([
-        mod('identity', { core: true }),
+        mod('identity'),
         mod('news'),
         mod('support'),
       ]);
 
-      // support entra apagado, así que no aparece.
-      expect(result.enabledIds.sort()).toEqual(['identity', 'news']);
-    });
-  });
-
-  describe('encender y apagar', () => {
-    it('enciende un módulo', async () => {
-      await store.sync([mod('news')]);
-      await store.enable('news');
-
-      expect((await store.list())[0].enabled).toBe(true);
-    });
-
-    it('apaga un módulo', async () => {
-      await store.sync([mod('news')]);
-      await store.enable('news');
-      await store.disable('news');
-
-      expect((await store.list())[0].enabled).toBe(false);
-    });
-
-    it('falla al tocar uno que no está instalado', async () => {
-      await expect(store.enable('fantasma')).rejects.toThrow(
-        /"fantasma" is not installed/,
-      );
+      expect(result.install.map((m) => m.id)).toEqual(['support']);
     });
   });
 
@@ -160,16 +120,13 @@ describe('ModuleStore', () => {
       expect(await store.list()).toEqual([]);
     });
 
-    it('olvidar y volver a sincronizar lo reinstala apagado', async () => {
+    it('olvidar y volver a sincronizar lo reinstala', async () => {
       await store.sync([mod('news')]);
-      await store.enable('news');
       await store.forget('news');
 
       const result = await store.sync([mod('news')]);
 
-      expect(result.install).toEqual([
-        { id: 'news', version: '1.0.0', enabled: false },
-      ]);
+      expect(result.install).toEqual([{ id: 'news', version: '1.0.0' }]);
     });
   });
 });

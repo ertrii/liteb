@@ -154,9 +154,8 @@ Para conceder todo lo que tiene un módulo, esparcí sus claves en vez de
 listarlas — `[...tasks.permissionKeys]` — así un rol sigue siendo correcto cuando
 el módulo gana una clave.
 
-Se arma con todos los módulos **presentes, encendidos o no**. Apagar un módulo
-decide qué corre, nunca qué significa una clave — si no, los roles ya asignados
-apuntarían a claves que por un rato no existen.
+Se arma con todos los módulos **presentes en el código**. Una clave existe
+porque un manifiesto la declara, y eso no depende de nada más.
 
 ## 3. Convertir una petición en un actor
 
@@ -660,5 +659,5 @@ comparten el primer segmento, así que un espacio de nombres consistente vuelve
 | 403 para todos, siempre | El resolutor devuelve `permissions: []`, o el mapa de roles no tiene entrada para ese rol (`undefined` llega a la comprobación como vacío). |
 | 401 con sesión iniciada | El resolutor devolvió `null`: la sesión no tiene `userId`, o la fila del usuario ya no está. |
 | Pasa todo, no se gatea nada | Sigue ahí el resolutor del andamiaje en `src/config/auth.ts`: le da `*` a todo el mundo. Avisa una vez en el log la primera vez que lo hace. |
-| Desapareció una clave de la pantalla de roles | Estás listando desde otro lado que no es `app.permissions()`. Esa lista incluye los módulos apagados a propósito. |
+| Desapareció una clave de la pantalla de roles | Estás listando desde otro lado que no es `app.permissions()`. Esa lista sale de los manifiestos. |
 | Funciona para el owner y para nadie más | `*` tiene todo. Probá con un rol que debería ser rechazado. |

@@ -36,7 +36,6 @@ export class ModuleStore {
       create table if not exists _modules (
         id varchar(100) primary key,
         version varchar(50) not null,
-        enabled boolean not null default false,
         installed_at timestamp with time zone not null default now(),
         updated_at timestamp with time zone not null default now()
       )
@@ -44,18 +43,10 @@ export class ModuleStore {
   }
 
   async list(): Promise<ModuleState[]> {
-    const found = await rows<{
-      id: string;
-      version: string;
-      enabled: boolean;
-    }>(this.db, sql`select id, version, enabled from _modules order by id`);
-
-    return found.map((row) => ({
-      id: row.id,
-      version: row.version,
-      // Some drivers hand booleans back as 0/1.
-      enabled: row.enabled === true || (row.enabled as unknown) === 1,
-    }));
+    return rows<ModuleState>(
+      this.db,
+      sql`select id, version from _modules order by id`,
+    );
   }
 
   /**
@@ -74,14 +65,12 @@ export class ModuleStore {
     await this.db.transaction(async (tx) => {
       for (const entry of result.install) {
         await tx.execute(sql`
-          insert into _modules (id, version, enabled)
-          values (${entry.id}, ${entry.version}, ${entry.enabled})
+          insert into _modules (id, version)
+          values (${entry.id}, ${entry.version})
         `);
       }
 
       for (const entry of result.upgrade) {
-        // Only the version: whether it is on is the installation's decision,
-        // not something an upgrade gets to change.
         await tx.execute(sql`
           update _modules set version = ${entry.to}, updated_at = now()
           where id = ${entry.id}
@@ -90,29 +79,6 @@ export class ModuleStore {
     });
 
     return result;
-  }
-
-  async enable(id: string): Promise<void> {
-    await this.setEnabled(id, true);
-  }
-
-  async disable(id: string): Promise<void> {
-    await this.setEnabled(id, false);
-  }
-
-  private async setEnabled(id: string, enabled: boolean): Promise<void> {
-    const existing = await rows<{ id: string }>(
-      this.db,
-      sql`select id from _modules where id = ${id}`,
-    );
-    if (existing.length === 0) {
-      throw new Error(`Module "${id}" is not installed.`);
-    }
-
-    await this.db.execute(sql`
-      update _modules set enabled = ${enabled}, updated_at = now()
-      where id = ${id}
-    `);
   }
 
   /**

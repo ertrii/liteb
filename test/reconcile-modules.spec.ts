@@ -7,29 +7,16 @@ import type { ModuleManifest } from '../lib/modules/module-manifest';
 const mod = (id: string, extra: Partial<ModuleManifest> = {}) =>
   defineModule({ id, version: '1.0.0', ...extra });
 
-const stored = (
-  id: string,
-  version = '1.0.0',
-  enabled = true,
-): ModuleState => ({ id, version, enabled });
+const stored = (id: string, version = '1.0.0'): ModuleState => ({
+  id,
+  version,
+});
 
 describe('reconcileModules — instalación', () => {
-  it('un módulo nuevo se instala apagado', () => {
+  it('registra un módulo nuevo', () => {
     const result = reconcileModules([mod('news')], []);
 
-    expect(result.install).toEqual([
-      { id: 'news', version: '1.0.0', enabled: false },
-    ]);
-    expect(result.enabledIds).toEqual([]);
-  });
-
-  it('un módulo core nuevo se instala encendido', () => {
-    const result = reconcileModules([mod('billing', { core: true })], []);
-
-    expect(result.install).toEqual([
-      { id: 'billing', version: '1.0.0', enabled: true },
-    ]);
-    expect(result.enabledIds).toEqual(['billing']);
+    expect(result.install).toEqual([{ id: 'news', version: '1.0.0' }]);
   });
 
   it('no reinstala lo que ya está registrado', () => {
@@ -72,35 +59,6 @@ describe('reconcileModules — versiones', () => {
   });
 });
 
-describe('reconcileModules — encendidos', () => {
-  it('respeta lo que la instalación tenía encendido', () => {
-    const result = reconcileModules(
-      [mod('news'), mod('support')],
-      [stored('news', '1.0.0', true), stored('support', '1.0.0', false)],
-    );
-
-    expect(result.enabledIds).toEqual(['news']);
-  });
-
-  it('un core apagado a mano en la base vuelve a encenderse', () => {
-    const result = reconcileModules(
-      [mod('billing', { core: true })],
-      [stored('billing', '1.0.0', false)],
-    );
-
-    expect(result.enabledIds).toEqual(['billing']);
-  });
-
-  it('el resultado sirve tal cual para resolveModules', () => {
-    const result = reconcileModules(
-      [mod('identity', { core: true }), mod('news'), mod('support')],
-      [stored('news', '1.0.0', true), stored('support', '1.0.0', false)],
-    );
-
-    expect(result.enabledIds).toEqual(['identity', 'news']);
-  });
-});
-
 describe('reconcileModules — huérfanos', () => {
   it('reporta un módulo cuyo código desapareció', () => {
     const result = reconcileModules(
@@ -108,19 +66,7 @@ describe('reconcileModules — huérfanos', () => {
       [stored('news'), stored('legacy-thing')],
     );
 
-    expect(result.orphaned).toEqual([
-      { id: 'legacy-thing', version: '1.0.0', enabled: true },
-    ]);
-  });
-
-  it('nunca lo da por habilitado', () => {
-    const result = reconcileModules(
-      [],
-      [stored('legacy-thing', '1.0.0', true)],
-    );
-
-    expect(result.enabledIds).toEqual([]);
-    expect(result.orphaned).toHaveLength(1);
+    expect(result.orphaned).toEqual([{ id: 'legacy-thing', version: '1.0.0' }]);
   });
 
   it('no lo confunde con algo a instalar', () => {
@@ -129,22 +75,24 @@ describe('reconcileModules — huérfanos', () => {
     expect(result.install).toEqual([]);
     expect(result.upgrade).toEqual([]);
   });
+
+  it('no lo borra: reportarlo es todo lo que hace', () => {
+    // La fila se queda, y sus tablas también. Qué hacer con esos datos es una
+    // decisión de quien opera la instalación, no de una secuencia de arranque.
+    const result = reconcileModules([], [stored('legacy-thing')]);
+
+    expect(result.orphaned).toHaveLength(1);
+  });
 });
 
 describe('reconcileModules — instalación en blanco', () => {
-  it('sin nada registrado, instala todo y enciende solo los core', () => {
+  it('sin nada registrado, instala todo', () => {
     const result = reconcileModules(
-      [
-        mod('identity', { core: true }),
-        mod('billing', { core: true }),
-        mod('news'),
-        mod('support'),
-      ],
+      [mod('identity'), mod('billing'), mod('news'), mod('support')],
       [],
     );
 
     expect(result.install).toHaveLength(4);
-    expect(result.enabledIds).toEqual(['identity', 'billing']);
     expect(result.orphaned).toEqual([]);
   });
 
@@ -153,7 +101,6 @@ describe('reconcileModules — instalación en blanco', () => {
       install: [],
       upgrade: [],
       orphaned: [],
-      enabledIds: [],
     });
   });
 });

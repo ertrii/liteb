@@ -239,7 +239,7 @@ describe('buildContainer', () => {
     });
 
     await expect(buildContainer([solitario], fakeDb)).rejects.toThrow(
-      /consumes the contract "demo.greeter", which no enabled module provides/,
+      /consumes the contract "demo.greeter", which no module provides/,
     );
   });
 

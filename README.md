@@ -48,7 +48,7 @@ await app.start(3000);
 ```
 
 On boot liteb reconciles what is installed, runs each module's pending
-migrations in dependency order, and mounts only what is **enabled**.
+migrations in dependency order, and mounts the routes.
 
 ## A module
 
@@ -56,7 +56,6 @@ migrations in dependency order, and mounts only what is **enabled**.
 export default defineModule({
   id: 'billing',
   version: '1.0.0',
-  core: true,              // false = installs disabled, enabled on purpose
   engine: '^1.0.0',
   dir: __dirname,          // the folder everything below is found from
   requires: ['identity'],

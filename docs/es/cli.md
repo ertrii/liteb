@@ -110,7 +110,7 @@ $ npx liteb token catalog/product-badges slot
   next     ProductBadge is the shape of ONE contribution; ProductBadges is the collection.
   next     Read it: const filled = this.all(ProductBadges). An empty array is a normal answer — a slot nobody filled is a feature nobody installed.
   next     Fill it from another module: liteb provider <module>/<name> --slot product-badges
-  next     Note the direction: "catalog" opens it and knows nothing about who fills it, which is what lets it be core while every contributor stays removable.
+  next     Note the direction: "catalog" opens it and knows nothing about who fills it, which is what keeps the host independent of its own extensions.
 ```
 
 Y el porqué vive en esta página y en [wiring.md](wiring.md): un solo lugar, que
@@ -388,13 +388,12 @@ compilación lo lee de ahí.
 
 ```bash
 npx liteb module billing
-npx liteb module reports --optional --label "Reports"
+npx liteb module reports --label "Reports"
 ```
 
 | Bandera | Efecto |
 | --- | --- |
 | `--label <text>` | nombre para personas, para una pantalla de "módulos" |
-| `--optional` | se instala **apagado**, y se enciende a propósito |
 | `--entry <file>` | el archivo con `Liteb.create({ modules: [...] })` (por defecto `src/index.ts`) |
 
 Escribe `module.ts` y un primer endpoint que contesta en `/api/<name>`, después
@@ -406,11 +405,6 @@ Las claves viven en el manifiesto, como cadenas:
 de roles cuando no lo puede decir sola —
 `{ key: 'billing.void', label: 'Anular un cargo ya cobrado' }` — y el `label` es
 opcional justamente porque la mayoría sí puede.
-
-**`--optional` es la diferencia entre una función y una actualización que se
-enciende sola.** Un módulo sin `core: true` se instala apagado: está en el
-código, sus tablas existen, sus permisos están en el catálogo, y nada de él corre
-hasta que alguien lo encienda. Los módulos core no se pueden apagar en absoluto.
 
 El endpoint generado trae su línea `this.auth.assert(...)` **viva**. Funciona
 desde la primera petición porque `init` escribió un resolutor que deja pasar a
@@ -464,9 +458,8 @@ npx liteb routine billing/hourly --cron "0 * * * *"
 | --- | --- |
 | `--cron <expression>` | expresión de node-cron (por defecto `0 7 * * *`) |
 
-Trabajo que la aplicación hace por su cuenta, con reloj. Corre sólo mientras el
-módulo está **encendido**, así que apagar un módulo detiene su horario sin tocar
-ningún dato.
+Trabajo que la aplicación hace por su cuenta, con reloj. Una rutina vive y muere
+con el módulo que la declara, y se detiene en el apagado ordenado.
 
 Dos cosas que el archivo generado te recuerda: poné una `timezone` en `@Cron`, o
 la expresión se lee en la zona horaria de la máquina donde haya terminado el
@@ -622,7 +615,7 @@ contenedor resuelve. El consumidor importa este archivo y nada más de tu módul
 Con **`slot`** hay **dos** nombres: la interfaz es la forma de UNA contribución
 y el token nombra la colección. Y mirá la dirección — el módulo que abre el slot
 es del que dependen las extensiones: no sabe nada de quién lo llena, que es lo
-que le permite ser core mientras cada contribuyente sigue siendo removible.
+que mantiene al anfitrión independiente de sus propias extensiones.
 
 Con **`event`**, la carga tiene que llevar lo que un oyente necesita: los oyentes
 leen en su propia conexión, así que no pueden ver filas que una transacción
@@ -685,7 +678,7 @@ reemplazalo con el import real del módulo que anuncia el evento:
 import { ChargeIssued } from '@/billing/tokens/charge-issued.token';
 ```
 
-Los oyentes corren sólo mientras su módulo está **encendido**, y leen en su
+Los oyentes leen en su
 propia conexión: emitá **después** de que la transacción confirme, o no pueden
 ver las filas.
 
@@ -704,7 +697,7 @@ npx liteb migrate --entry src/main.ts
 | `--entry <file>` | archivo que exporta `createApp()` (por defecto `src/index.ts`) |
 | `--dry-run` | dice qué correría, no cambia nada |
 
-Corre las migraciones pendientes de cada módulo **encendido**, en orden de
+Corre las migraciones pendientes de cada módulo, en orden de
 dependencias, sin levantar un servidor. El CLI nunca necesita saber dónde está tu
 base de datos: le pide la aplicación a **tu** punto de entrada, que es por lo que
 la plantilla de `init` separa `createApp()` de `main()`.
@@ -723,8 +716,8 @@ npx liteb migrate:status
 | --- | --- |
 | `--entry <file>` | archivo que exporta `createApp()` |
 
-Lista qué declara cada módulo y qué de eso ya corrió, marcando como tales los
-módulos apagados — cuyas migraciones no corren.
+Lista qué declara cada módulo y qué de eso ya corrió, en el orden en que van a
+migrar.
 
 Leer el estado nunca crea nada: en una base que nunca migró, la tabla de registro
 no existe y la respuesta es sencillamente que todo está pendiente.

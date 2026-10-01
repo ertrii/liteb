@@ -8,7 +8,6 @@ import {
   EventBus,
   Listener,
   Liteb,
-  ModuleStore,
   On,
   token,
 } from '../lib';
@@ -109,7 +108,6 @@ describe('eventos entre módulos', () => {
     defineModule({
       id: 'emisor',
       version: '1.0.0',
-      core: true,
       dir: path.join(__dirname, 'fixtures/events/emisor'),
       routes: './*.api.ts',
     });
@@ -145,27 +143,13 @@ describe('eventos entre módulos', () => {
     await closeTestDb();
   });
 
-  it('un módulo apagado no reacciona', async () => {
+  it('reacciona sin que el emisor lo importe', async () => {
     const server = await boot();
 
     const res = await request(server).post('/api/demo/crear');
 
-    // El emisor respondió igual: no sabe ni le importa quién escucha.
-    expect(res.status).toBe(200);
-    expect(visto.ids).toEqual([]);
-  });
-
-  it('encendido, reacciona — sin que el emisor lo importe', async () => {
-    // Primer arranque: instala los módulos en `_modules`.
-    await boot();
-    await app?.close({ database: false });
-    app = undefined;
-
-    await new ModuleStore(db).enable('oyente');
-
-    const server = await boot();
-    const res = await request(server).post('/api/demo/crear');
-
+    // El emisor respondió lo suyo y el oyente vio el evento, sin que ninguno
+    // de los dos nombre al otro.
     expect(res.status).toBe(200);
     expect(visto.ids).toEqual([7]);
   });

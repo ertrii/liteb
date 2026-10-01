@@ -3,9 +3,13 @@ import { UserDirectory } from '@/identity/tokens/user-directory.token';
 import { ProductCatalog } from '@/catalog/tokens/product-catalog.token';
 
 /**
- * The optional one. Not `core`, so it INSTALLS DISABLED: an update must not
- * light up screens nobody asked for. Turn it on with `ModuleStore.enable()`
- * (see `src/demo.http`) and restart.
+ * The one that only READS. It owns no table and answers no contract: it reaches
+ * `identity` and `catalog` through theirs, and fills catalog's extension point
+ * with a badge.
+ *
+ * Which makes it the module shaped like an extension — the case the three
+ * wirings exist for. `identity` and `catalog` ship together and could import
+ * each other directly; this one is written as if somebody else had written it.
  */
 export default defineModule({
   id: 'reports',

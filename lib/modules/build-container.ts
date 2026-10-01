@@ -39,7 +39,7 @@ export async function buildContainer(
       if (container.has(token)) continue;
 
       throw new ContractError(
-        `Module "${mod.id}" consumes the contract "${token.id}", which no enabled module provides.`,
+        `Module "${mod.id}" consumes the contract "${token.id}", which no module provides.`,
         token.id,
       );
     }
