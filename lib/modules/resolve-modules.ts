@@ -1,4 +1,3 @@
-import semver from 'semver';
 import { ResolvedModule } from './module-manifest';
 
 /** Thrown when a set of modules cannot be resolved into a startup order. */
@@ -13,21 +12,13 @@ export class ModuleResolutionError extends Error {
   }
 }
 
-export interface ResolveModulesOptions {
-  /**
-   * Host version, checked against each module's `engine` range. When omitted
-   * the check is skipped, which is what tests and embedded uses want.
-   */
-  hostVersion?: string;
-}
-
 /**
  * Orders a set of modules so that every module comes after the ones it depends
  * on, and refuses the set when it cannot be started safely.
  *
  * It checks what only becomes visible with every module in hand — duplicate
- * ids, missing dependencies, cycles and host compatibility — while
- * `defineModule()` already checked each manifest on its own. Everything here is
+ * ids, missing dependencies and cycles — while `defineModule()` already checked
+ * each manifest on its own. Everything here is
  * a startup error: the process must fail before serving a request, never
  * halfway through mounting routes.
  *
@@ -35,10 +26,7 @@ export interface ResolveModulesOptions {
  * order they were given, so two runs of the same installation migrate and mount
  * in the same sequence.
  */
-export function resolveModules(
-  modules: ResolvedModule[],
-  options: ResolveModulesOptions = {},
-): ResolvedModule[] {
+export function resolveModules(modules: ResolvedModule[]): ResolvedModule[] {
   const byId = new Map<string, ResolvedModule>();
   for (const mod of modules) {
     if (byId.has(mod.id)) {
@@ -50,44 +38,7 @@ export function resolveModules(
     byId.set(mod.id, mod);
   }
 
-  assertHostCompatibility(modules, options.hostVersion);
-
   return sortByDependency(modules);
-}
-
-/**
- * A module declares the host range it supports. Checking it up front turns a
- * subtle runtime failure into a clear refusal to start.
- *
- * The comparison drops the host's prerelease tag: `2.0.0-dev.0` is checked as
- * `2.0.0`. Strict semver puts a prerelease *below* its own release, so a host
- * at `2.0.0-dev.0` would satisfy no module asking for `^2.0.0` — the whole
- * system would be unusable exactly while 2.0 is being built. A module targets
- * a host's feature set, and a prerelease of 2.0.0 already has it.
- */
-function assertHostCompatibility(
-  modules: ResolvedModule[],
-  hostVersion: string | undefined,
-): void {
-  if (!hostVersion) return;
-
-  if (!semver.valid(hostVersion)) {
-    throw new ModuleResolutionError(
-      `The host version "${hostVersion}" is not a valid semver version.`,
-    );
-  }
-
-  const comparable = semver.coerce(hostVersion)?.version ?? hostVersion;
-
-  for (const mod of modules) {
-    if (!mod.engine) continue;
-    if (!semver.satisfies(comparable, mod.engine)) {
-      throw new ModuleResolutionError(
-        `Module "${mod.id}" needs a host matching "${mod.engine}", but this one is "${hostVersion}".`,
-        mod.id,
-      );
-    }
-  }
 }
 
 /**

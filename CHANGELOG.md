@@ -455,11 +455,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   available and unused, and the cost of keeping it was every reader having to
   learn a rule that never applied.
 
+- **`engine` is gone: a module no longer declares which host versions it
+  supports.** [BREAKING]
+
+  The field had no subject. A module is not a plugin that arrives from outside
+  and finds an application already running — the modules **are** the
+  application, released together, out of the same repository. A folder declaring
+  which versions of its own repository it supports is a constraint that can
+  never fail, and the scaffold proved it: `liteb module` wrote
+  `engine: '^1.0.0'` into every manifest while `liteb init` wrote
+  `version: '1.0.0'` into the application.
+
+  It was also silent exactly when it would have mattered. `version` is optional
+  in `Liteb.create()`, and with no `version` the check was skipped without a
+  word — so an application that never passed one collected modules that all
+  declared a range nobody read.
+
+  Removed: the manifest's `engine`, `ResolvedModule.engine`,
+  `ResolveModulesOptions` with its `hostVersion`, and `assertHostCompatibility()`
+  in `resolve-modules.ts`. `resolveModules(modules)` now takes one argument.
+
+  **`version` in `Liteb.create()` stays**, with the one consumer it has left:
+  `/health` reports it when `details` is on, which is how a deployment says what
+  it is running. **A module's own `version` stays too** — `_modules` records it
+  and `reconcile-modules` compares it to detect an upgrade or a downgrade.
+
+  **Migrating:** delete `engine:` from every manifest. Nothing replaces it, and
+  `requires` still declares what a module needs from the other modules — which
+  is the dependency that was always real.
+
+  The day a module genuinely travels — published on its own, installed into an
+  application it did not grow up with — host compatibility comes back. It will
+  be part of designing extensions, not a field left over from before they
+  existed.
+
 - **The boot log is three lines, not fourteen.** [BREAKING]
 
   ```
   Modules: identity, catalog, reports (3 of 3)
-  Wiring: 2 contracts, 1 extension point, 1 event, 5 permissions
+  Wiring: 2 contracts, 1 extension point, 5 permissions
   Serving on :5050 - 11 routes, 1 routine, docs at /docs (1.4s)
   ```
 

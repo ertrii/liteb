@@ -163,24 +163,6 @@ describe('arranque con módulos', () => {
     expect(await new ModuleMigrator(db).pending([billing()])).toEqual([]);
   });
 
-  it('no arranca si un módulo pide un anfitrión incompatible', async () => {
-    db = await createTestDb();
-    const futuro = defineModule({
-      id: 'billing',
-      version: '1.0.0',
-      engine: '^9.0.0',
-    });
-
-    app = await Liteb.create({
-      auth: cualquiera,
-      db: db,
-      modules: [futuro],
-      version: '2.0.0-dev.0',
-    });
-
-    await expect(app.start(0)).rejects.toThrow(/needs a host matching/);
-  });
-
   it('no arranca si falta una dependencia', async () => {
     db = await createTestDb();
     const huerfano = defineModule({

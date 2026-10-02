@@ -15,7 +15,6 @@ export default defineModule({
   id: 'reports',
   version: '1.0.0',
   label: 'Reports',
-  engine: '^2.0.0',
   dir: __dirname,
 
   requires: ['identity', 'catalog'],

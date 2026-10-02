@@ -102,56 +102,6 @@ describe('resolveModules — grafos inválidos', () => {
   });
 });
 
-describe('resolveModules — compatibilidad con el anfitrión', () => {
-  it('acepta un módulo cuyo rango se satisface', () => {
-    const billing = mod('billing', { engine: '^3.0.0' });
-    expect(ids(resolveModules([billing], { hostVersion: '3.2.1' }))).toEqual([
-      'billing',
-    ]);
-  });
-
-  it('rechaza un módulo pensado para otro anfitrión', () => {
-    const billing = mod('billing', { engine: '^4.0.0' });
-    expect(() => resolveModules([billing], { hostVersion: '3.2.1' })).toThrow(
-      /needs a host matching "\^4.0.0", but this one is "3.2.1"/,
-    );
-  });
-
-  it('una prerelease del anfitrión satisface el rango', () => {
-    // Durante el desarrollo el anfitrión vive en 2.0.0-dev.N: si las
-    // prereleases no contaran, ningún módulo cargaría.
-    const billing = mod('billing', { engine: '^2.0.0' });
-    expect(
-      ids(resolveModules([billing], { hostVersion: '2.0.0-dev.0' })),
-    ).toEqual(['billing']);
-  });
-
-  it('ignorar la prerelease no ablanda el resto del rango', () => {
-    // 3.0.0-alpha se compara como 3.0.0, que sigue quedando fuera de ^2.0.0.
-    const billing = mod('billing', { engine: '^2.0.0' });
-    expect(() =>
-      resolveModules([billing], { hostVersion: '3.0.0-alpha.1' }),
-    ).toThrow(/needs a host matching "\^2.0.0"/);
-  });
-
-  it('sin hostVersion no se comprueba nada', () => {
-    const billing = mod('billing', { engine: '^9.0.0' });
-    expect(ids(resolveModules([billing]))).toEqual(['billing']);
-  });
-
-  it('un módulo sin engine acepta cualquier anfitrión', () => {
-    expect(
-      ids(resolveModules([mod('billing')], { hostVersion: '3.0.0' })),
-    ).toEqual(['billing']);
-  });
-
-  it('rechaza una versión de anfitrión inválida', () => {
-    expect(() =>
-      resolveModules([mod('billing')], { hostVersion: '3' }),
-    ).toThrow(/not a valid semver version/);
-  });
-});
-
 describe('resolveModules — todos los módulos entran', () => {
   it('no hay nada que filtrar: lo que está en el código, corre', () => {
     // No existe encender ni apagar. Quién alcanza qué lo deciden los permisos,

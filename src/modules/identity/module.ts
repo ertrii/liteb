@@ -12,7 +12,6 @@ export default defineModule({
   version: '1.0.0',
   label: 'Identity',
   // Core: it cannot be turned off. Nothing else would have anyone to serve.
-  engine: '^2.0.0',
   // Where this module lives. Everything liteb finds by itself is found from
   // here; without it there is nothing to resolve against.
   dir: __dirname,

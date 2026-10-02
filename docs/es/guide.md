@@ -310,7 +310,6 @@ export const BillingService = token<BillingService>(
 export default defineModule({
   id: 'billing',
   version: '1.0.0',
-  engine: '^2.0.0', // rango de host que soporta
   requires: ['identity'], // se comprueba al arrancar
   dir: __dirname, // la carpeta desde la que se encuentra todo
 
@@ -408,7 +407,7 @@ puede armarla a mano sin conocer las internas de cada uno:
 const app = await Liteb.create({
   db: { host, database, user, password },
   modules: [identity, billing, inventory],
-  version: '2.0.0', // se comprueba contra el `engine` de cada módulo
+  version: '2.0.0', // la versión de ESTA app; la reporta /health
   basePath: '/api', // prefijo de las rutas de los módulos
 });
 

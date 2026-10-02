@@ -267,7 +267,6 @@ export const BillingService = token<BillingService>(
 export default defineModule({
   id: 'billing',
   version: '1.0.0',
-  engine: '^2.0.0',           // host range it supports
   requires: ['identity'],     // checked at startup
   dir: __dirname,             // the folder everything is found from
 
@@ -358,7 +357,7 @@ application cannot assemble by hand without knowing each module's internals:
 const app = await Liteb.create({
   db: { type: 'postgres', host, database },
   modules: [identity, billing, inventory],
-  version: '2.0.0',      // checked against each module's `engine`
+  version: '2.0.0',      // this app's own version, reported by /health
   basePath: '/api',      // prefix for module routes
 });
 

@@ -87,7 +87,6 @@ export type {
   ModuleOrphan,
   Reconciliation,
 } from './modules/reconcile-modules';
-export type { ResolveModulesOptions } from './modules/resolve-modules';
 export type {
   ModuleManifest,
   ResolvedModule,

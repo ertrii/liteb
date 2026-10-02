@@ -7,10 +7,9 @@ import { plan, Plan } from './plan';
  * `liteb init` — a project that runs.
  *
  * The pieces are small but there are enough of them to get one wrong and spend
- * an evening on it: decorators need two compiler flags, an entity breaks under
- * `strictPropertyInitialization`, the application's own version is what each
- * module's `engine` is checked against. None of that is interesting, and all of
- * it is the same every time.
+ * an evening on it: decorators need two compiler flags, and a validated DTO
+ * breaks under `strictPropertyInitialization`. Neither is interesting, and both
+ * are the same every time.
  */
 
 export interface InitOptions {
@@ -135,8 +134,8 @@ export async function createApp() {
     // \`liteb module <name>\` registers it here.
     modules: [],
 
-    // THIS application's version — what each module's \`engine\` range is
-    // checked against. It is not liteb's version.
+    // THIS application's version, not liteb's. It is what \`/health\` reports
+    // when \`details\` is on, so a deployment can say what it is running.
     version: '1.0.0',
 
     basePath: '/api',

@@ -761,9 +761,8 @@ describe('un módulo generado y puesto a andar', () => {
     app = await Liteb.create({
       db,
       modules: [inventory],
-      // La versión de LA APLICACIÓN, que es contra lo que se chequea el
-      // `engine` de cada módulo. La plantilla del manifiesto pide `^1.0.0` y
-      // la de `init` declara `1.0.0`: si se separan, no arranca.
+      // La versión de LA APLICACIÓN, no la de liteb: lo que reporta
+      // `/health`. Ningún módulo la mira.
       version: '1.0.0',
       basePath: '/api',
       auth,
@@ -777,9 +776,9 @@ describe('un módulo generado y puesto a andar', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   });
 
-  it('el manifiesto quedó válido: el módulo está encendido', () => {
+  it('el manifiesto quedó válido: el módulo sirve', () => {
     // defineModule valida al importarse, así que llegar hasta acá ya significa
-    // que id, versión, engine y claves de permiso pasaron.
+    // que id, versión y claves de permiso pasaron.
     // Sin `label`: el andamiaje no inventa una etiqueta que repita la clave.
     // Escribirla es opcional y queda para donde la clave no alcanza.
     expect(app.permissions()).toEqual([

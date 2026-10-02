@@ -216,9 +216,8 @@ const validatePermissions = (
 /**
  * Declares a module and validates everything that can be known without looking
  * at the other modules: shape, formats and internal duplicates. Relational
- * checks — that a dependency exists, that ids are unique, that the host version
- * satisfies `engine` — belong to the registry, which is the only one that sees
- * every module at once.
+ * checks — that a dependency exists, that ids are unique — belong to the
+ * registry, which is the only one that sees every module at once.
  *
  * Validating here means a malformed manifest fails when its file is imported,
  * pointing at the module that wrote it, instead of surfacing later as a
@@ -273,15 +272,6 @@ export function defineModule<
       `Module "${id}": "${manifest.version}" is not a valid semver version.`,
       id,
     );
-  }
-
-  if (manifest.engine !== undefined) {
-    if (!semver.validRange(manifest.engine)) {
-      fail(
-        `Module "${id}": "${manifest.engine}" is not a valid semver range for "engine".`,
-        id,
-      );
-    }
   }
 
   const requires = manifest.requires ?? [];
@@ -396,7 +386,6 @@ export function defineModule<
     id,
     version: manifest.version,
     label: manifest.label?.trim() || id,
-    engine: manifest.engine ?? null,
     requires,
     dir,
     tables,

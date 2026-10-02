@@ -31,7 +31,7 @@ export async function createApp() {
       database: ConfigService.get('DB_NAME'),
     },
     modules: [identity, catalog, reports],
-    // Checked against each module's `engine` range.
+    // THIS application's version, not liteb's. `/health` reports it.
     version: '2.0.0',
     basePath: '/api',
 

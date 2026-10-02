@@ -11,7 +11,6 @@ export default defineModule({
   id: 'catalog',
   version: '1.0.0',
   label: 'Catalog',
-  engine: '^2.0.0',
   dir: __dirname,
 
   // Declared, and checked at boot: catalog refuses to start without identity.

@@ -208,7 +208,7 @@ Packaging and licensing stay OUT of liteb: MIT framework, product problem.
 | --- | --- |
 | `module-manifest.ts` | Types + `ModuleDefinitionError` |
 | `define-module.ts` | Declares a module; validates what it knows alone |
-| `resolve-modules.ts` | Graph: order, cycles, `engine` |
+| `resolve-modules.ts` | Graph: order and cycles |
 | `reconcile-modules.ts` | Code vs. recorded state (**pure**) |
 | `module-store.ts` | `_modules` I/O |
 | `module-migrator.ts` | Per-module migrations + `_module_migrations` |
@@ -228,6 +228,17 @@ Decisions that are easy to undo by accident, so do not:
   an installation reaches a state nobody can explain. The four lifecycle hooks
   (`onInstall`, `onEnable`, `onDisable`, `onUninstall`) went with it: they were
   declared, typed and documented, and **nothing ever called them**.
+- **A module does not declare a host range: `engine` was removed in
+  2.0.0-alpha.5.** The modules ARE the application — same repository, released
+  together — so a folder pinning which versions of its own repository it
+  supports is a constraint that cannot fail. The scaffold proved it: the
+  generator wrote `engine: '^1.0.0'` while `liteb init` wrote the app at
+  `1.0.0`. It was conditional on top of that: `version` is optional in
+  `Liteb.create()`, and without it the check was skipped in silence. `version`
+  survives with one consumer, `/health`; a module's own `version` survives for
+  the `_modules` ledger, which compares it to detect an upgrade or a downgrade.
+  Host compatibility belongs to the extension design, for the day a module
+  actually travels — do not reintroduce it before then.
 - **An ENUM is collected like a table.** A table with an enum column emits DDL
   that references the type, so a schema without the enum generates a migration
   that fails when it runs. Measured, not assumed.

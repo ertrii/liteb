@@ -142,12 +142,6 @@ export interface ModuleManifest<
   /** Human-readable name, shown wherever modules are listed. */
   label?: string;
 
-  /**
-   * Host version range this module supports, e.g. `^3.0.0`. Checked at startup:
-   * an incompatible module refuses to load instead of failing halfway through.
-   */
-  engine?: string;
-
   /** Ids of the modules this one needs. Resolved in topological order. */
   requires?: string[];
 
@@ -249,7 +243,6 @@ export interface ResolvedModule<K extends string = string> {
   id: string;
   version: string;
   label: string;
-  engine: string | null;
   requires: string[];
   dir: string | null;
   tables: ModuleTable[];

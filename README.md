@@ -38,7 +38,7 @@ import billing from './modules/billing/module';
 const app = await Liteb.create({
   db: { type: 'postgres', host: ConfigService.get('DB_HOST'), synchronize: false },
   modules: [billing],   // the only way to mount anything
-  version: '1.0.0',     // checked against each module's `engine`
+  version: '1.0.0',     // this app's own version; /health reports it
   basePath: '/api',
   // OPTIONAL. Only endpoints that read `this.auth` need it.
   auth: async (request, { db, get }) => ({ actor: { userId: 1 }, permissions: ['billing.view'] }),
@@ -56,7 +56,6 @@ migrations in dependency order, and mounts the routes.
 export default defineModule({
   id: 'billing',
   version: '1.0.0',
-  engine: '^1.0.0',
   dir: __dirname,          // the folder everything below is found from
   requires: ['identity'],
 

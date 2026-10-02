@@ -112,7 +112,7 @@ and all of them have `get()`, `all()` and `notify()`.
 | Name | Type | What it is |
 | --- | --- | --- |
 | `defineModule` | `<const P>(manifest: ModuleManifest<P>) => ResolvedModule<PermissionKeysOf<P>>` | Declares a module and validates it at import time. The `const` parameter is what keeps the permission keys as literals. |
-| `ModuleManifest<P>` | interface | What a module says about itself: `id`, `version`, `label`, `engine`, `requires`, `dir`, `permissions`, `consumes` and the glob fields. |
+| `ModuleManifest<P>` | interface | What a module says about itself: `id`, `version`, `label`, `requires`, `dir`, `permissions`, `consumes` and the glob fields. |
 | `ResolvedModule<K>` | interface | The manifest with every default applied. Also carries `permissionKeys: K[]`. |
 | `ModulePermission<K>` | interface | `{ key, label? }`. The label is optional because a key usually says it. |
 | `PermissionDeclaration<K>` | `K \| ModulePermission<K>` | One entry of `permissions`: a key, or a key with text. |

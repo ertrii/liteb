@@ -12,7 +12,6 @@ describe('defineModule — identidad', () => {
     expect(mod.id).toBe('billing');
     expect(mod.version).toBe('1.0.0');
     expect(mod.label).toBe('billing');
-    expect(mod.engine).toBeNull();
     expect(mod.requires).toEqual([]);
     expect(mod.tables).toEqual([]);
     expect(mod.migrations).toEqual([]);
@@ -60,14 +59,6 @@ describe('defineModule — versiones', () => {
   it('acepta una versión con prerelease', () => {
     expect(defineModule({ ...base, version: '2.0.0-dev.0' }).version).toBe(
       '2.0.0-dev.0',
-    );
-  });
-
-  it('valida el rango de engine', () => {
-    expect(defineModule({ ...base, engine: '^3.0.0' }).engine).toBe('^3.0.0');
-    expect(defineModule({ ...base, engine: '>=3 <5' }).engine).toBe('>=3 <5');
-    expect(() => defineModule({ ...base, engine: 'la 3' })).toThrow(
-      /not a valid semver range/,
     );
   });
 });

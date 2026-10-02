@@ -76,7 +76,10 @@ export interface LitebOptions {
   /** Prefix for every module route. Defaults to `/api`. */
   basePath?: string;
 
-  /** Host version, checked against each module's `engine` range. */
+  /**
+   * The application's own version, not liteb's. Reported by `/health` when
+   * `details` is on, which is how a deployment says what it is running.
+   */
   version?: string;
 
   /**
@@ -176,7 +179,6 @@ const count = (total: number, noun: string): string =>
 export default class Liteb extends Server {
   private modules: ResolvedModule[] = [];
   private moduleBasePath = '/api';
-  private hostVersion?: string;
   private loadedModules: LoadedModule[] = [];
   private container?: Container;
   private permissionRegistry = new PermissionRegistry();
@@ -334,10 +336,7 @@ export default class Liteb extends Server {
     }
 
     app.authResolver = options.auth;
-    app.useModules(modules, {
-      basePath: options.basePath,
-      version: options.version,
-    });
+    app.useModules(modules, { basePath: options.basePath });
 
     return app;
   };
@@ -415,16 +414,14 @@ export default class Liteb extends Server {
    * and routines mounted.
    *
    * @param modules Manifests built with `defineModule()`.
-   * @param options `basePath` prefixes every module route (default `/api`);
-   * `version` is the host version checked against each module's `engine`.
+   * @param options `basePath` prefixes every module route (default `/api`).
    */
   private useModules = (
     modules: ResolvedModule[],
-    options: { basePath?: string; version?: string } = {},
+    options: { basePath?: string } = {},
   ) => {
     this.modules = modules;
     if (options.basePath) this.moduleBasePath = options.basePath;
-    if (options.version) this.hostVersion = options.version;
   };
 
   /**
@@ -471,9 +468,7 @@ export default class Liteb extends Server {
       }
     }
 
-    return resolveModules(this.modules, {
-      hostVersion: this.hostVersion,
-    });
+    return resolveModules(this.modules);
   };
 
   /**
