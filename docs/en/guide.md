@@ -991,7 +991,49 @@ An origin that is not on the list simply does not get the header, and the reques
 
 ### API versioning
 
-There is no version decorator. Version by **module**: a `billing-v2` module with its own `@Group('billing/v2')` endpoints runs beside `billing`, with its own routes, migrations and permissions.
+**The version goes in the URL, and it is a convention rather than something the framework knows about.** Two versions of the same resource coexist with what is already there, either way round:
+
+```typescript
+@Group('v1/products')                     // → /api/v1/products/:id
+@Group('products', { mount: '/api/v2' })  // → /api/v2/products/:id
+```
+
+Two separate classes, each with its own DTOs and its own `main()`. They mount and answer side by side, and nothing else has to be declared.
+
+Having both up is the easy part. What turns it into a **migration** rather than two routes nobody dares delete is [`@Deprecated`](#deprecated-a-route-on-its-way-out).
+
+#### `@Deprecated`: a route on its way out
+
+Marks the old one **without taking it down**:
+
+```typescript
+@Deprecated({
+  sunset: '2027-01-31',
+  use: '/api/v2/products/:id',
+  note: 'Returns the flat price. v2 nests it under `amount`.',
+})
+@Group('v1/products')
+@HttpGet(':id')
+export class ProductV1 extends Endpoint { ... }
+```
+
+All three are optional, and a bare `@Deprecated()` already says the one thing that cannot be left out: that it is going.
+
+| | What it is | Where it shows up |
+| --- | --- | --- |
+| `sunset` | The day it **stops answering**, as `YYYY-MM-DD`. Liteb does not switch it off then — deleting the class stays your decision. It is a promise you publish, and publishing it is what makes it something a caller can plan around. | the `Sunset` header and the description |
+| `use` | The path that **replaces** it. Without it a caller learns it is on borrowed time but not where to move, which is the half of the message that costs you the support thread. | the `Link` header and the description |
+| `note` | One line on **what changed**, for whoever reads `/docs`. Documentation only. | the description |
+
+And it does three things:
+
+- **The spec says so.** `deprecated: true` on the operation, which Swagger UI strikes through, plus the sunset date and the successor at the top of the description.
+- **The caller is told, on every response.** `Deprecation: true`, `Sunset` when there is a date, and `Link: <...>; rel="successor-version"` when there is a successor. A client that never reads the docs still gets the signal. The headers go out **whatever the route answers** — 200, 404, or the DTO's 422 that never reaches `main()` — because a route being on its way out does not depend on how one call went.
+- **You find out who is still calling**, which is *the* question that blocks deleting a route. The first hit leaves a warning in `warn.log`. **Once per route, not once per request**: what you want to learn is that the caller exists, and a line per request would bury everything else. How often and from where is already in the access log.
+
+> It is not `@ApiHidden`. Hiding the old version removes the one place a client could have read which version to move to; this marks it and keeps it visible.
+
+`Sunset` is RFC 8594 and the `Link` relation is registered by RFC 8288. The `Deprecation` header is still an IETF draft, and liteb sends its boolean form.
 
 ## Swagger / OpenAPI
 

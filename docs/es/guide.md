@@ -1071,9 +1071,66 @@ en una respuesta con error.
 
 ### Versionado de la API
 
-No hay decorador de versión. Versioná por **módulo**: un módulo `billing-v2` con
-sus propios endpoints `@Group('billing/v2')` corre al lado de `billing`, y se
-tiene sus propias rutas, migraciones y permisos.
+**La versión va en la URL, y es una convención, no un concepto del framework.**
+Dos versiones del mismo recurso conviven con lo que ya existe, de dos formas:
+
+```typescript
+@Group('v1/productos')                     // → /api/v1/productos/:id
+@Group('productos', { mount: '/api/v2' })  // → /api/v2/productos/:id
+```
+
+Son dos clases distintas, con sus propios DTO y su propio `main()`. Montan y
+contestan en paralelo, y nada más hay que declarar.
+
+Tener las dos arriba es la parte fácil. Lo que convierte eso en una
+**migración** en vez de dos rutas que nadie se anima a borrar es
+[`@Deprecated`](#deprecated-una-ruta-que-se-va).
+
+#### `@Deprecated`: una ruta que se va
+
+Marca la vieja **sin apagarla**:
+
+```typescript
+@Deprecated({
+  sunset: '2027-01-31',
+  use: '/api/v2/productos/:id',
+  note: 'Devuelve el precio plano. v2 lo anida en `importe`.',
+})
+@Group('v1/productos')
+@HttpGet(':id')
+export class ProductoV1 extends Endpoint { ... }
+```
+
+Los tres parámetros son opcionales, y `@Deprecated()` pelado ya dice lo único
+que no se puede omitir: que se va.
+
+| | Qué es | Dónde aparece |
+| --- | --- | --- |
+| `sunset` | El día que **deja de contestar**, en `YYYY-MM-DD`. liteb no la apaga ese día: borrar la clase sigue siendo tu decisión. Es una promesa que publicás, y publicarla es lo que la vuelve planificable para el que llama. | cabecera `Sunset` y la descripción |
+| `use` | La ruta que la **reemplaza**. Sin esto, quien llama se entera de que vive de prestado pero no de adónde moverse — que es la mitad que te cuesta el ticket de soporte. | cabecera `Link` y la descripción |
+| `note` | Una línea de **qué cambió**, para quien lee `/docs`. Sólo documentación. | la descripción |
+
+Y hace tres cosas:
+
+- **El spec lo dice.** `deprecated: true` en la operación, que Swagger UI tacha,
+  más la fecha y la sucesora al principio de la descripción.
+- **Quien llama se entera, en cada respuesta.** `Deprecation: true`, `Sunset`
+  si hay fecha, y `Link: <...>; rel="successor-version"` si hay sucesora. Un
+  cliente que nunca lee los docs recibe la señal igual. Los encabezados salen
+  **conteste lo que conteste** la ruta —200, 404 o el 422 del DTO, que ni llega
+  a `main()`—, porque una ruta que se está yendo no deja de irse porque una
+  llamada vino mal.
+- **Te enterás de quién la sigue llamando**, que es *la* pregunta que te bloquea
+  para borrarla. El primer impacto deja un aviso en `warn.log`. **Una vez por
+  ruta, no una por petición**: lo que querés saber es que el que llama existe, y
+  una línea por pedido taparía todo lo demás. Cuántas veces y desde dónde ya lo
+  registra el log de accesos.
+
+> No es `@ApiHidden`. Esconder la versión vieja le quita al cliente el único
+> lugar donde podía leer a cuál moverse: esto la marca y la deja a la vista.
+
+`Sunset` es el RFC 8594 y la relación del `Link` es del RFC 8288. El encabezado
+`Deprecation` todavía es un borrador de la IETF, y liteb manda su forma booleana.
 
 ## Swagger / OpenAPI
 

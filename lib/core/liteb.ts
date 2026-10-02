@@ -768,6 +768,11 @@ export default class Liteb extends Server {
               endpointReader.pathname,
               endpointReader.method,
             );
+            // First, so the headers are set whatever answers: a `@Use` guard
+            // that rejects, the DTO check, or `main()`.
+            if (endpointReader.deprecated) {
+              option.setHandler(endpointHandler.deprecation);
+            }
             if (endpointReader.hasMiddleware()) {
               option.setHandler(endpointHandler.middleware);
             }

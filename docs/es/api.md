@@ -99,6 +99,7 @@ todas tienen `get()`, `all()` y `notify()`.
 | `Provides` | `<T>(token: Contract<T>) => ClassDecorator` | El contrato que responde un proveedor. |
 | `Fills` | `<T>(token: Slot<T>) => ClassDecorator` | El punto de extensión que llena una estrategia. |
 | `ApiTag` `ApiSummary` `ApiDescription` `ApiResponse` `ApiHidden` | decoradores de clase | Qué dice `/docs` de este endpoint, o que no diga nada. |
+| `Deprecated` | `(options?: { sunset?, use?, note? }) => ClassDecorator` | Marca la ruta como que se va SIN apagarla: `deprecated: true` en el spec, cabeceras `Deprecation` / `Sunset` / `Link` en cada respuesta, y un aviso por ruta la primera vez que la llaman. |
 | `MiddlewareFn` | `(req, res, next) => void` | Lo que recibe `@Use`. |
 | `GroupOptions` | interface | Lo que recibe `@Group` además del nombre. |
 

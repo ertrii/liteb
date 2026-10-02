@@ -30,6 +30,10 @@ import {
   ApiSummaryMetadata,
   ApiTagMetadata,
 } from '../decorators/openapi.decorator';
+import {
+  DEPRECATED,
+  DeprecatedMetadata,
+} from '../decorators/deprecated.decorator';
 
 export default class EndpointReader {
   /**
@@ -56,6 +60,8 @@ export default class EndpointReader {
   public apiResponses: ApiResponseEntry[] = [];
   /** `@ApiHidden`: mounted, but kept out of the OpenAPI spec. */
   public apiHidden = false;
+  /** `@Deprecated`: answers as always, and says it is on its way out. */
+  public deprecated: DeprecatedMetadata | null = null;
 
   /**
    * `@Group` wins; otherwise the module id, which is why the decorator is only
@@ -182,6 +188,11 @@ export default class EndpointReader {
     if (hiddenDefine) {
       this.apiHidden = hiddenDefine.hidden;
     }
+    this.deprecated =
+      (Reflect.getMetadata(
+        DEPRECATED,
+        this.EndpointClass,
+      ) as DeprecatedMetadata) ?? null;
   };
 
   /**

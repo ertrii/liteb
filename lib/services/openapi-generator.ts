@@ -2,6 +2,7 @@ import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import path from 'path';
 import slash from 'slash';
 import EndpointReader from '../core/endpoint-reader';
+import type { DeprecatedMetadata } from '../decorators/deprecated.decorator';
 
 export interface OpenAPIInfo {
   title?: string;
@@ -39,6 +40,7 @@ interface OpenAPIOperation {
   tags?: string[];
   summary?: string;
   description?: string;
+  deprecated?: boolean;
   parameters?: OpenAPIParameter[];
   requestBody?: OpenAPIRequestBody;
   responses: Record<string, OpenAPIResponse>;
@@ -70,6 +72,34 @@ function expressToOpenApiPath(p: string): string {
 function fullPath(basePath: string, group: string, pathname: string): string {
   const joined = slash(path.join('/', basePath, group, pathname || ''));
   return expressToOpenApiPath(joined);
+}
+
+/**
+ * Folds a deprecation into the operation's description.
+ *
+ * `deprecated: true` alone tells a reader that the route is going and nothing
+ * else — not when, not where to. Those two answers are what makes the flag
+ * actionable, and the description is the only field in the operation that can
+ * carry them.
+ *
+ * It goes FIRST, before whatever `@ApiDescription` says: a reader who stops at
+ * the first line has read the part that changes what they do.
+ */
+function describeDeprecation(
+  described: string | null,
+  deprecated: DeprecatedMetadata | null,
+): string | undefined {
+  if (!deprecated) return described ?? undefined;
+
+  const lines: string[] = ['**Deprecated.**'];
+  if (deprecated.sunset) {
+    lines[0] += ` Stops answering on ${deprecated.sunset}.`;
+  }
+  if (deprecated.use) lines[0] += ` Use \`${deprecated.use}\` instead.`;
+  if (deprecated.note) lines.push(deprecated.note);
+  if (described) lines.push(described);
+
+  return lines.join('\n\n');
 }
 
 /**
@@ -204,7 +234,14 @@ export class OpenAPIGenerator {
           responses,
         };
         if (reader.apiSummary) op.summary = reader.apiSummary;
-        if (reader.apiDescription) op.description = reader.apiDescription;
+        const description = describeDeprecation(
+          reader.apiDescription,
+          reader.deprecated,
+        );
+        if (description) op.description = description;
+        // Swagger UI strikes the operation through, which is the one signal a
+        // reader gets without opening it.
+        if (reader.deprecated) op.deprecated = true;
         if (parameters.length > 0) op.parameters = parameters;
         if (requestBody) op.requestBody = requestBody;
 

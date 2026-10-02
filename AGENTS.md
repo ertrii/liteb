@@ -250,6 +250,15 @@ Decisions that are easy to undo by accident, so do not:
   because the old column was `not null` with NO default, so leaving it would
   break the next module's insert — on a deploy, not on the upgrade. That ALTER is
   deliberate and covered by a test; do not "clean it up".
+- **`@Deprecated` marks a route; it never stops answering.** The sunset date is
+  a promise published in a header and in the spec, not a switch — liteb must not
+  start refusing the route when the day arrives, because when to delete it is the
+  application's decision. Its warning fires ONCE per route per process, not per
+  request: the question is whether the caller still exists, and a line per request
+  would bury the log while the access log already has the volume. The handler is
+  registered BEFORE the middleware and the DTO check, so the headers are set on a
+  422 too. And it is not `@ApiHidden`: hiding the old version removes the one
+  place a client could read which version to move to.
 - **An ENUM is collected like a table.** A table with an enum column emits DDL
   that references the type, so a schema without the enum generates a migration
   that fails when it runs. Measured, not assumed.

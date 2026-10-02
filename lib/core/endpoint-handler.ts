@@ -17,6 +17,7 @@ import { Auth, AuthContext, AuthResolver } from './auth';
 import type { PermissionRegistry } from '../modules/permissions';
 import type { Scheduler } from '../modules/schedules';
 import { Output } from '../outputs/output';
+import { Logger } from '../utilities/logger';
 
 export default class EndpointHandler {
   constructor(
@@ -49,6 +50,59 @@ export default class EndpointHandler {
       };
     }
     return this.context;
+  };
+
+  /**
+   * One warning per route, not per request.
+   *
+   * The question a deprecation has to answer is "is anyone STILL calling this",
+   * and one line answers it. A line per request would answer it again forever
+   * and bury everything else in the log; how much and from where is what the
+   * access log is for.
+   */
+  private announced = false;
+
+  /**
+   * `@Deprecated`: tells the caller, and tells you that the caller exists.
+   *
+   * Registered FIRST, before the middleware and the DTO check, so the headers
+   * are on the way out whatever the route ends up answering — including a 422
+   * that never reaches `main()`. A route on its way out does not stop being on
+   * its way out because one call was malformed.
+   */
+  public deprecation = (req: Request, res: Response, next: () => void) => {
+    const deprecated = this.endpointReader.deprecated;
+    if (!deprecated) return next();
+
+    // The boolean form: the `Deprecation` header is still an IETF draft, and
+    // the one thing every draft of it agrees on is that its presence means this.
+    res.setHeader('Deprecation', 'true');
+    // RFC 8594, and the format is not negotiable: an HTTP-date or nothing.
+    if (deprecated.sunsetHeader) {
+      res.setHeader('Sunset', deprecated.sunsetHeader);
+    }
+    // The relation is registered (RFC 8288), so a client library that follows
+    // links finds the replacement without anyone reading prose.
+    if (deprecated.use) {
+      res.setHeader('Link', `<${deprecated.use}>; rel="successor-version"`);
+    }
+
+    if (!this.announced) {
+      this.announced = true;
+      const parts = [
+        `Deprecated route called: ${req.method} ${req.originalUrl}`,
+      ];
+      if (deprecated.sunset) {
+        parts.push(`It stops answering on ${deprecated.sunset}.`);
+      }
+      if (deprecated.use) parts.push(`Successor: ${deprecated.use}.`);
+      parts.push(
+        'Logged once per process — the access log has every call and who made it.',
+      );
+      Logger.warn(parts.join(' '));
+    }
+
+    next();
   };
 
   public middleware = (req: Request, res: Response, next: () => void) => {

@@ -6,6 +6,59 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [2.0.0-alpha.5] - 2026-10-01
 
+### Added
+
+- **`@Deprecated`: a route that is going away, and still answers.**
+
+  Two versions of the same resource could already run side by side — one of them
+  gets a `@Group` that carries the version (`@Group('v1/products')`, or
+  `@Group('products', { mount: '/api/v2' })`) and nothing else is needed. What
+  was missing was everything that turns that into a MIGRATION instead of two
+  routes nobody dares delete.
+
+  ```typescript
+  @Deprecated({
+    sunset: '2027-01-31',
+    use: '/api/v2/products/:id',
+    note: 'Returns the flat price. v2 nests it under `amount`.',
+  })
+  @Group('v1/products')
+  @HttpGet(':id')
+  export class ProductV1 extends Endpoint { ... }
+  ```
+
+  All three options are optional, and a bare `@Deprecated()` already says the one
+  thing that cannot be left out. What each one buys:
+
+  - **`sunset`** — the day it stops answering, as `YYYY-MM-DD`. Liteb does **not**
+    switch it off then: deleting the class stays your decision. It is a promise
+    you publish, which is what makes it something a caller can plan around.
+  - **`use`** — the path that replaces it. Without it a caller learns it is on
+    borrowed time but not where to move.
+  - **`note`** — one line on what changed, for whoever reads `/docs`.
+
+  Three effects:
+
+  - **The spec says so**: `deprecated: true` on the operation (Swagger UI strikes
+    it through), with the date and the successor at the top of the description.
+  - **The caller is told on every response**: `Deprecation: true`, `Sunset` when
+    there is a date, `Link: <...>; rel="successor-version"` when there is a
+    successor. The handler runs BEFORE the middleware and the DTO check, so the
+    headers are there on a 422 that never reaches `main()` — a malformed call is
+    the one that most needs to hear it.
+  - **You find out who is still calling**, which is the question that actually
+    blocks deleting a route: the first hit logs a warning. **Once per route per
+    process**, not per request — what you need to learn is that the caller
+    exists, and a line per request would bury the rest of the log. Volume is the
+    access log's job.
+
+  It is not `@ApiHidden`, which would take the old version out of the spec and
+  remove the one place a client could read which version to move to.
+
+  `Sunset` is RFC 8594 and the link relation is registered by RFC 8288; the
+  `Deprecation` header is still an IETF draft, and this is its boolean form. The
+  date is validated when the file is imported, like `@Cron`'s expression.
+
 ### Changed
 
 - **TypeORM is replaced by Drizzle.** [BREAKING]

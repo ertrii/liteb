@@ -23,6 +23,11 @@ export {
   ApiResponse,
   ApiHidden,
 } from './decorators/openapi.decorator';
+export { Deprecated } from './decorators/deprecated.decorator';
+export type {
+  DeprecatedOptions,
+  DeprecatedMetadata,
+} from './decorators/deprecated.decorator';
 export { Output, view, pdf, csv, file } from './outputs';
 export type {
   FileContent,
