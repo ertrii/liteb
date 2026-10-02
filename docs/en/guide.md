@@ -1317,7 +1317,15 @@ Two things worth knowing:
 
 ## Environment configuration
 
-`ConfigService` reads from `process.env` (it loads a `.env` file on import via `dotenv`):
+`ConfigService` reads from `process.env` (it loads a `.env` file on import via `dotenv`). What matters about each method is **when it fails**.
+
+`ConfigService.require([...])` goes **first in `createApp()`**, before a single value is read, and it names **every** variable that is missing rather than the first one: whoever is filling in a `.env` on a server wants one list, not one more failure per round trip. An **empty value counts as missing** — `DB_PASSWORD=` is what a template looks like before anyone edited it.
+
+`get()` **throws**, naming the variable. It used to be typed `string` and hand back `undefined`, so the value travelled on and broke somewhere else: `+ConfigService.get('DB_PORT')` was `NaN`, and `NaN` reaches the driver as a port, which fails as a connection problem. Use `number()` and `boolean()` for typed values — they fail as what they are — and `optional()` for a value that may legitimately be absent, because saying so reads as a decision while a `get()` wrapped in `?? ''` reads as someone working around a type.
+
+**Careful with reading the environment at module level**: that happens on *import*, which is before `createApp()` runs, so `require()` never gets to report it. A config file that needs a variable should export a **function** called from `createApp()` — which is what `liteb init`'s scaffolded session does, for exactly this reason.
+
+An installed **module** names what it needs in its manifest (`env: ['WA_BRIDGE_URL']`). It is checked at boot, **before the database is opened**, and the error gathers every module's missing variables into one list. It goes in the manifest rather than in the module's code so the question "what does this module need from me?" can be answered *without running anything* — which is what [`liteb doctor`](./cli.md#liteb-doctor) does. Declare only what is REQUIRED: a variable with a default in code is read with `optional()`.
 
 ```typescript
 import { ConfigService } from 'liteb';

@@ -1430,18 +1430,83 @@ Dos cosas que conviene saber:
 ## Configuración por entorno
 
 `ConfigService` lee de `process.env` (carga un archivo `.env` al importarse, con
-`dotenv`):
+`dotenv`). Lo que importa de cada método es **cuándo falla**.
 
 ```typescript
-import { ConfigService } from 'liteb';
-
-ConfigService.get('DB_HOST');
-ConfigService.mode(); // 'development' | 'production', desde NODE_ENV
+ConfigService.require(['DB_HOST', 'DB_PORT', 'SESSION_SECRET']); // lo primero
+ConfigService.get('DB_HOST');        // lanza si falta, nombrándola
+ConfigService.number('DB_PORT');     // lanza si no es número
+ConfigService.boolean('ENABLE_X');   // true/false, 1/0, yes/no, on/off
+ConfigService.optional('CORS_ORIGIN'); // string | undefined, y lo dice
+ConfigService.mode();                // 'development' | 'production'
 ```
 
-Las variables que tu app necesita (host de la base, credenciales, puerto, etc.)
-las definís vos y se las pasás a `db` en `Liteb.create`; liteb no exige ningún
-nombre en particular más allá de los de logging de arriba.
+### `require()` va primero, y nombra todas
+
+Va como **primera línea de `createApp()`**, antes de que se lea un solo valor:
+
+```typescript
+export async function createApp() {
+  ConfigService.require(['DB_HOST', 'DB_PORT', 'DB_NAME', 'SESSION_SECRET']);
+
+  return Liteb.create({ db: { host: ConfigService.get('DB_HOST'), ... } });
+}
+```
+
+Nombra **todas** las que faltan, no la primera. Quien está llenando un `.env` en
+un servidor quiere una lista, no un fallo más por cada viaje de ida y vuelta.
+
+Una variable **vacía cuenta como ausente**: `DB_PASSWORD=` es lo que parece una
+plantilla antes de que alguien la edite, no una decisión.
+
+> **Ojo con leer el entorno en el tope de un módulo.** Eso pasa al **importar**,
+> que es antes de que `createApp()` corra, así que `require()` no llega a
+> reportarlo. Si un archivo de configuración necesita una variable, que exporte
+> una **función** y se la llame desde `createApp()`. El andamio de `liteb init`
+> lo hace así con la sesión, justamente por esto.
+
+### `get()` lanza, y antes no
+
+Devolvía `undefined` tipada `string`, así que el valor seguía viaje y rompía en
+otro lado: `+ConfigService.get('DB_PORT')` daba `NaN`, y `NaN` le llega al driver
+como puerto — el fallo salía como un problema de conexión. Ahora `get()` lanza
+nombrando la variable, y `number()` falla por lo que es.
+
+Para un valor que **legítimamente puede no estar** está `optional()`. Decirlo es
+el punto: `optional()` se lee como una decisión, mientras un `get()` envuelto en
+`?? ''` se lee como alguien esquivando un tipo.
+
+### Lo que declara un módulo
+
+Un módulo instalado nombra en su manifiesto lo que necesita del entorno:
+
+```typescript
+export default defineModule({
+  id: 'whatsapp',
+  dir: __dirname,
+  env: ['WA_BRIDGE_URL', 'WA_BRIDGE_TOKEN'],
+});
+```
+
+Se chequea **al arrancar, antes de abrir la base** —una variable que falta no es
+un problema de la base, y si lo que falta son las credenciales, nombrar la
+variable le gana a un `ECONNREFUSED`— y el error junta lo de **todos** los
+módulos:
+
+```
+Missing environment variables declared by installed modules:
+  whatsapp: WA_BRIDGE_TOKEN
+  correo: SMTP_HOST
+```
+
+Va en el **manifiesto** y no en el código del módulo para que se pueda contestar
+sin correr nada, que es lo que hace [`liteb doctor`](./cli.md#liteb-doctor) y lo
+que vuelve «¿qué necesita este módulo de mí?» una pregunta que quien instala
+puede hacer **antes** del primer arranque.
+
+Sólo lo **obligatorio**. Una variable con valor por defecto en el código se lee
+con `optional()` y no se declara: declararla rechazaría un arranque que tenía un
+default perfectamente bueno.
 
 ## Aplicación de ejemplo
 

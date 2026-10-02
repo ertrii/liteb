@@ -37,7 +37,9 @@ sin ella `npx liteb` trae la etiqueta `latest`, que es otro major con otro CLI.
 | [`migration <module>/<name>`](#liteb-migration-modulename) | Una migración con sello de tiempo |
 | [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | La misma, escrita desde tus tablas |
 | [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | Lo que este módulo comparte: un contrato o un slot |
-| [`provider <module>/<name>`](#liteb-provider-modulename) | La clase que responde un contrato o llena un slot |
+| [`provider <module>/<name>`](#liteb-provider-modulename) | La clase que responde un contrato |
+| [`strategy <module>/<name> <slot>`](#liteb-strategy-modulename-slot) | La clase que llena el slot de otro módulo |
+| [`doctor`](#liteb-doctor) | ¿Está esta máquina lista para correr esto? No cambia nada |
 | [`migrate`](#liteb-migrate) | Corre las migraciones pendientes |
 | [`migrate:status`](#liteb-migratestatus) | Qué declara cada módulo, y qué ya corrió |
 | [`build`](#liteb-build) | Compila, opcionalmente a bytecode de V8 |
@@ -740,6 +742,60 @@ migrar.
 
 Leer el estado nunca crea nada: en una base que nunca migró, la tabla de registro
 no existe y la respuesta es sencillamente que todo está pendiente.
+
+---
+
+## `liteb doctor`
+
+```bash
+npx liteb doctor
+npx liteb doctor --entry build/index.js   # contra el build, no contra el fuente
+```
+
+**No cambia nada.** No corre migraciones, no crea tablas, no activa nada. Se
+puede correr antes, durante y después de una instalación, y dos veces.
+
+Existe para el momento en que nadie está mirando los logs: un servidor que armó
+otro, un contenedor que reinicia, un `.env` que alguien llenó desde la plantilla.
+Cada cosa que reporta es una que, si no, aparece más tarde y **disfrazada de otro
+problema** — una variable que falta como error del driver, un Node viejo como un
+error de sintaxis, una migración que nadie corrió como un 500 en la primera
+petición que toca la columna.
+
+```
+[ok]  Node  v22.14.0
+[!!]  Environment (application)  Missing environment variables: DB_PORT, DB_NAME. …
+[--]  Environment (modules)  the application did not load
+[--]  Database  the application did not load
+[--]  Migrations  the application did not load
+
+1 check failed: this installation will not start as it is.
+```
+
+| Fila | Qué mira |
+| --- | --- |
+| `Node` | La versión que corre contra el `engines.node` de liteb |
+| `Environment (application)` | El `ConfigService.require()` de tu `createApp()` |
+| `Environment (modules)` | El `env` que declara cada módulo instalado en su manifiesto |
+| `Database` | Que la base conteste de verdad, con las credenciales que hay |
+| `Migrations` | Cuántas quedan pendientes |
+
+**El orden no es casual: cada fila es la razón por la que se puede confiar en la
+siguiente.** Node antes de cargar el código, el entorno antes de la conexión, la
+conexión antes de preguntar qué migraciones faltan. Y cuando una falla, las que
+dependían de ella salen como **salteadas** (`[--]`), no como aprobadas: «no
+llegamos a preguntar» no es «está bien».
+
+Las migraciones pendientes son un **aviso** (`[ ~]`), no un fallo: en una
+instalación nueva es el estado normal. Lo que estaría mal es no saberlo.
+
+**Sale con código 1 si algo falló**, que es el punto: está hecho para correr
+dentro de un script de instalación, donde nadie lee la salida salvo que se
+detenga.
+
+```bash
+npx liteb doctor && npx liteb migrate && node build/index.js
+```
 
 ---
 

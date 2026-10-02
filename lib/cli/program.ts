@@ -3,6 +3,7 @@ import path from 'path';
 import { Command } from 'commander';
 import { connect, loadApp } from './app-loader';
 import { runBuild } from './build';
+import { printDoctor, runDoctor } from './doctor';
 import { createProject, GitResult, initGit, install } from './init';
 import {
   createEndpoint,
@@ -474,6 +475,23 @@ ${mod.module}`);
       } finally {
         await app.close();
       }
+    });
+
+  program
+    .command('doctor')
+    .description(
+      'Is this machine ready to run this application? Changes nothing',
+    )
+    .option('--entry <file>', 'file exporting createApp()')
+    .action(async (flags) => {
+      const result = await runDoctor({
+        root: process.cwd(),
+        entry: flags.entry,
+      });
+      printDoctor(result);
+      // The exit code is the point: this is meant to run inside an install
+      // script, where nobody reads the output unless it stops.
+      if (!result.ok) process.exitCode = 1;
     });
 
   program

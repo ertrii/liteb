@@ -8,7 +8,7 @@ export default function enableSession(app: Express) {
   const pool = new Pool({
     host: ConfigService.get('DB_HOST'),
     database: ConfigService.get('DB_NAME'),
-    port: +ConfigService.get('DB_PORT'),
+    port: ConfigService.number('DB_PORT'),
     user: ConfigService.get('DB_USERNAME'),
     password: ConfigService.get('DB_PASSWORD'),
   });

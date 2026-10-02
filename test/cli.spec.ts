@@ -326,10 +326,20 @@ describe('liteb init', () => {
     expect(session).toContain('saveUninitialized: false');
     expect(session).toContain('httpOnly: true');
 
-    // Y montado ANTES de las rutas, o lo que el login escriba no se lee.
+    // Es una FUNCION, no una sesion ya construida: leer el entorno en el tope
+    // del modulo pasa al importar, que es ANTES de createApp() y por lo tanto
+    // antes de que require() pueda decir que falta algo.
+    expect(session).toContain('export default function buildSession()');
+
+    // Y montada ANTES de las rutas, o lo que el login escriba no se lee.
     const index = busca('src/index.ts');
-    expect(index).toContain("import session from './config/session'");
-    expect(index).toContain('app.use(session);');
+    expect(index).toContain("import buildSession from './config/session'");
+    expect(index).toContain('app.use(buildSession());');
+
+    // SESSION_SECRET entra en la lista que se chequea primero: el andamio lo
+    // escribe en el .env, asi que una instalacion sin el tiene que enterarse
+    // junto con todo lo demas que falte.
+    expect(index).toContain("'SESSION_SECRET',");
 
     // El secreto se genera por proyecto: uno por defecto que nadie cambia es
     // lo mismo que no firmar la cookie.

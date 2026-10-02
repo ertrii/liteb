@@ -113,7 +113,7 @@ export function createProject(options: InitOptions): Plan {
 
   const index = `import { ConfigService, Liteb } from 'liteb';
 import auth from './config/auth';
-import session from './config/session';
+import buildSession from './config/session';
 
 /**
  * The application: a database, the modules it is made of, and how a request
@@ -122,10 +122,24 @@ import session from './config/session';
  * Exported so a test or a script can build it without starting a server.
  */
 export async function createApp() {
+  // FIRST, before a single value is read: it names EVERY variable that is
+  // missing, instead of one per run. \`liteb doctor\` reports the same list
+  // without starting anything, which is what an install script should call.
+  ConfigService.require([
+    'DB_HOST',
+    'DB_PORT',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'DB_NAME',
+    'SESSION_SECRET',
+  ]);
+
   const app = await Liteb.create({
     db: {
       host: ConfigService.get('DB_HOST'),
-      port: +ConfigService.get('DB_PORT'),
+      // \`number\` and not \`+get(...)\`: a value with a stray space or a
+      // comment on the line would reach the driver as NaN.
+      port: ConfigService.number('DB_PORT'),
       user: ConfigService.get('DB_USERNAME'),
       password: ConfigService.get('DB_PASSWORD'),
       database: ConfigService.get('DB_NAME'),
@@ -203,7 +217,7 @@ export async function createApp() {
   // Cookie sessions, before the routes: what a login writes into
   // \`this.request.session\` is what src/config/auth.ts reads back on the next
   // request. Middleware added here runs ahead of every module's routes.
-  app.use(session);
+  app.use(buildSession());
 
   return app;
 }
@@ -491,20 +505,27 @@ declare module 'express-session' {
  * on every restart, and a second process does not see the first one's
  * sessions. When this has users, put the sessions in the database you already
  * run (\`connect-pg-simple\` over the same Postgres) and pass it as \`store\`.
+ *
+ * It is a FUNCTION, and that part matters: reading the environment at module
+ * level would happen on import, which is before createApp() runs and therefore
+ * before ConfigService.require() can say what is missing. Called from inside
+ * createApp(), a missing SESSION_SECRET is reported with everything else.
  */
-export default session({
-  secret: ConfigService.get('SESSION_SECRET'),
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: 'lax',
-    // Over HTTPS only, once this is deployed. Left off in development because
-    // a secure cookie is not sent over http://localhost.
-    secure: ConfigService.mode() === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  },
-});
+export default function buildSession() {
+  return session({
+    secret: ConfigService.get('SESSION_SECRET'),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      // Over HTTPS only, once this is deployed. Left off in development because
+      // a secure cookie is not sent over http://localhost.
+      secure: ConfigService.mode() === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  });
+}
 `;
 
   const authFile = `import { defineAuth, Logger } from 'liteb';

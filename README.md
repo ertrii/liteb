@@ -151,6 +151,7 @@ npx liteb strategy billing/cash payment-methods      # fills someone else's slot
 npx liteb routine billing/nightly --cron "0 7 * * *"   # + its schedule token
 npx liteb token billing/charge-created slot --reaction  # something to react to
 
+npx liteb doctor                             # is this machine ready? changes nothing, exits 1 on a problem
 npx liteb migrate                            # run pending migrations, no server
 npx liteb migrate --dry-run                  # what would run
 npx liteb migrate:status                     # what each module declares, and what ran

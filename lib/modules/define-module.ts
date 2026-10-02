@@ -281,6 +281,31 @@ export function defineModule<
     );
   }
 
+  const env = manifest.env ?? [];
+  if (!Array.isArray(env)) {
+    fail(`Module "${id}": "env" must be an array of variable names.`, id);
+  }
+  for (const name of env) {
+    // Checked here rather than at boot: a typo in a NAME is a module that
+    // demands a variable nobody will ever set, and the file being imported is
+    // where the typo can be pointed at.
+    if (typeof name !== 'string' || name.trim() === '') {
+      fail(
+        `Module "${id}": "env" takes variable names, and got ${JSON.stringify(
+          name,
+        )}.`,
+        id,
+      );
+    }
+  }
+  const repeatedEnv = duplicates(env);
+  if (repeatedEnv.length > 0) {
+    fail(
+      `Module "${id}": duplicated env variables: ${repeatedEnv.join(', ')}.`,
+      id,
+    );
+  }
+
   const declared = manifest.permissions ?? [];
   if (!Array.isArray(declared)) {
     fail(
@@ -373,6 +398,7 @@ export function defineModule<
     id,
     label: manifest.label?.trim() || id,
     requires,
+    env,
     dir,
     tables,
     migrations,

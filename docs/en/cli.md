@@ -38,7 +38,9 @@ different CLI.
 | [`migration <module>/<name>`](#liteb-migration-modulename) | A timestamped migration |
 | [`migration:generate <module>/<name>`](#liteb-migrationgenerate-modulename) | The same, written from your tables |
 | [`token <module>/<name> <kind>`](#liteb-token-modulename-kind) | What this module shares: a contract or a slot |
-| [`provider <module>/<name>`](#liteb-provider-modulename) | The class that answers a contract or fills a slot |
+| [`provider <module>/<name>`](#liteb-provider-modulename) | The class that answers a contract |
+| [`strategy <module>/<name> <slot>`](#liteb-strategy-modulename-slot) | The class that fills another module's slot |
+| [`doctor`](#liteb-doctor) | Is this machine ready to run this? Changes nothing |
 | [`migrate`](#liteb-migrate) | Runs the pending migrations |
 | [`migrate:status`](#liteb-migratestatus) | What each module declares, and what already ran |
 | [`build`](#liteb-build) | Compiles, optionally to V8 bytecode |
@@ -738,6 +740,59 @@ will migrate.
 Reading the state never creates anything: on a database that has never
 migrated, the registry table does not exist and the answer is simply that
 everything is pending.
+
+---
+
+## `liteb doctor`
+
+```bash
+npx liteb doctor
+npx liteb doctor --entry build/index.js   # against the build, not the source
+```
+
+**It changes nothing.** No migration runs, no table is created, nothing is
+activated. Run it before, during and after an install, and twice.
+
+It exists for the moment nobody is watching the logs: a server somebody else set
+up, a container that restarts, a `.env` filled in from a template. Everything it
+reports is something that would otherwise surface later and **disguised as a
+different problem** — a missing variable as a driver error, an old Node as a
+syntax error, a migration nobody ran as a 500 on the first request that touches
+the column.
+
+```
+[ok]  Node  v22.14.0
+[!!]  Environment (application)  Missing environment variables: DB_PORT, DB_NAME. …
+[--]  Environment (modules)  the application did not load
+[--]  Database  the application did not load
+[--]  Migrations  the application did not load
+
+1 check failed: this installation will not start as it is.
+```
+
+| Row | What it looks at |
+| --- | --- |
+| `Node` | The running version against liteb's `engines.node` |
+| `Environment (application)` | Your `createApp()`'s `ConfigService.require()` |
+| `Environment (modules)` | The `env` each installed module declares in its manifest |
+| `Database` | That the database actually answers with the credentials present |
+| `Migrations` | How many are still pending |
+
+**The order is not incidental: each row is the reason the next one can be
+trusted.** Node before loading the code, the environment before the connection,
+the connection before asking what migrations are pending. When one fails, the
+ones that depended on it come back **skipped** (`[--]`) rather than passed:
+"we did not get to ask" is not "it is fine".
+
+Pending migrations are a **warning** (`[ ~]`), not a failure: on a fresh install
+that is the normal state. What would be wrong is not knowing.
+
+**It exits 1 when something failed**, which is the point: it is built to run
+inside an install script, where nobody reads the output unless it stops.
+
+```bash
+npx liteb doctor && npx liteb migrate && node build/index.js
+```
 
 ---
 

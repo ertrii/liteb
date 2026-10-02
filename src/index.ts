@@ -22,10 +22,21 @@ import reports from './modules/reports/module';
  * it. That is the contract the CLI looks for.
  */
 export async function createApp() {
+  // FIRST, before a single value is read. A missing variable is named here, with
+  // every other missing one, instead of arriving at the driver as `undefined`.
+  ConfigService.require([
+    'DB_HOST',
+    'DB_PORT',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'DB_NAME',
+    'SECRET_KEY',
+  ]);
+
   const app = await Liteb.create({
     db: {
       host: ConfigService.get('DB_HOST'),
-      port: +ConfigService.get('DB_PORT'),
+      port: ConfigService.number('DB_PORT'),
       user: ConfigService.get('DB_USERNAME'),
       password: ConfigService.get('DB_PASSWORD'),
       database: ConfigService.get('DB_NAME'),
@@ -41,7 +52,7 @@ export async function createApp() {
     // `*` on a request that carries cookies, and liteb refuses to start rather
     // than let you find that out in a console.
     cors: {
-      origin: (ConfigService.get('CORS_ORIGIN') ?? '')
+      origin: (ConfigService.optional('CORS_ORIGIN') ?? '')
         .split(',')
         .map((value) => value.trim())
         .filter(Boolean),

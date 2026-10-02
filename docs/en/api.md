@@ -26,7 +26,8 @@ The first four sections are enough to build something.
 | `Liteb.create` | `(options: LitebOptions) => Promise<Liteb>` | Resolves the modules, opens the database, reconciles what is installed, and hands back an application that has not started listening. |
 | `LitebOptions` | interface | Everything an application decides: `db`, `modules`, `basePath`, `version`, `auth`, `cors`, `requestId`, `docs`, `health`, `logs`. |
 | `DocsConfig` | interface | `{ path?, info? }` — where `/docs` answers and what the OpenAPI document says about itself. |
-| `ConfigService` | class | `.get(name)` reads an env var, `.all()` every one, `.mode()` the `NODE_ENV`. **It is typed `string` and does not check**: a variable nobody set comes back `undefined` anyway, so check the ones that matter at boot. |
+| `ConfigService` | class | The environment, with the failure in the right place. `.require(names)` goes first in `createApp()` and names EVERY missing variable; `.get(name)` throws when it is absent; `.number(name)` / `.boolean(name)` validate the format; `.optional(name)` returns `string \| undefined`; `.whichMissing(names)` reports without throwing; `.all()`, `.mode()`. An empty value counts as missing. |
+| `ConfigError` | class | What `ConfigService` throws. Carries `names` with the variables involved, beside the message. |
 | `MODE` | `'production' \| 'development'` | What `ConfigService.mode()` returns. |
 
 ### What a `Liteb` gives you

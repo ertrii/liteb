@@ -9,6 +9,7 @@ import { Logger } from '../utilities/logger';
 import type { LoggerOptions } from '../services/log4js';
 import ErrorControl from '../utilities/error-control';
 import { NotFoundError } from '../utilities/errors';
+import { ConfigError, ConfigService } from '../utilities/config-service';
 import { ErrorType } from '../interfaces/type-error';
 import { Routine } from '../templates/routine';
 import { Scheduler, ScheduleHandle, ScheduleToken } from '../modules/schedules';
@@ -672,10 +673,45 @@ export default class Liteb extends Server {
    *
    * @param port Port where the HTTP server will be started.
    */
+  /**
+   * What the installed modules need from the environment, and whether it is
+   * there.
+   *
+   * Public because an installer wants the answer WITHOUT starting the
+   * application — `liteb doctor` is this plus the checks that do need a
+   * connection. It reports rather than throws, so a caller can print every
+   * problem at once.
+   */
+  public checkEnv = (): { moduleId: string; missing: string[] }[] => {
+    return this.modules
+      .map((mod) => ({
+        moduleId: mod.id,
+        missing: ConfigService.whichMissing(mod.env),
+      }))
+      .filter((entry) => entry.missing.length > 0);
+  };
+
   public start = async (port: number) => {
     if (this.started) return;
     this.started = true;
     const startedAt = Date.now();
+
+    // BEFORE the connection on purpose. A module missing a variable is not a
+    // database problem, and if the database credentials are what is missing then
+    // naming the variable beats a driver's ECONNREFUSED. Everything at once, so
+    // somebody filling in a `.env` on a server gets one list.
+    const incomplete = this.checkEnv();
+    if (incomplete.length > 0) {
+      this.started = false;
+      const detail = incomplete
+        .map((entry) => `  ${entry.moduleId}: ${entry.missing.join(', ')}`)
+        .join('\n');
+      const names = incomplete.flatMap((entry) => entry.missing);
+      throw new ConfigError(
+        `Missing environment variables declared by installed modules:\n${detail}\n\nEach module names what it cannot run without in its manifest ("env"). Set them, or run \`liteb doctor\` to see everything this installation is still missing.`,
+        names,
+      );
+    }
 
     // Initialize the database. If it fails it is a FATAL error: rethrow so the
     // process exits with a non-zero code and the orchestrator (Docker/PM2)

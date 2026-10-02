@@ -143,6 +143,28 @@ export interface ModuleManifest<
   requires?: string[];
 
   /**
+   * Environment variables this module cannot run without.
+   *
+   * Checked at boot, before the database is opened: an installation missing one
+   * refuses to start and the error names the module and every variable that is
+   * absent. An empty value counts as absent, because `KEY=` is what a template
+   * looks like before anyone filled it in.
+   *
+   * It belongs in the MANIFEST rather than in the module's code so that it can be
+   * answered without running anything — which is what `liteb doctor` does, and
+   * what makes "what does this module need from me?" a question an installer can
+   * ask before the first boot.
+   *
+   * Only what is REQUIRED. A variable with a default in code is read with
+   * `ConfigService.optional()` and is not declared here — declaring it would
+   * refuse a boot that had a perfectly good default.
+   *
+   * @example
+   * env: ['WA_BRIDGE_URL', 'WA_BRIDGE_TOKEN'],
+   */
+  env?: string[];
+
+  /**
    * Folder the module lives in — pass `__dirname`.
    *
    * Everything liteb finds by itself is found from here: the standard layout
@@ -240,6 +262,8 @@ export interface ResolvedModule<K extends string = string> {
   id: string;
   label: string;
   requires: string[];
+  /** Environment variables this module needs. Checked at boot. */
+  env: string[];
   dir: string | null;
   tables: ModuleTable[];
   migrations: Function[];

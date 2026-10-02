@@ -8,6 +8,96 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Configuration is declared, and a missing variable fails at boot with its
+  name.** [BREAKING]
+
+  `ConfigService.get()` was typed `string` and returned `undefined`. The scaffold
+  liteb writes itself did `+ConfigService.get('DB_PORT')`, so a forgotten variable
+  became `NaN`, reached the driver as a port, and failed as a connection problem
+  — three layers from its cause, on a server somebody else installed. Nothing
+  could answer "is this installation missing a variable?", because nothing
+  declared which ones it needed.
+
+  ```typescript
+  export async function createApp() {
+    // FIRST, before a single value is read. Names EVERY missing variable.
+    ConfigService.require(['DB_HOST', 'DB_PORT', 'DB_NAME', 'SESSION_SECRET']);
+
+    return Liteb.create({
+      db: { host: ConfigService.get('DB_HOST'), port: ConfigService.number('DB_PORT'), ... },
+    });
+  }
+  ```
+
+  - **`require(names)`** reports every absent variable at once, not the first:
+    whoever is filling in a `.env` on a server wants one list, not one more
+    failure per round trip.
+  - **`get(name)` now THROWS** when the variable is absent, naming it. [BREAKING]
+    A call that relied on `undefined` coming back — `get('X') ?? 'default'` —
+    becomes **`optional(name)`**, which returns `string | undefined` and reads as
+    the decision it is.
+  - **`number(name)`** and **`boolean(name)`** fail as what they are. `DB_PORT`
+    with a stray space or a comment on the line was `NaN`; `ENABLE_X=maybe`
+    silently meant `false`, which is how a feature stays off while its `.env` says
+    it is on.
+  - **An empty value counts as missing.** `DB_PASSWORD=` is what a template looks
+    like before anyone edited it.
+  - **`ConfigError`** carries `names` beside the message, so a caller can report
+    them its own way.
+
+  **A module declares its own, in the manifest:**
+
+  ```typescript
+  export default defineModule({ id: 'whatsapp', env: ['WA_BRIDGE_URL'] });
+  ```
+
+  Checked at boot **before the database opens** — a missing variable is not a
+  database problem, and if the credentials are what is missing then naming the
+  variable beats an `ECONNREFUSED` — and the error gathers every module's into one
+  list. It goes in the manifest rather than in the module's code so that "what
+  does this module need from me?" can be answered WITHOUT running anything.
+  `app.checkEnv()` is the same answer as data.
+
+  **Also changed in the scaffold:** the session config is now a FUNCTION called
+  from `createApp()`. It read the environment at module level, which happens on
+  import — before `createApp()`, and therefore before `require()` could report
+  anything. Any config file that needs a variable has to do the same.
+
+  **Migrating:** add `ConfigService.require([...])` as the first line of
+  `createApp()`, and change any `get()` that relied on `undefined` to
+  `optional()`. `liteb doctor` tells you what is still missing.
+
+- **`liteb doctor`: is this machine ready to run this application?**
+
+  For the install, which is the moment nobody is watching the logs: a server
+  somebody else set up, a container that restarts, a `.env` filled in from a
+  template.
+
+  ```
+  [ok]  Node  v22.14.0
+  [!!]  Environment (application)  Missing environment variables: DB_PORT, DB_NAME. …
+  [--]  Environment (modules)  the application did not load
+  [--]  Database  the application did not load
+  [--]  Migrations  the application did not load
+
+  1 check failed: this installation will not start as it is.
+  ```
+
+  Node against liteb's `engines.node`, the application's own `require()`, every
+  module's declared `env`, that the database actually answers, and how many
+  migrations are pending.
+
+  **It changes nothing** — no migration runs, no table is created — so it is safe
+  before, during and after an install, and twice. **It exits 1 on a failure**,
+  which is the point: it belongs in an install script, where nobody reads the
+  output unless it stops.
+
+  The order is not incidental: each check is why the next one can be trusted. When
+  one fails, the ones that depended on it are reported **skipped**, not passed —
+  "we did not get to ask" is not "it is fine". Pending migrations are a WARNING,
+  because on a fresh install that is the normal state; what would be wrong is not
+  knowing.
+
 - **`@Deprecated`: a route that is going away, and still answers.**
 
   Two versions of the same resource could already run side by side — one of them

@@ -259,6 +259,31 @@ Decisions that are easy to undo by accident, so do not:
   registered BEFORE the middleware and the DTO check, so the headers are set on a
   422 too. And it is not `@ApiHidden`: hiding the old version removes the one
   place a client could read which version to move to.
+- **Configuration fails at boot, by name, all at once.** `ConfigService.get()`
+  used to be typed `string` and return `undefined`, so a missing variable reached
+  a driver or became `NaN` at a port, and the failure surfaced as something else
+  entirely. Three rules hold this together and each one is load-bearing: an EMPTY
+  value counts as missing (`KEY=` is an unedited template, not a decision);
+  `require()` reports EVERY missing variable rather than the first, because the
+  person filling in a `.env` on a server wants one list; and a module declares its
+  own in the MANIFEST, not in its code, so "what does this module need?" is
+  answerable without running anything. The module check runs BEFORE the database
+  opens — if the credentials are what is missing, naming the variable beats an
+  `ECONNREFUSED`.
+- **Nothing liteb scaffolds may read the environment at module level.** That
+  happens on import, which is before `createApp()` and therefore before
+  `require()` can report anything. The scaffolded session is a FUNCTION for this
+  reason alone; do not "simplify" it back into a top-level call.
+- **`liteb doctor` changes nothing, and a dependent check reports SKIPPED.** It
+  runs inside install scripts, so it must stay side-effect free and keep exiting
+  non-zero on a failure. When a check fails, the ones that needed it are
+  `skipped`, never passed: "we did not get to ask" is not "it is fine" — the same
+  distinction a license client has to make about a network it could not reach.
+  Pending migrations are a WARNING, because on a fresh install that is the normal
+  state. It identifies a `ConfigError` by `name` and not only by `instanceof`,
+  because the application and the CLI are not always the same copy of the module
+  (npm link, a monorepo, source beside a build) — found by running it, not by
+  reasoning.
 - **An ENUM is collected like a table.** A table with an enum column emits DDL
   that references the type, so a schema without the enum generates a migration
   that fails when it runs. Measured, not assumed.
