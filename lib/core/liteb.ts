@@ -455,12 +455,6 @@ export default class Liteb extends Server {
       for (const entry of reconciliation.install) {
         Logger.info(`Module "${entry.id}" installed`);
       }
-      for (const entry of reconciliation.upgrade) {
-        const direction = entry.downgrade ? 'DOWNGRADED' : 'upgraded';
-        Logger.warn(
-          `Module "${entry.id}" ${direction}: ${entry.from} -> ${entry.to}`,
-        );
-      }
       for (const entry of reconciliation.orphaned) {
         Logger.warn(
           `Module "${entry.id}" is recorded but no longer in the code. Its data was left untouched.`,

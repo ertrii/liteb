@@ -146,10 +146,9 @@ order is not incidental — each step depends on the one before:
    code**, then initialized. An already-initialized DataSource is adopted rather
    than re-initialized.
 2. **`_modules`** — `ModuleStore.sync()` reconciles code against what the
-   installation recorded: what to install, what changed version, what is
-   recorded but gone.
+   installation recorded: what to install, and what is recorded but gone.
 3. **Resolve** — `resolveModules()` orders the graph by dependency and refuses
-   duplicate ids, missing dependencies, cycles and host incompatibility.
+   duplicate ids, missing dependencies and cycles.
 4. **Migrate** — `ModuleMigrator.run()`, per module, in that order.
 5. **Contracts** — `buildContainer()` registers what modules provide and refuses
    a consumed contract nobody provides.
@@ -239,6 +238,18 @@ Decisions that are easy to undo by accident, so do not:
   the `_modules` ledger, which compares it to detect an upgrade or a downgrade.
   Host compatibility belongs to the extension design, for the day a module
   actually travels — do not reintroduce it before then.
+- **A module has no version of its own, removed right after `engine` in
+  2.0.0-alpha.5.** Nothing ever compared it — not against another module, not
+  against the application — but a per-module semver reads as "separate packages,
+  compatible only when the numbers agree", which is the opposite of what a module
+  is here. Its one real product was the boot warning that a deploy had gone
+  BACKWARDS, and with every manifest at `1.0.0` forever that warning could not
+  fire. `_modules` records PRESENCE: `ModuleState` is `{ id }`, and
+  `reconcileModules()` answers what to install and what is recorded but gone.
+  `ensureTable()` runs `alter table _modules drop column if exists version`
+  because the old column was `not null` with NO default, so leaving it would
+  break the next module's insert — on a deploy, not on the upgrade. That ALTER is
+  deliberate and covered by a test; do not "clean it up".
 - **An ENUM is collected like a table.** A table with an enum column emits DDL
   that references the type, so a schema without the enum generates a migration
   that fails when it runs. Measured, not assumed.

@@ -22,7 +22,6 @@ class CrearCargos1000 {
 const billing = () =>
   defineModule({
     id: 'billing',
-    version: '1.0.0',
     dir: billingDir,
     routes: './controllers/*.controller.ts',
     migrations: [CrearCargos1000],
@@ -32,7 +31,6 @@ const billing = () =>
 const news = () =>
   defineModule({
     id: 'news',
-    version: '1.0.0',
     dir: billingDir,
     routes: './controllers/*.controller.ts',
   });
@@ -43,7 +41,6 @@ const siteDir = path.join(__dirname, 'fixtures/modules/site');
 const site = () =>
   defineModule({
     id: 'site',
-    version: '1.0.0',
     dir: siteDir,
     routes: './endpoints/*.endpoint.ts',
   });
@@ -134,7 +131,7 @@ describe('arranque con módulos', () => {
     await boot([billing()]);
 
     const stored = await new ModuleStore(db).list();
-    expect(stored).toEqual([{ id: 'billing', version: '1.0.0' }]);
+    expect(stored).toEqual([{ id: 'billing' }]);
   });
 
   it('un módulo presente en el código responde desde el primer arranque', async () => {
@@ -167,7 +164,6 @@ describe('arranque con módulos', () => {
     db = await createTestDb();
     const huerfano = defineModule({
       id: 'billing',
-      version: '1.0.0',
       requires: ['fantasma'],
     });
 

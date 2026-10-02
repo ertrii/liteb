@@ -3,14 +3,13 @@ import { describe, expect, it } from '@jest/globals';
 import { defineModule } from '../lib/modules/define-module';
 import { ModuleDefinitionError } from '../lib/modules/module-manifest';
 
-const base = { id: 'billing', version: '1.0.0' };
+const base = { id: 'billing' };
 
 describe('defineModule — identidad', () => {
   it('acepta un manifiesto mínimo y aplica los valores por defecto', () => {
     const mod = defineModule(base);
 
     expect(mod.id).toBe('billing');
-    expect(mod.version).toBe('1.0.0');
     expect(mod.label).toBe('billing');
     expect(mod.requires).toEqual([]);
     expect(mod.tables).toEqual([]);
@@ -43,23 +42,6 @@ describe('defineModule — identidad', () => {
       'Facturación',
     );
     expect(defineModule({ ...base, label: '   ' }).label).toBe('billing');
-  });
-});
-
-describe('defineModule — versiones', () => {
-  it('exige una versión semver', () => {
-    expect(() => defineModule({ id: 'billing', version: '' })).toThrow(
-      /needs a "version"/,
-    );
-    expect(() => defineModule({ id: 'billing', version: '2.1' })).toThrow(
-      /not a valid semver version/,
-    );
-  });
-
-  it('acepta una versión con prerelease', () => {
-    expect(defineModule({ ...base, version: '2.0.0-dev.0' }).version).toBe(
-      '2.0.0-dev.0',
-    );
   });
 });
 

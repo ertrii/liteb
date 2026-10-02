@@ -27,7 +27,6 @@ const fakeDb = { marca: 'la de verdad' } as unknown as Database;
 
 const demo = defineModule({
   id: 'demo',
-  version: '1.0.0',
   dir: path.join(__dirname, 'fixtures/proveedores'),
 });
 
@@ -176,7 +175,6 @@ describe('un contrato tiene exactamente un proveedor', () => {
     // es la clase de error que cambia entre despliegues.
     const otro = defineModule({
       id: 'otro',
-      version: '1.0.0',
       dir: path.join(__dirname, 'fixtures/proveedores'),
     });
 

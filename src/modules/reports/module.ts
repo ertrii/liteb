@@ -13,7 +13,6 @@ import { ProductCatalog } from '@/catalog/tokens/product-catalog.token';
  */
 export default defineModule({
   id: 'reports',
-  version: '1.0.0',
   label: 'Reports',
   dir: __dirname,
 

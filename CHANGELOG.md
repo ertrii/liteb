@@ -489,6 +489,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   be part of designing extensions, not a field left over from before they
   existed.
 
+- **A module has no `version` either: `_modules` records presence.**
+  [BREAKING]
+
+  `engine` went because the restriction had no subject. A module's own `version`
+  goes because of the reading it produced: a per-module semver makes modules look
+  like isolated packages, compatible only when their numbers line up. Nothing
+  ever compared them — not to each other, not to the application — but the field
+  said otherwise, and what a framework says is what gets believed.
+
+  Its one real product was the boot warning that a deploy had gone BACKWARDS
+  (`Module "billing" DOWNGRADED: 2.1.0 -> 2.0.0`). With the modules releasing
+  together out of one repository, every manifest said `1.0.0` forever, so that
+  warning could never fire.
+
+  Removed: the manifest's `version`, `ResolvedModule.version`, `ModuleInstall`,
+  `ModuleUpgrade`, `Reconciliation.upgrade`, and the `version` column of
+  `_modules`. `reconcileModules()` answers two questions now — what to install,
+  what is recorded but gone — and `ModuleState` is `{ id }`.
+
+  **This one touches the database, and liteb does it for you.** The old column
+  was `not null` with NO default, so leaving it would make the insert of the next
+  module fail — on a deploy, not on the upgrade. `ModuleStore.ensureTable()`
+  therefore runs `alter table _modules drop column if exists version`:
+  idempotent, and a no-op on an installation created after this version.
+
+  **Migrating:** delete `version:` from every manifest. Nothing replaces it, and
+  the application's own `version` in `Liteb.create()` is untouched.
+
 - **The boot log is three lines, not fourteen.** [BREAKING]
 
   ```

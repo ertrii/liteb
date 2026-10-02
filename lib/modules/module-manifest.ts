@@ -136,9 +136,6 @@ export interface ModuleManifest<
   /** Unique id: lowercase, digits and dashes (`billing`, `customer-portal`). */
   id: string;
 
-  /** The module's own version, independent from the host's. Semver. */
-  version: string;
-
   /** Human-readable name, shown wherever modules are listed. */
   label?: string;
 
@@ -241,7 +238,6 @@ export interface ModuleManifest<
  */
 export interface ResolvedModule<K extends string = string> {
   id: string;
-  version: string;
   label: string;
   requires: string[];
   dir: string | null;

@@ -27,7 +27,7 @@ import {
  */
 
 const dir = path.join(__dirname, 'fixtures/layout');
-const base = { id: 'layout', version: '1.0.0' };
+const base = { id: 'layout' };
 const names = (values: unknown[]) => values.map((v) => (v as Function).name);
 /** El nombre SQL, que es lo que una tabla tiene en vez de `.name`. */
 const tableNamesOf = (values: unknown[]) =>
@@ -120,7 +120,6 @@ describe('cuando el módulo está en otro lado', () => {
   it('un módulo con otra disposición sigue funcionando declarándola', async () => {
     const mod = defineModule({
       id: 'legacy',
-      version: '1.0.0',
       dir: path.join(__dirname, 'fixtures/layout-custom'),
       routes: './apis/*.api.ts',
     });

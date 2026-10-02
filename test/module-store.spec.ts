@@ -6,6 +6,7 @@ import {
   expect,
   it,
 } from '@jest/globals';
+import { sql } from 'drizzle-orm';
 import { defineModule } from '../lib/modules/define-module';
 import { ModuleStore } from '../lib/modules/module-store';
 import type { ModuleManifest } from '../lib/modules/module-manifest';
@@ -18,7 +19,7 @@ import {
 import type { Database } from '../lib';
 
 const mod = (id: string, extra: Partial<ModuleManifest> = {}) =>
-  defineModule({ id, version: '1.0.0', ...extra });
+  defineModule({ id, ...extra });
 
 describe('ModuleStore', () => {
   let db: Database;
@@ -49,6 +50,26 @@ describe('ModuleStore', () => {
       expect(await tableNames(db)).toContain('_modules');
     });
 
+    it('le quita la columna `version` a una instalación vieja', async () => {
+      // `_modules` llegó a tener `version varchar(50) not null`, SIN default.
+      // Dejarla ahí sería un insert roto en el próximo módulo, y el fallo
+      // llegaría en un despliegue, no al actualizar la dependencia.
+      await resetSchema(db);
+      await db.execute(sql`
+        create table _modules (
+          id varchar(100) primary key,
+          version varchar(50) not null,
+          installed_at timestamp with time zone not null default now(),
+          updated_at timestamp with time zone not null default now()
+        )
+      `);
+
+      await store.ensureTable();
+      await store.sync([mod('billing')]);
+
+      expect(await store.list()).toEqual([{ id: 'billing' }]);
+    });
+
     it('empieza vacía', async () => {
       expect(await store.list()).toEqual([]);
     });
@@ -60,10 +81,7 @@ describe('ModuleStore', () => {
 
       const stored = await store.list();
       expect(stored).toEqual(
-        expect.arrayContaining([
-          { id: 'identity', version: '1.0.0' },
-          { id: 'news', version: '1.0.0' },
-        ]),
+        expect.arrayContaining([{ id: 'identity' }, { id: 'news' }]),
       );
     });
 
@@ -74,18 +92,17 @@ describe('ModuleStore', () => {
       const segunda = await store.sync(modules);
 
       expect(segunda.install).toEqual([]);
-      expect(segunda.upgrade).toEqual([]);
       expect(await store.list()).toHaveLength(2);
     });
 
-    it('guarda la versión nueva al actualizar', async () => {
+    it('un id que vuelve no es una actualización: la fila ya está', async () => {
+      // Un módulo no tiene versión propia, así que no hay nada que comparar
+      // contra la fila. Volver a desplegarlo es la misma instalación.
       await store.sync([mod('billing')]);
-      const result = await store.sync([mod('billing', { version: '2.0.0' })]);
+      const segunda = await store.sync([mod('billing')]);
 
-      expect(result.upgrade).toEqual([
-        { id: 'billing', from: '1.0.0', to: '2.0.0', downgrade: false },
-      ]);
-      expect((await store.list())[0].version).toBe('2.0.0');
+      expect(segunda.install).toEqual([]);
+      expect(await store.list()).toEqual([{ id: 'billing' }]);
     });
 
     it('no borra el registro de un módulo cuyo código ya no está', async () => {
@@ -126,7 +143,7 @@ describe('ModuleStore', () => {
 
       const result = await store.sync([mod('news')]);
 
-      expect(result.install).toEqual([{ id: 'news', version: '1.0.0' }]);
+      expect(result.install).toEqual([{ id: 'news' }]);
     });
   });
 });

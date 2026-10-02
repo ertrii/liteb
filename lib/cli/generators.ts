@@ -82,7 +82,6 @@ export function createModule(options: ModuleOptions): Plan {
 
 export default defineModule({
   id: '${id}',
-  version: '1.0.0',
   label: '${label}',
   dir: __dirname,
 

@@ -35,18 +35,22 @@ export class ModuleStore {
     await this.db.execute(sql`
       create table if not exists _modules (
         id varchar(100) primary key,
-        version varchar(50) not null,
         installed_at timestamp with time zone not null default now(),
         updated_at timestamp with time zone not null default now()
       )
     `);
+
+    // An installation created before this version has a `version` column that
+    // is `not null` with no default, so leaving it would make the insert of the
+    // next module fail — and the failure would arrive on a deploy, not on the
+    // upgrade. Idempotent, and a no-op on a table that was just created.
+    await this.db.execute(
+      sql`alter table _modules drop column if exists version`,
+    );
   }
 
   async list(): Promise<ModuleState[]> {
-    return rows<ModuleState>(
-      this.db,
-      sql`select id, version from _modules order by id`,
-    );
+    return rows<ModuleState>(this.db, sql`select id from _modules order by id`);
   }
 
   /**
@@ -58,23 +62,11 @@ export class ModuleStore {
     const stored = await this.list();
     const result = reconcileModules(modules, stored);
 
-    if (result.install.length === 0 && result.upgrade.length === 0) {
-      return result;
-    }
+    if (result.install.length === 0) return result;
 
     await this.db.transaction(async (tx) => {
       for (const entry of result.install) {
-        await tx.execute(sql`
-          insert into _modules (id, version)
-          values (${entry.id}, ${entry.version})
-        `);
-      }
-
-      for (const entry of result.upgrade) {
-        await tx.execute(sql`
-          update _modules set version = ${entry.to}, updated_at = now()
-          where id = ${entry.id}
-        `);
+        await tx.execute(sql`insert into _modules (id) values (${entry.id})`);
       }
     });
 

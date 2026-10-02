@@ -189,7 +189,6 @@ describe('reacciones entre módulos', () => {
   const emisor = () =>
     defineModule({
       id: 'emisor',
-      version: '1.0.0',
       dir: path.join(__dirname, 'fixtures/events/emisor'),
       routes: './*.api.ts',
     });
@@ -197,7 +196,6 @@ describe('reacciones entre módulos', () => {
   const oyente = () =>
     defineModule({
       id: 'oyente',
-      version: '1.0.0',
       dir: path.join(__dirname, 'fixtures/events/oyente'),
     });
 

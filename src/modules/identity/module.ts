@@ -9,7 +9,6 @@ import { defineModule } from '../../../lib';
  */
 export default defineModule({
   id: 'identity',
-  version: '1.0.0',
   label: 'Identity',
   // Core: it cannot be turned off. Nothing else would have anyone to serve.
   // Where this module lives. Everything liteb finds by itself is found from

@@ -266,7 +266,6 @@ export const BillingService = token<BillingService>(
 
 export default defineModule({
   id: 'billing',
-  version: '1.0.0',
   requires: ['identity'],     // checked at startup
   dir: __dirname,             // the folder everything is found from
 
@@ -328,7 +327,6 @@ script with it.
 ```typescript
 export default defineModule({
   id: 'billing',
-  version: '1.0.0',
   dir: __dirname,
 
   // A DDD layout: the endpoints are elsewhere. Entities, migrations, routines

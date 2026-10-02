@@ -13,7 +13,6 @@ const heartbeatDir = path.join(__dirname, 'fixtures/modules/heartbeat');
 const heartbeat = () =>
   defineModule({
     id: 'heartbeat',
-    version: '1.0.0',
     dir: heartbeatDir,
     // Sin globs: `routines/` es la disposición estándar.
   });

@@ -31,7 +31,6 @@ class CrearProductos1000 {
 const catalog = () =>
   defineModule({
     id: 'catalog',
-    version: '1.0.0',
     dir: catalogDir,
     tables: [productos],
     migrations: [CrearProductos1000],
@@ -47,8 +46,8 @@ describe('collectModuleTables', () => {
     Object.values(collectModuleTables(mods));
 
   it('junta las tablas de todos los módulos', () => {
-    const a = defineModule({ id: 'a', version: '1.0.0', tables: [cargos] });
-    const b = defineModule({ id: 'b', version: '1.0.0', tables: [facturas] });
+    const a = defineModule({ id: 'a', tables: [cargos] });
+    const b = defineModule({ id: 'b', tables: [facturas] });
 
     expect(juntadas(a, b)).toEqual([cargos, facturas]);
   });
@@ -57,12 +56,10 @@ describe('collectModuleTables', () => {
     // Apagar decide qué CORRE, no si los datos siguen alcanzables.
     const encendido = defineModule({
       id: 'a',
-      version: '1.0.0',
       tables: [cargos],
     });
     const apagado = defineModule({
       id: 'b',
-      version: '1.0.0',
       tables: [facturas],
     });
 
@@ -70,8 +67,8 @@ describe('collectModuleTables', () => {
   });
 
   it('rechaza la misma tabla declarada por dos módulos', () => {
-    const a = defineModule({ id: 'a', version: '1.0.0', tables: [cargos] });
-    const b = defineModule({ id: 'b', version: '1.0.0', tables: [cargos] });
+    const a = defineModule({ id: 'a', tables: [cargos] });
+    const b = defineModule({ id: 'b', tables: [cargos] });
 
     expect(() => collectModuleTables([a, b])).toThrow(ModuleDefinitionError);
     // Y el mensaje nombra la tabla, que es lo único que ayuda a encontrarla.
@@ -143,8 +140,8 @@ describe('Liteb.create', () => {
   });
 
   it('falla al crear si dos módulos declaran la misma tabla', async () => {
-    const a = defineModule({ id: 'a', version: '1.0.0', tables: [productos] });
-    const b = defineModule({ id: 'b', version: '1.0.0', tables: [productos] });
+    const a = defineModule({ id: 'a', tables: [productos] });
+    const b = defineModule({ id: 'b', tables: [productos] });
 
     await expect(
       Liteb.create({

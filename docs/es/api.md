@@ -111,7 +111,7 @@ todas tienen `get()`, `all()` y `notify()`.
 | Nombre | Tipado | Qué es |
 | --- | --- | --- |
 | `defineModule` | `<const P>(manifest: ModuleManifest<P>) => ResolvedModule<PermissionKeysOf<P>>` | Declara un módulo y lo valida al importarse. El parámetro `const` es lo que mantiene las claves de permiso como literales. |
-| `ModuleManifest<P>` | interface | Lo que un módulo dice de sí mismo: `id`, `version`, `label`, `requires`, `dir`, `permissions`, `consumes` y los campos de glob. |
+| `ModuleManifest<P>` | interface | Lo que un módulo dice de sí mismo: `id`, `label`, `requires`, `dir`, `permissions`, `consumes` y los campos de glob. |
 | `ResolvedModule<K>` | interface | El manifiesto con todos los defaults aplicados. Trae además `permissionKeys: K[]`. |
 | `ModulePermission<K>` | interface | `{ key, label? }`. El label es opcional porque una clave normalmente ya lo dice. |
 | `PermissionDeclaration<K>` | `K \| ModulePermission<K>` | Una entrada de `permissions`: una clave, o una clave con texto. |

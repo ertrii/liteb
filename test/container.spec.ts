@@ -207,7 +207,6 @@ describe('Container', () => {
 describe('buildContainer', () => {
   const proveedor = defineModule({
     id: 'demo',
-    version: '1.0.0',
     dir: proveedoresDir,
   });
 
@@ -221,7 +220,6 @@ describe('buildContainer', () => {
   it('acepta un consumidor cuyo contrato existe', async () => {
     const consumidor = defineModule({
       id: 'inventory',
-      version: '1.0.0',
       requires: ['demo'],
       consumes: [Clock],
     });
@@ -234,7 +232,6 @@ describe('buildContainer', () => {
   it('no arranca si nadie provee lo que un módulo consume', async () => {
     const solitario = defineModule({
       id: 'inventory',
-      version: '1.0.0',
       consumes: [Greeter],
     });
 
@@ -246,7 +243,6 @@ describe('buildContainer', () => {
   it('el orden de registro no importa para validar el consumo', async () => {
     const consumidor = defineModule({
       id: 'inventory',
-      version: '1.0.0',
       consumes: [Clock],
     });
 

@@ -15,7 +15,6 @@ const billingDir = path.join(__dirname, 'fixtures/modules/billing');
 const billing = () =>
   defineModule({
     id: 'billing',
-    version: '1.0.0',
     // Su proveedor está en ./providers: el manifiesto no lo nombra.
     dir: billingDir,
     routes: './controllers/*.controller.ts',
@@ -24,7 +23,6 @@ const billing = () =>
 const sales = () =>
   defineModule({
     id: 'sales',
-    version: '1.0.0',
     dir: salesDir,
     requires: ['billing'],
     consumes: [BillingService],
@@ -85,7 +83,6 @@ describe('contratos entre módulos', () => {
     // Sin `dir`: no hay carpeta de proveedores que leer, así que no provee.
     const billingMudo = defineModule({
       id: 'billing',
-      version: '1.0.0',
     });
 
     app = await Liteb.create({

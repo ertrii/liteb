@@ -115,7 +115,6 @@ describe('toEndpointReaders', () => {
 describe('loadModuleEndpoints', () => {
   const billing = defineModule({
     id: 'billing',
-    version: '1.0.0',
     dir: billingDir,
     routes: './controllers/*.controller.ts',
   });
@@ -133,7 +132,6 @@ describe('loadModuleEndpoints', () => {
   it('ignora los archivos sin endpoints y las constantes exportadas', async () => {
     const todos = defineModule({
       id: 'billing',
-      version: '1.0.0',
       dir: billingDir,
       routes: './controllers/*.ts', // incluye not-an-endpoint.ts
     });
@@ -142,14 +140,13 @@ describe('loadModuleEndpoints', () => {
   });
 
   it('un módulo sin rutas no lee nada', async () => {
-    const sinRutas = defineModule({ id: 'quieto', version: '1.0.0' });
+    const sinRutas = defineModule({ id: 'quieto' });
     expect(await loadModuleEndpoints(sinRutas)).toEqual([]);
   });
 
   it('un glob que no encuentra nada devuelve vacío, no falla', async () => {
     const vacio = defineModule({
       id: 'vacio',
-      version: '1.0.0',
       dir: billingDir,
       routes: './no-existe/*.controller.ts',
     });
@@ -162,11 +159,10 @@ describe('loadModules', () => {
   it('conserva el orden recibido', async () => {
     const billing = defineModule({
       id: 'billing',
-      version: '1.0.0',
       dir: billingDir,
       routes: './controllers/*.controller.ts',
     });
-    const identity = defineModule({ id: 'identity', version: '1.0.0' });
+    const identity = defineModule({ id: 'identity' });
 
     const loaded = await loadModules([identity, billing]);
 
@@ -175,9 +171,7 @@ describe('loadModules', () => {
   });
 
   it('un módulo sin rutas queda con una lista vacía', async () => {
-    const loaded = await loadModules([
-      defineModule({ id: 'quieto', version: '1.0.0' }),
-    ]);
+    const loaded = await loadModules([defineModule({ id: 'quieto' })]);
 
     expect(loaded[0].readers).toEqual([]);
   });
@@ -292,7 +286,6 @@ module.exports = { ChargesApi };
   it('carga sus endpoints aunque el manifiesto diga .ts', async () => {
     const mod = defineModule({
       id: 'billing-pkg',
-      version: '1.0.0',
       dir: paquete,
       // Tal cual lo escribió el autor, en TypeScript.
       routes: './apis/*.api.ts',

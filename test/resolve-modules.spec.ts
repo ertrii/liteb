@@ -7,7 +7,7 @@ import {
 import type { ModuleManifest } from '../lib/modules/module-manifest';
 
 const mod = (id: string, extra: Partial<ModuleManifest> = {}) =>
-  defineModule({ id, version: '1.0.0', ...extra });
+  defineModule({ id, ...extra });
 
 const ids = (modules: ReturnType<typeof mod>[]) => modules.map((m) => m.id);
 

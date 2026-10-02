@@ -309,7 +309,6 @@ export const BillingService = token<BillingService>(
 
 export default defineModule({
   id: 'billing',
-  version: '1.0.0',
   requires: ['identity'], // se comprueba al arrancar
   dir: __dirname, // la carpeta desde la que se encuentra todo
 
@@ -376,7 +375,6 @@ oyó hablar. `liteb build` los reescribe a rutas relativas en la salida, y
 ```typescript
 export default defineModule({
   id: 'billing',
-  version: '1.0.0',
   dir: __dirname,
 
   // Una disposición DDD: los endpoints están en otro lado. Entidades,

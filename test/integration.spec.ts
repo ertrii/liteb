@@ -15,7 +15,6 @@ import { cualquiera } from './helpers/auth';
  */
 const fixtures = defineModule({
   id: 'fixtures',
-  version: '1.0.0',
   dir: path.join(__dirname, 'fixtures'),
   routes: './*.api.ts',
 });

@@ -9,7 +9,6 @@ import { defineModule } from '../../../lib';
  */
 export default defineModule({
   id: 'catalog',
-  version: '1.0.0',
   label: 'Catalog',
   dir: __dirname,
 

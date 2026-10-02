@@ -137,13 +137,11 @@ describe('ModuleMigrator', () => {
 
   const identity = defineModule({
     id: 'identity',
-    version: '1.0.0',
     migrations: [AgregarNombre2000, CrearClientes1000],
   });
 
   const billing = defineModule({
     id: 'billing',
-    version: '1.0.0',
     requires: ['identity'],
     migrations: [CrearCargos500],
   });
@@ -189,7 +187,6 @@ describe('ModuleMigrator', () => {
   it('aplica solo lo nuevo cuando el módulo suma una migración', async () => {
     const soloLaPrimera = defineModule({
       id: 'identity',
-      version: '1.0.0',
       migrations: [CrearClientes1000],
     });
 
@@ -218,7 +215,6 @@ describe('ModuleMigrator', () => {
   it('revierte por completo una migración que falla', async () => {
     const roto = defineModule({
       id: 'roto',
-      version: '1.0.0',
       migrations: [Rompe9000],
     });
 
@@ -231,7 +227,6 @@ describe('ModuleMigrator', () => {
   it('una migración fallida no queda registrada', async () => {
     const roto = defineModule({
       id: 'roto',
-      version: '1.0.0',
       migrations: [Rompe9000],
     });
 
@@ -244,7 +239,6 @@ describe('ModuleMigrator', () => {
   it('lo aplicado antes del fallo se conserva', async () => {
     const roto = defineModule({
       id: 'roto',
-      version: '1.0.0',
       migrations: [Rompe9000],
     });
 
@@ -258,7 +252,6 @@ describe('ModuleMigrator', () => {
   it('el error dice de qué módulo y migración se trata', async () => {
     const roto = defineModule({
       id: 'roto',
-      version: '1.0.0',
       migrations: [Rompe9000],
     });
 

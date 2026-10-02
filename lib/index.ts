@@ -82,8 +82,6 @@ export type { Contract } from './modules/container';
 export { buildContainer } from './modules/build-container';
 export type {
   ModuleState,
-  ModuleInstall,
-  ModuleUpgrade,
   ModuleOrphan,
   Reconciliation,
 } from './modules/reconcile-modules';

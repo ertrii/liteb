@@ -28,7 +28,6 @@ const crearAuth = (...args: ConstructorParameters<typeof Auth>): AuthSinTipar =>
 const modules = () => [
   defineModule({
     id: 'billing',
-    version: '1.0.0',
     permissions: [
       { key: 'billing.view', label: 'Ver facturación' },
       { key: 'billing.void', label: 'Anular' },
@@ -36,7 +35,6 @@ const modules = () => [
   }),
   defineModule({
     id: 'catalog',
-    version: '1.0.0',
     permissions: [{ key: 'catalog.manage', label: 'Gestionar catálogo' }],
   }),
 ];

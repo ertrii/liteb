@@ -55,7 +55,6 @@ migrations in dependency order, and mounts the routes.
 ```typescript
 export default defineModule({
   id: 'billing',
-  version: '1.0.0',
   dir: __dirname,          // the folder everything below is found from
   requires: ['identity'],
 

@@ -1,4 +1,3 @@
-import semver from 'semver';
 import { is } from 'drizzle-orm';
 import {
   isPgEnum,
@@ -231,7 +230,6 @@ const validatePermissions = (
  * @example
  * export default defineModule({
  *   id: 'billing',
- *   version: '2.1.0',
  *   dir: __dirname,
  *   requires: ['identity'],
  *   permissions: [{ key: 'billing.view', label: 'View billing' }],
@@ -241,7 +239,6 @@ const validatePermissions = (
  * // Same module, with its endpoints somewhere else.
  * export default defineModule({
  *   id: 'billing',
- *   version: '2.1.0',
  *   dir: __dirname,
  *   routes: './presentation/controllers/*.controller.ts',
  * });
@@ -261,16 +258,6 @@ export function defineModule<
   if (!ID_PATTERN.test(id)) {
     fail(
       `Module id "${id}" must be lowercase, start with a letter and use dashes (e.g. "customer-portal").`,
-    );
-  }
-
-  if (!manifest.version || typeof manifest.version !== 'string') {
-    fail(`Module "${id}" needs a "version".`, id);
-  }
-  if (!semver.valid(manifest.version)) {
-    fail(
-      `Module "${id}": "${manifest.version}" is not a valid semver version.`,
-      id,
     );
   }
 
@@ -384,7 +371,6 @@ export function defineModule<
 
   return {
     id,
-    version: manifest.version,
     label: manifest.label?.trim() || id,
     requires,
     dir,

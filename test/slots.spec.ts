@@ -19,7 +19,7 @@ const pagos = (nombre: string) =>
 describe('ranuras de extensión', () => {
   it('una ranura que nadie llenó devuelve vacío, no falla', async () => {
     // Es una función que nadie instaló, no un error.
-    const billing = defineModule({ id: 'billing', version: '1.0.0' });
+    const billing = defineModule({ id: 'billing' });
     const container = await buildContainer([billing], fakeDb);
 
     expect(container.all(PaymentMethods)).toEqual([]);
@@ -29,12 +29,10 @@ describe('ranuras de extensión', () => {
   it('acepta VARIAS: en eso se diferencia de un contrato', async () => {
     const efectivo = defineModule({
       id: 'cash',
-      version: '1.0.0',
       dir: pagos('efectivo'),
     });
     const banco = defineModule({
       id: 'bank',
-      version: '1.0.0',
       dir: pagos('banco'),
     });
 
@@ -52,7 +50,6 @@ describe('ranuras de extensión', () => {
     // Quitar la extensión del despliegue retira lo que agregó.
     const efectivo = defineModule({
       id: 'cash',
-      version: '1.0.0',
       dir: pagos('efectivo'),
     });
 

@@ -1,23 +1,15 @@
-import semver from 'semver';
 import { ResolvedModule } from './module-manifest';
 
-/** A module as the installation remembers it. */
+/**
+ * A module as the installation remembers it: the id, and nothing else.
+ *
+ * There is no version here because a module does not have one. The modules are
+ * the application, released together, so a per-module version could only ever
+ * say what the application's already says — and while it existed it read as a
+ * compatibility contract between modules, which it never was.
+ */
 export interface ModuleState {
   id: string;
-  version: string;
-}
-
-export interface ModuleInstall {
-  id: string;
-  version: string;
-}
-
-export interface ModuleUpgrade {
-  id: string;
-  from: string;
-  to: string;
-  /** The code carries an older version than the one recorded. */
-  downgrade: boolean;
 }
 
 /**
@@ -27,8 +19,7 @@ export interface ModuleUpgrade {
 export type ModuleOrphan = ModuleState;
 
 export interface Reconciliation {
-  install: ModuleInstall[];
-  upgrade: ModuleUpgrade[];
+  install: ModuleState[];
   orphaned: ModuleOrphan[];
 }
 
@@ -49,39 +40,14 @@ export function reconcileModules(
   code: ResolvedModule[],
   stored: ModuleState[],
 ): Reconciliation {
-  const storedById = new Map(stored.map((record) => [record.id, record]));
+  const storedIds = new Set(stored.map((record) => record.id));
   const codeIds = new Set(code.map((mod) => mod.id));
 
-  const install: ModuleInstall[] = [];
-  const upgrade: ModuleUpgrade[] = [];
-
-  for (const mod of code) {
-    const record = storedById.get(mod.id);
-
-    if (!record) {
-      install.push({ id: mod.id, version: mod.version });
-      continue;
-    }
-
-    if (record.version !== mod.version) {
-      upgrade.push({
-        id: mod.id,
-        from: record.version,
-        to: mod.version,
-        downgrade: isOlder(mod.version, record.version),
-      });
-    }
-  }
+  const install = code
+    .filter((mod) => !storedIds.has(mod.id))
+    .map((mod) => ({ id: mod.id }));
 
   const orphaned = stored.filter((record) => !codeIds.has(record.id));
 
-  return { install, upgrade, orphaned };
-}
-
-/** Both versions are valid semver by the time they get here, but be defensive. */
-function isOlder(candidate: string, current: string): boolean {
-  const a = semver.valid(candidate);
-  const b = semver.valid(current);
-  if (!a || !b) return false;
-  return semver.lt(a, b);
+  return { install, orphaned };
 }

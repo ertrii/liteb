@@ -39,7 +39,6 @@ class CrearNotas2000 {
 const billing = () =>
   defineModule({
     id: 'billing',
-    version: '1.0.0',
     dir,
     routes: './controllers/*.controller.ts',
     migrations: [CrearCargos1000],
@@ -49,7 +48,6 @@ const billing = () =>
 const news = () =>
   defineModule({
     id: 'news',
-    version: '1.0.0',
     dir,
     migrations: [CrearNotas2000],
   });
@@ -58,7 +56,6 @@ const news = () =>
 const sinMigraciones = () =>
   defineModule({
     id: 'vacio',
-    version: '1.0.0',
     dir,
     migrations: {},
   });
