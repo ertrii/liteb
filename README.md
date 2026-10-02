@@ -7,7 +7,7 @@ and installs into another application as one piece.
 Express + Drizzle + class-validator underneath, decorators on top.
 
 > **2.0.0-alpha.5** — alpha: the API will still move. The stable `1.x` line
-> lives on the [`v1`](https://github.com/ertrii/liteb/tree/v1) branch.
+> lives on the [`v1`](https://github.com/erickqc2/liteb/tree/v1) branch.
 
 ## Start
 
@@ -173,13 +173,13 @@ logging, graceful shutdown.
 
 ## More
 
-- [The long guide](https://github.com/ertrii/liteb/blob/main/docs/en/guide.md) — every feature, and why each one is the way it is
-- [Authorization](https://github.com/ertrii/liteb/blob/main/docs/en/authorization.md) — permissions and the session user, step by step
-- [The CLI](https://github.com/ertrii/liteb/blob/main/docs/en/cli.md) — every command, every flag, and what each one writes
-- [The API](https://github.com/ertrii/liteb/blob/main/docs/en/api.md) — every name the package exports, with its type
-- **En español:** [la guía](https://github.com/ertrii/liteb/blob/main/docs/es/guide.md) · [autorización](https://github.com/ertrii/liteb/blob/main/docs/es/authorization.md) · [el CLI](https://github.com/ertrii/liteb/blob/main/docs/es/cli.md)
-- [`src/`](https://github.com/ertrii/liteb/tree/main/src) — a small, complete application (three modules), covered by `test/demo-app.spec.ts`
-- [`http/demo.http`](https://github.com/ertrii/liteb/blob/main/http/demo.http) — the whole flow, request by request
-- [CHANGELOG](https://github.com/ertrii/liteb/blob/main/CHANGELOG.md)
+- [The long guide](https://github.com/erickqc2/liteb/blob/main/docs/en/guide.md) — every feature, and why each one is the way it is
+- [Authorization](https://github.com/erickqc2/liteb/blob/main/docs/en/authorization.md) — permissions and the session user, step by step
+- [The CLI](https://github.com/erickqc2/liteb/blob/main/docs/en/cli.md) — every command, every flag, and what each one writes
+- [The API](https://github.com/erickqc2/liteb/blob/main/docs/en/api.md) — every name the package exports, with its type
+- **En español:** [la guía](https://github.com/erickqc2/liteb/blob/main/docs/es/guide.md) · [autorización](https://github.com/erickqc2/liteb/blob/main/docs/es/authorization.md) · [el CLI](https://github.com/erickqc2/liteb/blob/main/docs/es/cli.md)
+- [`src/`](https://github.com/erickqc2/liteb/tree/main/src) — a small, complete application (three modules), covered by `test/demo-app.spec.ts`
+- [`http/demo.http`](https://github.com/erickqc2/liteb/blob/main/http/demo.http) — the whole flow, request by request
+- [CHANGELOG](https://github.com/erickqc2/liteb/blob/main/CHANGELOG.md)
 
 Node >= 20. MIT.

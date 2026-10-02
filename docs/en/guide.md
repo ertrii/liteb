@@ -1338,8 +1338,8 @@ The variables your app needs (database host, credentials, port, etc.) are yours 
 
 ## Example app
 
-[`src/`](https://github.com/ertrii/liteb/tree/main/src) is a small but complete
-2.x application, and [`http/demo.http`](https://github.com/ertrii/liteb/tree/main/http/demo.http)
+[`src/`](https://github.com/erickqc2/liteb/tree/main/src) is a small but complete
+2.x application, and [`http/demo.http`](https://github.com/erickqc2/liteb/tree/main/http/demo.http)
 walks the whole flow request by request — 401 vs 403, validation, transactions,
 and a module extending another one without either knowing.
 

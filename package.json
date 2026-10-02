@@ -8,8 +8,8 @@
   "bin": {
     "liteb": "bin/liteb.js"
   },
-  "bugs": "https://github.com/ertrii/liteb/issues",
-  "homepage": "https://github.com/ertrii/liteb#readme",
+  "bugs": "https://github.com/erickqc2/liteb/issues",
+  "homepage": "https://github.com/erickqc2/liteb#readme",
   "scripts": {
     "dev": "nodemon --legacy-watch ./src/index.ts",
     "build": "npm run clear && npx tsc -p ./tsconfig.build.json --declarationDir ./types",
@@ -38,14 +38,14 @@
     "express",
     "modules"
   ],
-  "author": "Erick <ertriilive@gmail.com> (https://github.com/ertrii)",
+  "author": "Erick <ertriilive@gmail.com> (https://github.com/erickqc2)",
   "license": "MIT",
   "engines": {
     "node": ">=22.13"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ertrii/liteb.git"
+    "url": "git+https://github.com/erickqc2/liteb.git"
   },
   "publishConfig": {
     "access": "public",

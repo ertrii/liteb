@@ -1510,9 +1510,9 @@ default perfectamente bueno.
 
 ## Aplicación de ejemplo
 
-[`src/`](https://github.com/ertrii/liteb/tree/main/src) es una aplicación 2.x
+[`src/`](https://github.com/erickqc2/liteb/tree/main/src) es una aplicación 2.x
 chica pero completa, y
-[`http/demo.http`](https://github.com/ertrii/liteb/tree/main/http/demo.http)
+[`http/demo.http`](https://github.com/erickqc2/liteb/tree/main/http/demo.http)
 recorre todo el flujo petición por petición — 401 vs 403, validación,
 transacciones, y un módulo extendiendo a otro sin que ninguno se entere.
 
